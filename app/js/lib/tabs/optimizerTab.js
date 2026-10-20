@@ -279,7 +279,7 @@ module.exports = {
         module.exports.buildSlider('#cdSlider', true)
         module.exports.buildSlider('#effSlider', true)
         module.exports.buildSlider('#resSlider', true)
-        module.exports.buildTopSlider('#filterSlider', true)
+        module.exports.buildSlider('#filterSlider', true)
     },
 
     buildSlider: (slider, recalc) => {
@@ -727,8 +727,8 @@ module.exports = {
         document.querySelector('#resSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputResPriority)})
         document.querySelector('#resSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputResPriority))
 
-        document.querySelector('#filterSlider' + index)['rangeslider-js'].update({value: Math.sqrt(inputDisplayNumberNumber(request.inputFilterPriority) / 0.01)})
-        document.querySelector('#filterSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputFilterPriority, 100))
+        document.querySelector('#filterSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputFilterPriority, 1)})
+        document.querySelector('#filterSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputFilterPriority, 1))
 
         // $('#forceNumberSelect').val(inputDisplayNumberNumber(request.inputForceNumberSelect))
 
@@ -925,8 +925,8 @@ function clearSubstatPriority() {
     document.querySelector('#resSlider')['rangeslider-js'].update({value: 0})
     document.querySelector('#resSliderInput').setAttribute('value', 0)
 
-    document.querySelector('#filterSlider')['rangeslider-js'].update({value: 100})
-    document.querySelector('#filterSliderInput').setAttribute('value', 100)
+    document.querySelector('#filterSlider')['rangeslider-js'].update({value: 1})
+    document.querySelector('#filterSliderInput').setAttribute('value', 1)
 }
 
 function clearRatings() {

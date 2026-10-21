@@ -1512,8 +1512,10 @@ body.dark-theme input {
   vertical-align: middle;
 }
 .gearGridContainer {
-  flex-grow: 2;
-  min-height: 350px;
+  flex-grow: 0;
+  width: 100%;
+  height: 300px;
+  min-height: 300px;
   display: flex;
   resize: vertical;
   overflow: hidden;

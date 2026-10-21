@@ -136,6 +136,7 @@ module.exports = {
         let gridDiv = document.getElementById('gear-grid');
         itemsGrid = new Grid(gridDiv, gridOptions);
         global.itemsGrid = itemsGrid;
+        ItemsGrid.refreshFilters(ItemsTab.getFilters());
         console.log("!!! itemsGrid", itemsGrid);
 
 

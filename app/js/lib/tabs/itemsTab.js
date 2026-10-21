@@ -33,6 +33,8 @@ const filters = {
 
 module.exports = {
 
+    getFilters: () => filters,
+
     isExternalFilterPresent: () => {
         return filters.substatFilter.length > 0;
     },
@@ -59,7 +61,9 @@ module.exports = {
     },
 
     initialize: () => {
+        filters.equippedOrNotFilter = "equipped";
         setupEventListeners();
+        document.getElementById('equippedFilter').classList.add('gearTabButtonSelected');
 
         // document.getElementById('updateGear').addEventListener("click", () => {
         //     module.exports.redraw();

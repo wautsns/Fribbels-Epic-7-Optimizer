@@ -552,7 +552,7 @@ ${i18next.t("This tool is for building multiple heroes simultaneously, who share
                 if (!optimizerHeroSelector) {
                     continue;
                 }
-                
+
                 const options = optimizerHeroSelector.options;
                 var selected = Array.apply(null, options).filter(x => x.selected)
                 selected = selected.length ? selected[0] : null;

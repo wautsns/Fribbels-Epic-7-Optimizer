@@ -9,31 +9,27 @@ module.exports = {
         require(Files.path(Files.getDataPath() + '/locales/ja/gridlocale.js'))
         require(Files.path(Files.getDataPath() + '/locales/ru/gridlocale.js'))
 
-        window.i18next.use(window.i18nextHttpBackend).use(window.i18nextBrowserLanguageDetector).init({
+        window.i18next.use(window.i18nextHttpBackend).use({
+            type: 'languageDetector',
+            async: false,
+            detect: () => {
+                let lang = navigator.language || navigator.userLanguage;
+                // Map zh-CN to zh
+                if (lang && lang.startsWith('zh-CN')) {
+                    lang = 'zh';
+                }
+                return lang;
+            },
+            init: () => {},
+            cacheUserLanguage: () => {},
+        }).init({
             debug: false,
             preload: ['en', 'zh', 'zh-TW', 'fr', 'ko', 'ja', 'ru', 'dev'],
-            detection: {
-                // order and from where user language should be detected
-                order: ['querystring', 'cookie', 'sessionStorage', 'navigator', 'htmlTag', 'path', 'subdomain'],
-
-                // keys or params to lookup language from
-                lookupQuerystring: 'lng',
-                lookupCookie: 'i18next',
-                // lookupLocalStorage: 'i18nextLng',
-                lookupSessionStorage: 'i18nextLng',
-                lookupFromPathIndex: 0,
-                lookupFromSubdomainIndex: 0,
-
-                // cache user language on
-                caches: ['cookie'],
-                excludeCacheFor: ['cimode'],
-                htmlTag: document.documentElement,
-            },
             ignoreIds: ['loadFromGameExportOutputText', 'exportOutputText'],
             translateAttributes: ['placeholder', 'title', 'alt', 'value#input.type=button', 'value#input.type=submit', 'data-content'],
             saveMissing: true,
             saveMissingTo: "current",
-            fallbackLng: false,
+            fallbackLng: 'en',
             keySeparator: false,
             nsSeparator: false,
             pluralSeparator: false,

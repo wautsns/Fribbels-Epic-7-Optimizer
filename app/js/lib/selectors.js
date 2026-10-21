@@ -27,14 +27,13 @@ module.exports = {
             // hideOptgroupCheckboxes: true,
             minimumCountSelected: 99,
             displayTitle: true,
-            displayValues: true,
             selectAll: false,
             textTemplate: function (el) {
                 const assetKey = el[0].value + "Set";
 
                 if (Object.keys(assetsBySet).includes(assetKey)) {
                     const asset = assetsBySet[assetKey];
-                    return `<div class="selectorSetContainer"><img class="selectorSetImage" src="${asset}"></img><div class="selectorSetText">${el.html()}</div></div>`
+                    return i18next.t(el[0].value);
                 }
 
                 return el.html()

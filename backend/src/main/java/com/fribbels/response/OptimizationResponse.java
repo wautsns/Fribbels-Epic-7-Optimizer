@@ -13,4 +13,5 @@ public class OptimizationResponse extends Response {
 
     private long searched;
     private long results;
+    private long retained;
 }

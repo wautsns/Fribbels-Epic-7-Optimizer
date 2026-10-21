@@ -119,7 +119,7 @@ module.exports = {
             settingUnlockOnUnequip: true,
             settingRageSet: true,
             settingPenSet: true,
-            settingMaxResults: 5_000_000,
+            settingMaxResults: 100,
             settingMaxRamGb: 6,
             settingPenDefense: 1_500,
             settingLocatorWidth: 5,
@@ -208,10 +208,11 @@ module.exports = {
         }
 
         if (settings.settingMaxResults) {
+            settings.settingMaxResults = Math.max(Math.min(parseInt(settings.settingMaxResults), 100_000), 100);
             document.getElementById('settingMaxResults').value = settings.settingMaxResults.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         } else {
-            document.getElementById('settingMaxResults').value = "5,000,000";
-            settings.settingMaxResults = 5_000_000;
+            document.getElementById('settingMaxResults').value = "100";
+            settings.settingMaxResults = 100;
         }
 
         if (settings.settingMaxRamGb) {
@@ -305,7 +306,7 @@ module.exports = {
             settingDefaultLockedItems: document.getElementById('settingDefaultLockedItems').checked,
             settingDefaultEquippedItems: document.getElementById('settingDefaultEquippedItems').checked,
             settingDefaultKeepCurrent: document.getElementById('settingDefaultKeepCurrent').checked,
-            settingMaxResults: parseInt(module.exports.parseNumberValue('settingMaxResults') || 5_000_000),
+            settingMaxResults: parseInt(module.exports.parseNumberValue('settingMaxResults') || 100),
             settingMaxRamGb: parseInt(module.exports.parseNumberValue('settingMaxRamGb') || 6),
             settingPenDefense: parseInt(module.exports.parseNumberValue('settingPenDefense') || 1_500),
             settingLocatorWidth: parseInt(module.exports.parseNumberValue('settingLocatorWidth') || 5),

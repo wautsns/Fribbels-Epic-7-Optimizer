@@ -155,6 +155,9 @@ public class OptimizationRequest extends Request {
     private Integer inputEffPriority;
     private Integer inputResPriority;
 
+    private List<String> resultPriority;
+    private List<String> resultDislike;
+
     // calculated fields
     public boolean[] boolArr;
     public int[] setPermutationIndicesPlusOne;

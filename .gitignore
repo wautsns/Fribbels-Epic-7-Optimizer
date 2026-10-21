@@ -1,6 +1,6 @@
 backend/.idea/workspace.xml
 backend/.idea/workspace.xml~
-backend/target/classes/*
+backend/target/
 # Logs
 logs
 *.log

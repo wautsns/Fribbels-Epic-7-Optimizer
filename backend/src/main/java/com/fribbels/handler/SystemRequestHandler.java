@@ -57,7 +57,7 @@ public class SystemRequestHandler extends RequestHandler implements HttpHandler 
         OptimizationRequestHandler.instance.configureGpu(request.isSettingGpu());
 
         if (request.getSettingMaxResults() != null) {
-            final int max = Math.max(Math.min(request.getSettingMaxResults(), 100_000_000), 10_000);
+            final int max = Math.max(Math.min(request.getSettingMaxResults(), OptimizationRequestHandler.MAX_RETAINED_RESULTS), 100);
             OptimizationRequestHandler.SETTING_MAXIMUM_RESULTS = max;
         }
 

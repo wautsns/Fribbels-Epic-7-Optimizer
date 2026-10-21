@@ -1129,13 +1129,16 @@ async function handleStartOptimizationRequest(index, callback) {
 
         var searchedCount = result.searched;
         var resultsCounter = result.results;
+        var retainedCounter = result.retained == undefined ? result.results : result.retained;
 
         var searchedStr = Number(searchedCount).toLocaleString();
         var resultsStr = Number(resultsCounter).toLocaleString();
 
-        var maxResults = parseInt(Settings.parseNumberValue('settingMaxResults') || 0);
-        if (result.results >= maxResults) {
-            Dialog.info('Search terminated after the result limit was exceeded, the full results are not shown. Please apply more filters to narrow your search.')
+        if (result.retained != undefined && resultsCounter > retainedCounter) {
+            Dialog.info(i18next.t('Search completed. Retained the best {{retained}} results out of {{total}} matching builds.', {
+                retained: Number(retainedCounter).toLocaleString(),
+                total: resultsStr,
+            }));
         } else {
             $(`#summaryPanel1-${index}`).text(i18next.t("Permutations")+": " + searchedStr);
         }

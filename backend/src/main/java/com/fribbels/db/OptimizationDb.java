@@ -7,6 +7,7 @@ import com.fribbels.model.HeroStats;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -14,6 +15,7 @@ import java.util.Set;
 public class OptimizationDb {
 
     private HeroStats[] resultHeroStats;
+    private HeroStats[] defaultResultHeroStats;
     private int[] filteredIndices;
     private Set<String> filteredIds;
     private long maximum;
@@ -25,6 +27,7 @@ public class OptimizationDb {
 
     public OptimizationDb() {
         resultHeroStats = new HeroStats[]{};
+        defaultResultHeroStats = new HeroStats[]{};
         filteredIndices = new int[]{};
         filteredIds = new HashSet<>();
         maximum = 0;
@@ -34,6 +37,7 @@ public class OptimizationDb {
 
     public void setResultHeroes(final HeroStats[] newResultHeroStats, final long newMaximum) {
         resultHeroStats = ArrayUtils.subarray(newResultHeroStats, 0, Integer.parseInt(String.valueOf(newMaximum)));
+        defaultResultHeroStats = Arrays.copyOf(resultHeroStats, resultHeroStats.length);
         maximum = newMaximum;
         filteredMaximum = 0;
         filteredIds = new HashSet<>();
@@ -91,7 +95,24 @@ public class OptimizationDb {
     }
 
     public void sort(final OptimizationColumn newColumn, final SortOrder newOrder) {
-        if (newColumn == null || newOrder == null || (newColumn == column && newOrder == order)) {
+        if (newColumn == null || newOrder == null) {
+            resultHeroStats = Arrays.copyOf(defaultResultHeroStats, defaultResultHeroStats.length);
+            column = null;
+            order = null;
+
+            int count = 0;
+            final int[] resetFilteredIndices = new int[Integer.parseInt(String.valueOf(maximum))];
+            for (int i = 0; i < maximum; i++) {
+                if (filteredIds.contains(resultHeroStats[i].getId())) {
+                    resetFilteredIndices[count] = i;
+                    count++;
+                }
+            }
+            filteredIndices = resetFilteredIndices;
+            return;
+        }
+
+        if (newColumn == column && newOrder == order) {
             return;
         }
 

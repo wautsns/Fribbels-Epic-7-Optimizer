@@ -150,7 +150,7 @@ module.exports = {
 +'<p>'+i18next.t("If you notice for example, you only have 2 rings being used, try expanding your filters to use more ring options. Or if you see too much gear being used, reduce your Top % filter to be more selective.")+'</p>'
 +'<p>'+i18next.t("<b>Permutations - </b> Number of permutations of the filtered gear that need to be searched. Make this number lower to make searches faster, but you will be searching less options.")+'</p>'
 +'<p>'+i18next.t("<b>Searched - </b> Number permutations already searched.")+'</p>'
-+'<p>'+i18next.t("<b>Results - </b> Number of search results that satisfy the stat filters. There is a maximum of 5,000,000 results before the search stops (for memory limitations).")+'</p>'
++'<p>'+i18next.t("<b>Results - </b> Number of matching builds found. The backend searches all permutations and retains the best Top-K results to control memory usage.")+'</p>'
 
         });
 

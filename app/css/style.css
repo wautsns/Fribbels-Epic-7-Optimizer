@@ -1734,9 +1734,77 @@ input:checked + .darkSlider:before {
   border-radius: 5px;
   margin-top: 5px;
   height: 30px;
+  text-align: center;
+  padding-left: 6px;
+  line-height: 30px;
+}
+.resultPriorityDialog .groupColumn {
+  width: 220px;
+}
+.resultPriorityDialog .resultPriorityDataColumn {
+  width: 240px;
+}
+.resultPriorityDialog .resultPriorityOrderColumn {
+  width: 200px;
+}
+.resultPriorityItem {
+  cursor: move;
+  cursor: -webkit-grabbing;
+  background-color: var(--inactive-color);
+  border-radius: 5px;
+  margin-top: 5px;
+  min-height: 30px;
   text-align: left;
   padding-left: 6px;
   line-height: 30px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.resultPriorityDialog .dragOrderList {
+  width: 100%;
+  box-sizing: border-box;
+}
+.resultPriorityDialog #resultPriorityAvailableList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 5px;
+  overflow: hidden;
+}
+.resultPriorityDataList .resultPriorityItem {
+  width: 100px;
+  justify-self: center;
+  margin: 0;
+  text-align: center;
+}
+.resultPrioritySelectedItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: move;
+  background-color: var(--inactive-color);
+  border-radius: 5px;
+  margin-top: 5px;
+  min-height: 30px;
+  padding: 0 6px;
+  color: var(--font-color);
+}
+.resultPriorityDirection {
+  min-width: 48px;
+  padding: 2px 5px;
+  cursor: pointer;
+  border: 1px solid var(--border-color, #888);
+  background-color: var(--btn-color, #343127);
+  color: var(--font-color, #ffffff);
+}
+.resultPriorityDirection.disliked {
+  background-color: var(--accent-red, #F84C48);
+  color: #ffffff;
+}
+.resultPriorityDialog #resultPriorityAvailableList .resultPriorityItem {
+  margin-top: 5px;
 }
 .dragOrderList {
   font-size: 14px;

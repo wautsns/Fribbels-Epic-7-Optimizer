@@ -12,6 +12,7 @@ import com.fribbels.db.BaseStatsDb;
 import com.fribbels.db.HeroDb;
 import com.fribbels.db.ItemDb;
 import com.fribbels.db.OptimizationDb;
+import com.fribbels.db.TopKResultCollector;
 import com.fribbels.enums.Gear;
 import com.fribbels.enums.Set;
 import com.fribbels.gpu.GpuOptimizerKernel;
@@ -44,7 +45,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -52,7 +52,8 @@ import java.util.stream.Collectors;
 
 public class OptimizationRequestHandler extends RequestHandler implements HttpHandler {
 
-    public static int SETTING_MAXIMUM_RESULTS = 5_000_000;
+    public static int SETTING_MAXIMUM_RESULTS = 100;
+    public static final int MAX_RETAINED_RESULTS = 100_000;
     public static boolean SETTING_GPU = true;
 
     private final BaseStatsDb baseStatsDb;
@@ -65,6 +66,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
     @Getter
     private AtomicLong searchedCounter = new AtomicLong(0);
     private AtomicLong resultsCounter = new AtomicLong(0);
+    private volatile TopKResultCollector activeResultCollector;
 
     private long[] setSolutionBitMasks;
 
@@ -329,9 +331,11 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
     }
 
     public String handleGetProgressRequest() {
+        final TopKResultCollector collector = activeResultCollector;
         final OptimizationResponse response = OptimizationResponse.builder()
                 .searched(searchedCounter.get())
                 .results(resultsCounter.get())
+                .retained(collector == null ? 0 : collector.size())
                 .build();
 
         return gson.toJson(response);
@@ -613,11 +617,13 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
             }
         });
 
-        final int MAXIMUM_RESULTS = SETTING_MAXIMUM_RESULTS;
-        System.out.println("Start allocating memory");
-        final HeroStats[] resultHeroStats = new HeroStats[MAXIMUM_RESULTS];
-//        final long[] resultInts = new long[MAXIMUM_RESULTS];
-        System.out.println("Finished allocating memory");
+        final int maximumResults = Math.min(SETTING_MAXIMUM_RESULTS, MAX_RETAINED_RESULTS);
+        final TopKResultCollector resultCollector = new TopKResultCollector(
+                maximumResults,
+                request.getResultPriority(),
+                request.getResultDislike());
+        activeResultCollector = resultCollector;
+        System.out.println("Top-K result capacity: " + maximumResults);
 
         final Map<Gear, List<Item>> itemsByGear = buildItemsByGear(items);
 
@@ -646,8 +652,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
         fillAccs(statCalculator, allnecklaces, base, accumulatorArrsByItemId, useReforgeStats);
         fillAccs(statCalculator, allrings, base, accumulatorArrsByItemId, useReforgeStats);
         fillAccs(statCalculator, allboots, base, accumulatorArrsByItemId, useReforgeStats);
-
-        final AtomicInteger maxReached = new AtomicInteger();
 
         final boolean isShortCircuitable4PieceSet = request.getSetFormat() == 1 || request.getSetFormat() == 2;
 
@@ -778,13 +782,12 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 
                 kernel.setExecutionModeWithoutFallback(Kernel.EXECUTION_MODE.GPU);
 
-                final AtomicBoolean exit = new AtomicBoolean(false);
                 final AtomicInteger executionCounter = new AtomicInteger(0);
 
                 final Map<String, PassesContainer> passesPool = new HashMap<>();
 
                 for (int i = 0; i < maxPerms / max + 1; i++) {
-                    if (exit.get() || Main.interrupt)
+                    if (Main.interrupt)
                         break;
 
                     final int finalI = i;
@@ -823,7 +826,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                             .filter(x -> x.getDeviceId() == Main.BEST_DEVICE_ID)
                             .findFirst();
 
-                    while(executionCounter.get() > 1 && !exit.get() && !Main.interrupt) {
+                    while(executionCounter.get() > 1 && !Main.interrupt) {
                         Thread.sleep(10);
                     }
 
@@ -855,7 +858,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                                     if (iteration >= maxPerms) {
                                         break;
                                     }
-                                    if (Main.interrupt || exit.get()) {
+                                    if (Main.interrupt) {
                                         break;
                                     }
 
@@ -890,16 +893,9 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                                     result.setMods(Lists.newArrayList(allweapons[w].getMod(), allhelmets[h].getMod(), allarmors[a]
                                             .getMod(), allnecklaces[n].getMod(), allrings[r].getMod(), allboots[b].getMod()));
 
-                                    final long resultsIndex = resultsCounter.getAndIncrement();
-
-                                    if (resultsIndex >= MAXIMUM_RESULTS) {
-                                        maxReached.set(MAXIMUM_RESULTS);
-                                        exit.set(true);
-                                        break;
-                                    }
-
-                                    result.setId(String.valueOf(resultsIndex));
-                                    resultHeroStats[(int) resultsIndex] = result;
+                                    final long resultIndex = resultsCounter.getAndIncrement();
+                                    result.setId(String.valueOf(resultIndex));
+                                    resultCollector.offer(result);
                                 }
                             }
 
@@ -923,7 +919,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 //                final long finalW = w;
 
                 executorService.submit(() -> {
-                    boolean exit = false;
                     try {
 
                         final float[] weaponAccumulatorArr = statCalculator.getStatAccumulatorArr(base, weapon, accumulatorArrsByItemId, useReforgeStats);
@@ -960,7 +955,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                                                 executorService.shutdownNow();
                                                 return;
                                             }
-                                            if (exit) return;
+                                            if (Main.interrupt) return;
 
                                             final Item boots = itemsByGear.get(Gear.BOOTS).get(b);
                                             final float[] bootsAccumulatorArr = statCalculator.getStatAccumulatorArr(base, boots, accumulatorArrsByItemId, useReforgeStats);
@@ -986,48 +981,35 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                                             final boolean passesFilter = passesFilter(result, request, collectedSets);
                                             result.setSets(collectedSets);
                                             if (passesFilter) {
-                                                final long resultsIndex = resultsCounter.getAndIncrement();
-                                                if (resultsIndex < MAXIMUM_RESULTS) {
-                                                    result.setId(String.valueOf(resultsIndex));
+                                                final long resultIndex = resultsCounter.getAndIncrement();
+                                                result.setId(String.valueOf(resultIndex));
 
-//                                                    final long index1D = finalW * hSize * aSize * nSize * rSize * bSize + h * aSize * nSize * rSize * bSize + a * nSize * rSize * bSize + n * rSize * bSize + r * bSize + b;
+                                                result.setItems(ImmutableList.of(
+                                                        weapon.getId(),
+                                                        helmet.getId(),
+                                                        armor.getId(),
+                                                        necklace.getId(),
+                                                        ring.getId(),
+                                                        boots.getId()
+                                                ));
+                                                result.setModIds(ImmutableList.of(
+                                                        weapon.getModId(),
+                                                        helmet.getModId(),
+                                                        armor.getModId(),
+                                                        necklace.getModId(),
+                                                        ring.getModId(),
+                                                        boots.getModId()
+                                                ));
+                                                result.setMods(Lists.newArrayList(
+                                                        weapon.getMod(),
+                                                        helmet.getMod(),
+                                                        armor.getMod(),
+                                                        necklace.getMod(),
+                                                        ring.getMod(),
+                                                        boots.getMod()
+                                                ));
 
-                                                    result.setItems(ImmutableList.of(
-                                                            weapon.getId(),
-                                                            helmet.getId(),
-                                                            armor.getId(),
-                                                            necklace.getId(),
-                                                            ring.getId(),
-                                                            boots.getId()
-                                                    ));
-                                                    result.setModIds(ImmutableList.of(
-                                                            weapon.getModId(),
-                                                            helmet.getModId(),
-                                                            armor.getModId(),
-                                                            necklace.getModId(),
-                                                            ring.getModId(),
-                                                            boots.getModId()
-                                                    ));
-                                                    result.setMods(Lists.newArrayList(
-                                                            weapon.getMod(),
-                                                            helmet.getMod(),
-                                                            armor.getMod(),
-                                                            necklace.getMod(),
-                                                            ring.getMod(),
-                                                            boots.getMod()
-                                                    ));
-
-                                                    resultHeroStats[(int) resultsIndex] = result;
-//                                                    resultInts[(int) resultsIndex] = index1D;
-
-                                                    if (resultsIndex == MAXIMUM_RESULTS-1) {
-                                                        maxReached.set(MAXIMUM_RESULTS-1);
-                                                    }
-                                                } else {
-                                                    System.out.println("EXIT");
-                                                    exit = true;
-                                                    break;
-                                                }
+                                                resultCollector.offer(result);
                                             }
                                         }
                                     }
@@ -1051,16 +1033,19 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
             executorService.awaitTermination(50000000, TimeUnit.SECONDS);
 
             try {
-                final long size = Math.min(5000000, maxReached.get() == MAXIMUM_RESULTS-1 ? MAXIMUM_RESULTS : resultsCounter.get());
-                System.out.println("MaxReached: " + size);
+                final HeroStats[] retainedResults = resultCollector.toArray();
+                final int retainedCount = retainedResults.length;
+                System.out.println("Matched results: " + resultsCounter.get());
+                System.out.println("Retained Top-K results: " + retainedCount);
 
-                optimizationDb.setResultHeroes(resultHeroStats, size);
+                optimizationDb.setResultHeroes(retainedResults, retainedCount);
 
                 System.out.println("OPTIMIZATION_REQUEST_END");
-                System.out.println("PROGRESS: [" + size + "]");
+                System.out.println("PROGRESS: [" + retainedCount + "]");
                 OptimizationResponse response = OptimizationResponse.builder()
                         .searched(Math.min(searchedCounter.get(), maxPerms))
                         .results(resultsCounter.get())
+                        .retained(retainedCount)
                         .build();
 
                 inProgress = false;

@@ -1,4 +1,5 @@
 const rangesliderJs = require('rangeslider-js');
+const ResultPriority = require('../resultPriority');
 var permutations = 0;
 var progressTimer;
 var currentFilteredItems = [];
@@ -7,6 +8,21 @@ const ipc = electron.ipcRenderer;
 
 var currentExecutionId;
 var resized = false;
+var resultPriorityStates = {};
+
+function normalizePriorityIndex(index) {
+    return index == null || index == undefined ? '' : index;
+}
+
+function getResultPriorityState(index) {
+    const key = normalizePriorityIndex(index);
+    resultPriorityStates[key] = ResultPriority.normalizeState(resultPriorityStates[key]);
+    return resultPriorityStates[key];
+}
+
+function setResultPriorityState(index, state) {
+    resultPriorityStates[normalizePriorityIndex(index)] = ResultPriority.normalizeState(state);
+}
 
 function inputDisplayNumber(value) {
     if (value == 0 || value == 2147483647) {
@@ -130,6 +146,7 @@ module.exports = {
             Selectors.clearGearMainAndSets();
 
             clearSubstatPriority();
+            setResultPriorityState('', {});
 
             clearOptions();
 
@@ -266,6 +283,17 @@ module.exports = {
 
             // Saves.autoSave();
         });
+        document.getElementById('resultPriorityButton').addEventListener("click", async () => {
+            const heroId = document.getElementById('inputHeroAdd').value;
+            if (!heroId) return;
+
+            const result = await Dialog.editResultPriorityDialog(getResultPriorityState());
+            if (result) {
+                setResultPriorityState('', result);
+                recalculateFilters();
+            }
+        });
+
         // document.getElementById('accessorySetsLabel').addEventListener("click", async () => {
         //     Selectors.clearGearMainAndSets();
         //     recalculateFilters();
@@ -588,6 +616,10 @@ module.exports = {
         request.inputResPriority = readNumber('resSlider' + index + 'Input');
         request.inputFilterPriority = readNumber('filterSlider' + index + 'Input');
 
+        const resultPriorityState = getResultPriorityState(index);
+        request.resultPriority = resultPriorityState.order;
+        request.resultDislike = resultPriorityState.disliked;
+
         // request.inputForceNumberSelect = readNumber('forceNumberSelect')
 
         request.inputSets = setFilters.sets;
@@ -622,8 +654,16 @@ module.exports = {
         const hero = heroResponse.hero;
         const request = hero.optimizationRequest;
 
+        if (request) {
+            setResultPriorityState(index, {
+                order: request.resultPriority,
+                disliked: request.resultDislike,
+            });
+        }
+
         if (!hero) return;
         if (!request) {
+            setResultPriorityState(index, {});
             const optimizerSettings = Settings.getOptimizerOptions();
 
             $("#inputPredictReforges" + index).prop('checked', optimizerSettings.settingDefaultUseReforgedStats);
@@ -745,6 +785,11 @@ module.exports = {
 
     // True if blocking error
     warnParams: (params, overridePermutations) => {
+        if (!params.resultPriority || params.resultPriority.length === 0) {
+            Dialog.error('Please configure result priority before starting the search.');
+            return true;
+        }
+
         if (params.inputFilterPriority == 100
         &&  params.inputAtkPriority == 0
         &&  params.inputHpPriority == 0
@@ -1303,6 +1348,11 @@ async function submitOptimizationRequest() {
 
     // console.log(ItemSerializer.serializeToArr(getAllItemsResponse.items));
     const params = module.exports.getOptimizationRequestParams(true);
+    if (!params.resultPriority || params.resultPriority.length === 0) {
+        Dialog.error('Please configure result priority before starting the search.');
+        return;
+    }
+
     const heroId = document.getElementById('inputHeroAdd').value;
 
     const allItemsResponse = await Api.getAllItems();
@@ -1373,13 +1423,16 @@ async function submitOptimizationRequest() {
         // $('#estimatedPermutations').text(Number(permutations).toLocaleString());
         var searchedCount = result.searched;
         var resultsCounter = result.results;
+        var retainedCounter = result.retained == undefined ? result.results : result.retained;
 
         var searchedStr = Number(searchedCount).toLocaleString();
         var resultsStr = Number(resultsCounter).toLocaleString();
 
-        var maxResults = parseInt(Settings.parseNumberValue('settingMaxResults') || 0);
-        if (result.results >= maxResults) {
-            Dialog.info('Search terminated after the result limit was exceeded, the full results are not shown. Please apply more filters to narrow your search.')
+        if (result.retained != undefined && resultsCounter > retainedCounter) {
+            Dialog.info(i18next.t('Search completed. Retained the best {{retained}} results out of {{total}} matching builds.', {
+                retained: Number(retainedCounter).toLocaleString(),
+                total: resultsStr,
+            }));
         } else {
             $('#maxPermutationsNum').text(searchedStr);
         }

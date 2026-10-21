@@ -5,6 +5,7 @@
 const Swal = require('sweetalert2');
 const Sortable = require('sortablejs');
 const tippy = require('tippy.js').default;
+const ResultPriority = require('./resultPriority');
 
 tippy.setDefaultProps({
     allowHTML: true,
@@ -45,6 +46,7 @@ function outsideClickDisable() {
 }
 
 module.exports = {
+    editResultPriorityDialog: require('./resultPriorityDialog').editResultPriorityDialog,
     initialize: () => {
 
         e7StatToDisplayStat = {
@@ -828,50 +830,50 @@ module.exports = {
                               <div class="sliderRow">
                                 <div class="sliderLabel" data-t>${i18next.t("Atk")}</div>
                                 <input class="sliderInput" id="atkSlider${index}Input" type="number" value="0" readonly>
-                                <div class="sliderContainer"><input class="slider" id="atkSlider${index}" type="range" min="-1" max="3" value="0" step="1"></div>
+                                <div class="sliderContainer"><input class="slider" id="atkSlider${index}" type="range" min="0" max="8" value="0" step="1"></div>
                               </div>
 
                               <div class="sliderRow">
                                 <div class="sliderLabel" data-t>${i18next.t("Def")}</div>
                                 <input class="sliderInput" id="defSlider${index}Input" type="number" value="0" readonly>
-                                <div class="sliderContainer"><input class="slider" id="defSlider${index}" type="range" min="-1" max="3" value="0" step="1"></div>
+                                <div class="sliderContainer"><input class="slider" id="defSlider${index}" type="range" min="0" max="8" value="0" step="1"></div>
                               </div>
 
                               <div class="sliderRow">
                                 <div class="sliderLabel" data-t>${i18next.t("Hp")}</div>
                                 <input class="sliderInput" id="hpSlider${index}Input" type="number" value="0" readonly>
-                                <div class="sliderContainer"><input class="slider" id="hpSlider${index}" type="range" min="-1" max="3" value="0" step="1"></div>
+                                <div class="sliderContainer"><input class="slider" id="hpSlider${index}" type="range" min="0" max="8" value="0" step="1"></div>
                               </div>
 
                               <div class="sliderRow">
                                 <div class="sliderLabel" data-t>${i18next.t("Spd")}</div>
                                 <input class="sliderInput" id="spdSlider${index}Input" type="number" value="0" readonly>
-                                <div class="sliderContainer"><input class="slider" id="spdSlider${index}" type="range" min="-1" max="3" value="0" step="1"></div>
+                                <div class="sliderContainer"><input class="slider" id="spdSlider${index}" type="range" min="0" max="8" value="0" step="1"></div>
                               </div>
 
                               <div class="sliderRow">
                                 <div class="sliderLabel" data-t>${i18next.t("Cr")}</div>
                                 <input class="sliderInput" id="crSlider${index}Input" type="number" value="0" readonly>
-                                <div class="sliderContainer"><input class="slider" id="crSlider${index}" type="range" min="-1" max="3" value="0" step="1"></div>
+                                <div class="sliderContainer"><input class="slider" id="crSlider${index}" type="range" min="0" max="8" value="0" step="1"></div>
                               </div>
 
                               <div class="sliderRow">
                                 <div class="sliderLabel" data-t>${i18next.t("Cd")}</div>
                                 <input class="sliderInput" id="cdSlider${index}Input" type="number" value="0" readonly>
-                                <div class="sliderContainer"><input class="slider" id="cdSlider${index}" type="range" min="-1" max="3" value="0" step="1"></div>
+                                <div class="sliderContainer"><input class="slider" id="cdSlider${index}" type="range" min="0" max="8" value="0" step="1"></div>
                               </div>
 
                               <div class="sliderRow">
                                 <div class="sliderLabel" data-t>${i18next.t("Eff")}</div>
                                 <input class="sliderInput" id="effSlider${index}Input" type="number" value="0" readonly>
-                                <div class="sliderContainer"><input class="slider" id="effSlider${index}" type="range" min="-1" max="3" value="0" step="1"></div>
+                                <div class="sliderContainer"><input class="slider" id="effSlider${index}" type="range" min="0" max="8" value="0" step="1"></div>
                               </div>
 
 
                               <div class="sliderRow">
                                 <div class="sliderLabel" data-t>${i18next.t("Res")}</div>
                                 <input class="sliderInput" id="resSlider${index}Input" type="number" value="0" readonly>
-                                <div class="sliderContainer"><input class="slider" id="resSlider${index}" type="range" min="-1" max="3" value="0" step="1"></div>
+                                <div class="sliderContainer"><input class="slider" id="resSlider${index}" type="range" min="0" max="8" value="0" step="1"></div>
                               </div>
 
                               <div class="horizontalSpace" ></div>
@@ -1054,14 +1056,13 @@ module.exports = {
                         // hideOptgroupCheckboxes: true,
                         minimumCountSelected: 99,
                         displayTitle: true,
-                        displayValues: true,
                         selectAll: false,
                         textTemplate: function (el) {
                             const assetKey = el[0].value + "Set";
 
                             if (Object.keys(assetsBySet).includes(assetKey)) {
                                 const asset = assetsBySet[assetKey];
-                                return `<div class="selectorSetContainer"><img class="selectorSetImage" src="${asset}"></img><div class="selectorSetText">${el.html()}</div></div>`
+                            return i18next.t(el[0].value);
                             }
 
                             return el.html()

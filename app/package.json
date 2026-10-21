@@ -5,8 +5,8 @@
     "name": "Fribbels",
     "url": "https://github.com/fribbels/Fribbels-Epic-7-Optimizer"
   },
-  "version": "1.10.0",
-  "description": "Epic 7 Gear Optimizer",
+  "version": "2.1.0",
+  "description": "Epic 7 Gear Optimizer ( wautsns )",
   "main": "./main.prod.js",
   "scripts": {
     "electron-rebuild": "node -r ../internals/scripts/BabelRegister.js ../internals/scripts/ElectronRebuild.js",

@@ -435,10 +435,12 @@ window.jQuery = $;
                 <div class="panelLabelText" id="substatPriorityLabel" data-t>Substat priority (clear)</div>
               </div>
 
+              <div class="horizontalSpace"></div>
+
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Atk</div>
                 <input class="sliderInput" id="atkSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="atkSlider" type="range" min="0" max="9" value="0" step="1"></div>
+                <div class="sliderContainer"><input class="slider" id="atkSlider" type="range" min="0" max="8" value="0" step="1"></div>
               </div>
 
               <div class="horizontalSpace" ></div>
@@ -446,7 +448,7 @@ window.jQuery = $;
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Def</div>
                 <input class="sliderInput" id="defSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="defSlider" type="range" min="0" max="9" value="0" step="1"></div>
+                <div class="sliderContainer"><input class="slider" id="defSlider" type="range" min="0" max="8" value="0" step="1"></div>
               </div>
 
               <div class="horizontalSpace" ></div>
@@ -454,7 +456,7 @@ window.jQuery = $;
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Hp</div>
                 <input class="sliderInput" id="hpSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="hpSlider" type="range" min="0" max="9" value="0" step="1"></div>
+                <div class="sliderContainer"><input class="slider" id="hpSlider" type="range" min="0" max="8" value="0" step="1"></div>
               </div>
 
               <div class="horizontalSpace" ></div>
@@ -462,7 +464,7 @@ window.jQuery = $;
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Spd</div>
                 <input class="sliderInput" id="spdSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="spdSlider" type="range" min="0" max="9" value="0" step="1"></div>
+                <div class="sliderContainer"><input class="slider" id="spdSlider" type="range" min="0" max="8" value="0" step="1"></div>
               </div>
 
               <div class="horizontalSpace" ></div>
@@ -470,7 +472,7 @@ window.jQuery = $;
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Cr</div>
                 <input class="sliderInput" id="crSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="crSlider" type="range" min="0" max="9" value="0" step="1"></div>
+                <div class="sliderContainer"><input class="slider" id="crSlider" type="range" min="0" max="8" value="0" step="1"></div>
               </div>
 
               <div class="horizontalSpace" ></div>
@@ -478,7 +480,7 @@ window.jQuery = $;
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Cd</div>
                 <input class="sliderInput" id="cdSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="cdSlider" type="range" min="0" max="9" value="0" step="1"></div>
+                <div class="sliderContainer"><input class="slider" id="cdSlider" type="range" min="0" max="8" value="0" step="1"></div>
               </div>
 
               <div class="horizontalSpace" ></div>
@@ -486,7 +488,7 @@ window.jQuery = $;
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Eff</div>
                 <input class="sliderInput" id="effSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="effSlider" type="range" min="0" max="9" value="0" step="1"></div>
+                <div class="sliderContainer"><input class="slider" id="effSlider" type="range" min="0" max="8" value="0" step="1"></div>
               </div>
 
               <div class="horizontalSpace" ></div>
@@ -495,23 +497,19 @@ window.jQuery = $;
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Res</div>
                 <input class="sliderInput" id="resSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="resSlider" type="range" min="0" max="9" value="0" step="1"></div>
+                <div class="sliderContainer"><input class="slider" id="resSlider" type="range" min="0" max="8" value="0" step="1"></div>
               </div>
 
               <div class="horizontalSpace" ></div>
-              <div class="horizontalSpace" ></div>
-              <div class="horizontalSpace" ></div>
-              <div class="horizontalSpace" ></div>
-              <div class="horizontalSpace" ></div>
-              <div class="horizontalSpace" ></div>
-              <div class="horizontalSpace" ></div>
+
+              <input type="submit" class="gearActionButtonSmaller" value="Result priority" id="resultPriorityButton" data-t>
+
               <div class="horizontalSpace" ></div>
 
               <div class="sliderRow">
                 <div class="sliderLabel" data-t>Top %</div>
                 <input class="sliderInput" id="filterSliderInput" type="number" value="1" readonly>
-                <div class="sliderContainer"><input class="slider" id="filterSlider" type="range" min="1" max="25" value="1" step="3"></div><!--
-                <div class="sliderContainer"><input class="slider" id="filterSlider" type="range" min="0" max="100" value="100" step="5"></div> -->
+                <div class="sliderContainer"><input class="slider" id="filterSlider" type="range" min="1" max="25" value="1" step="3"></div>
               </div>
             </div>
             <div class="vertical"></div>
@@ -2048,7 +2046,7 @@ window.jQuery = $;
         <div class="toggleRow">
           <input type="text" id="settingMaxResults" class="settingsNumber">
           <div class="switchText" data-t>
-            Maximum optimization results (Recommended: 5,000,000, Min 10k, Max 100m)
+            Maximum retained optimization results (Top-K, Recommended: 100, Min 100, Max 100k)
           </div>
         </div>
 

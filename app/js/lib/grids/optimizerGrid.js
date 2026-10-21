@@ -281,7 +281,7 @@ function buildGrid(localeText) {
         defaultColDef: {
             width: 50,
             sortable: true,
-            sortingOrder: ['desc', 'asc'],
+            sortingOrder: ['desc', 'asc', null],
             cellStyle: columnGradient,
             // suppressNavigable: true,
             cellClass: 'no-border'

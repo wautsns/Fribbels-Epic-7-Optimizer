@@ -2,41 +2,6 @@ var heroesByName = {};
 var artifactsByName = {};
 var eesByName = {};
 
-var HERO_CACHE = "http://e7-optimizer-game-data.s3-accelerate.amazonaws.com/herodata.json?";
-var ARTIFACT_CACHE = "http://e7-optimizer-game-data.s3-accelerate.amazonaws.com/artifactdata.json?";
-
-global.TEST = true
-
-function UrlExists(url, cb){
-    jQuery.ajax({
-        url:      url,
-        dataType: 'text',
-        type:     'GET',
-        complete:  function(xhr){
-            if(typeof cb === 'function')
-               cb.apply(this, [xhr.status]);
-        }
-    });
-}
-
-try {
-    UrlExists('http://e7-optimizer-game-data.s3-accelerate.amazonaws.com/herodata.json?', function(status) {
-        if(status === 200) {
-           // file was found
-           console.log('Amazon is available, using aws');
-           HERO_CACHE = "http://e7-optimizer-game-data.s3-accelerate.amazonaws.com/herodata.json?";
-           ARTIFACT_CACHE = "http://e7-optimizer-game-data.s3-accelerate.amazonaws.com/artifactdata.json?";
-        } else {
-           // file not found
-           console.log('Amazon is not available, using Azure');
-           HERO_CACHE = "https://fribbels-epic-7-optimizer-cn.azurewebsites.net/data/cache/herodata.json?";
-           ARTIFACT_CACHE = "https://fribbels-epic-7-optimizer-cn.azurewebsites.net/data/cache/artifactdata.json?";
-        }
-    });
-} catch (e) {
-    console.log("Error checking url, using aws", e);
-}
-
 module.exports = {
 
     initialize: async () => {
@@ -56,34 +21,7 @@ module.exports = {
             console.warn("Error loading artifact data from file", e)
         }
 
-        try {
-            if (global.TEST) {
-                const heroOverride = JSON.parse(await Files.readFileSync(Files.getDataPath() + "/cache/herodata.json"));
-                heroesByName = heroOverride;
-            } else {
-                const heroOverride = await fetchCache(HERO_CACHE);
-                heroesByName = heroOverride;
-            }
-            console.warn("HERO OVERRIDES")
-            console.warn(heroesByName)
-        } catch (e) {
-            console.error(e)
-        }
-
-        try {
-
-            if (global.TEST) {
-                const artifactOverride = JSON.parse(await Files.readFileSync(Files.getDataPath() + "/cache/artifactdata.json"));
-                artifactsByName = artifactOverride;
-            } else {
-                const artifactOverride = await fetchCache(ARTIFACT_CACHE);
-                artifactsByName = artifactOverride;
-            }
-            console.warn("ARTIFACT OVERRIDES")
-            console.warn(artifactsByName)
-        } catch (e) {
-            console.error(e)
-        }
+        console.warn("HERO DATA INITIALIZED")
 
         const baseStatsByName = {};
         Object.keys(heroesByName)
@@ -241,54 +179,3 @@ module.exports = {
     },
 }
 
-async function fetchCache(url) {
-    console.log("Fetching from url: " + url);
-    var myHeaders = new Headers();
-    myHeaders.append('pragma', 'no-cache');
-    myHeaders.append('cache-control', 'no-cache');
-
-    const response = await fetch(url, {
-        method: 'GET',
-        headers: myHeaders,
-    });
-    const text = await response.text();
-    const json = JSON.parse(text);
-    console.log("Finished fetching from url: " + url);
-
-    return json;
-}
-
-function manualFetchData() {
-    function httpGet(theUrl) {
-        var xmlHttp = new XMLHttpRequest();
-        xmlHttp.open( "GET", theUrl, false ); // false for synchronous request
-        xmlHttp.send( null );
-        return xmlHttp.responseText;
-    }
-
-    prefix = "https://api.epicsevendb.com/hero/"
-    heroesById = {};
-    heroesByName = {};
-
-    basicData.forEach(x => heroesById[x._id] = x)
-
-    Object.keys(heroesById).forEach(id => {
-        data = httpGet(prefix + id)
-        try {
-            const results = JSON.parse(data);
-            if (results.error)  {
-                delete heroesById[id]
-                return;
-            }
-            const fullData = results.results[0];
-            const name = fullData.name;
-
-            heroesByName[name] = fullData;
-        } catch (e) {
-            console.error(e);
-            Notifier.error(i18next.t("Unable to load data from Epic7DB - ") + e);
-        }
-    })
-
-    console.log(heroesByName);
-}

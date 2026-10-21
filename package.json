@@ -4,7 +4,7 @@
   "author": {
     "name": "Fribbels"
   },
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Electron application boilerplate based on React, React Router, Webpack, React Hot Loader for rapid application development",
   "scripts": {
     "build": "concurrently \"yarn build-main\" \"yarn build-renderer\"",
@@ -125,7 +125,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "fribbels",
+      "owner": "wautsns",
       "repo": "Fribbels-Epic-7-Optimizer",
       "private": false
     }

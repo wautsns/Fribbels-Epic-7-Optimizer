@@ -100,8 +100,8 @@ export default class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
     autoUpdater.logger = log;
-    autoUpdater.allowDowngrade = true;
-    autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.allowDowngrade = false;
+    autoUpdater.autoDownload = true;
   }
 }
 
@@ -214,24 +214,9 @@ const createWindow = async () => {
     }
   });
 
-  mainWindow.once("ready-to-show", () => {
-    autoUpdater.checkForUpdatesAndNotify();
-  });
-
-
-  // const menuBuilder = new MenuBuilder(mainWindow);
-  // menuBuilder.buildMenu();
-
-  // Remove this if your app does not use auto updates
-  // eslint-disable-next-line
+  // Auto-update checks are triggered only by the renderer's manual check action.
 
   new AppUpdater();
-
-  require('update-electron-app')({
-    repo: 'fribbels/Fribbels-Epic-7-Optimizer',
-    updateInterval: '5 minutes',
-    // logger: require('electron-log')
-  })
 };
 
 /**

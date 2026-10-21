@@ -1,6 +1,6 @@
 const { ipcRenderer } = require('electron');
 global.ipcRenderer = ipcRenderer;
-const currentVersion = "1.10.0";
+const currentVersion = "2.1.0";
 
 global.TEST = false;
 
@@ -39,7 +39,7 @@ module.exports = {
 
 `
 <h2>
-    New in v1.10.0
+    New in v2.1.0
 </h2>
 <ul class="newFeatures">
     <li>Added new Riposte and Reversal Sets</li>
@@ -81,7 +81,7 @@ module.exports = {
         ipcRenderer.on('update_available', () => {
             Notifier.info(i18next.t("New version available, downloading now"));
         });
-        ipcRenderer.on('update-not-available', () => {
+        ipcRenderer.on('update_not_available', () => {
         });
         ipcRenderer.on('test', (arg1, arg2) => {
             console.log("test", arg1, arg2)
@@ -128,13 +128,6 @@ module.exports = {
 
         document.getElementById('checkForUpdatesSubmit').addEventListener("click", async () => {
             Notifier.info(i18next.t("Checking for updates"));
-
-            try {
-                await HeroData.initialize();
-            } catch (e) {
-                console.error("Error refreshing hero data " + e)
-            }
-
             ipcRenderer.send('check');
         });
     }

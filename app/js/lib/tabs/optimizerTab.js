@@ -1061,54 +1061,8 @@ async function redrawHeroImage() {
     const artifactData = HeroData.getArtifactByName(artifact)
 
     if (artifactData) {
-        // 优先使用本地 cachedimages 中的 artifact 图片
-        let artiUrl = Path.join(Files.getDataPath(), 'cachedimages/question_circle.png')
-        if (artifactData.code && artifactData.code.length > 2) {
-            // 先检查本地 cachedimages 是否存在对应的 artifact 图片
-            const artifactFileName = `${artifactData.code}_ico.png`;
-            const localArtifactPath = Path.join(Files.getDataPath(), `cachedimages/${artifactFileName}`);
-            
-            // 检查本地是否存在
-            try {
-                if (fs.existsSync(localArtifactPath)) {
-                    artiUrl = localArtifactPath;
-                } else {
-                    // 本地不存在，从 remote URL 请求
-                    const remoteUrl = `https://static.smilegatemegaport.com/event/live/epic7/guide/wearingStatus/images/artifact/${artifactData.code}_ico.png`;
-                    
-                    // 尝试下载到本地 cachedimages
-                    try {
-                        const axios = require('axios');
-                        const response = await axios.get(remoteUrl, {
-                            timeout: 10000,
-                            responseType: 'arraybuffer'
-                        });
-                        
-                        // 确保 cachedimages 目录存在
-                        const path = require('path');
-                        const dirPath = path.dirname(localArtifactPath);
-                        if (!fs.existsSync(dirPath)) {
-                            fs.mkdirSync(dirPath, { recursive: true });
-                        }
-                        
-                        // 保存到本地
-                        const buffer = Buffer.from(response.data);
-                        fs.writeFileSync(localArtifactPath, buffer);
-                        console.log(`Downloaded artifact image to: ${localArtifactPath}`);
-                        
-                        artiUrl = localArtifactPath;
-                    } catch (downloadError) {
-                        console.warn(`Failed to download artifact image: ${downloadError.message}`);
-                        // 下载失败，使用远程 URL
-                        artiUrl = remoteUrl;
-                    }
-                }
-            } catch (error) {
-                console.warn(`Error checking artifact image: ${error.message}`);
-                artiUrl = `https://static.smilegatemegaport.com/event/live/epic7/guide/wearingStatus/images/artifact/${artifactData.code}_ico.png`;
-            }
-        }
-
+        // 使用 dataLoader.js 的方法获取神器图片路径
+        const artiUrl = await DataLoader.getArtifactImagePath(artifactData.code);
         $('#inputArtifactImage').attr("src", artiUrl);
     } else {
         $('#inputArtifactImage').attr("src", Assets.getBlank());

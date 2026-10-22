@@ -142,13 +142,18 @@ module.exports = {
             console.log('artifactdata.json refreshed');
         }
         
-        // 校验图片是否存在
+        // 校验英雄图片是否存在
         console.log('Ensuring all hero images are downloaded...');
         const heroNames = Object.keys(heroesByName);
         for (const name of heroNames) {
-            await DataLoader.ensureAssetsDownloaded(heroesByName[name]);
+            await DataLoader.ensureHeroAssetsDownloaded(heroesByName[name]);
         }
         console.log('All hero images checked/downloaded');
+        
+        // 校验神器图片是否存在
+        console.log('Ensuring all artifact images are downloaded...');
+        await DataLoader.ensureArtifactImagesDownloaded(artifactsByName);
+        console.log('All artifact images checked/downloaded');
         
         // 重新设置 baseStats 和 artifacts
         const baseStatsByName = {};

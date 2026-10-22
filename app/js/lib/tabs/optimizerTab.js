@@ -1062,11 +1062,11 @@ async function redrawHeroImage() {
 
     if (artifactData) {
         // 优先使用本地 cachedimages 中的 artifact 图片
-        let artiUrl = Path.join(Files.getDataPath(), 'data/cachedimages/question_circle.png')
+        let artiUrl = Path.join(Files.getDataPath(), 'cachedimages/question_circle.png')
         if (artifactData.code && artifactData.code.length > 2) {
             // 先检查本地 cachedimages 是否存在对应的 artifact 图片
             const artifactFileName = `${artifactData.code}_ico.png`;
-            const localArtifactPath = Path.join(Files.getDataPath(), `data/cachedimages/${artifactFileName}`);
+            const localArtifactPath = Path.join(Files.getDataPath(), `cachedimages/${artifactFileName}`);
             
             // 检查本地是否存在
             try {

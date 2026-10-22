@@ -217,10 +217,16 @@ function getHeroImage(item) {
         return Assets.getBlank(); // blank transparent
 
     const data = HeroData.getHeroExtraInfo(heroName);
-    if (!data || !data.assets) return Assets.getBlank();
+    if (!data || !data.assets) {
+        console.log(`getHeroImage: No data for hero ${heroName}`);
+        return Assets.getBlank();
+    }
 
     const iconUrl = data.assets.icon;
-    if (!iconUrl) return Assets.getBlank();
+    if (!iconUrl) {
+        console.log(`getHeroImage: No icon URL for hero ${heroName}`);
+        return Assets.getBlank();
+    }
 
     // Convert GitHub URL to local path
     // e.g., https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/data/cachedimages/c1144_s.png -> data/cachedimages/c1144_s.png

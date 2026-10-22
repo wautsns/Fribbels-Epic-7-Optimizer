@@ -3,6 +3,7 @@ global.ipcRenderer = ipcRenderer;
 const currentVersion = "2.1.0";
 
 global.TEST = false;
+global.HeroData = require('./heroData');
 
 /********************************************************************************************
     Release checklist:
@@ -125,6 +126,12 @@ module.exports = {
             ipcRenderer.send('restart_app');
         }
 
+
+        document.getElementById('pullLatestDataSubmit').addEventListener("click", async () => {
+            Notifier.info(i18next.t("Pull Latest Data") + "...");
+            await HeroData.refreshData();
+            Notifier.info(i18next.t("Pull Latest Data") + " " + i18next.t("Complete"));
+        });
 
         document.getElementById('checkForUpdatesSubmit').addEventListener("click", async () => {
             Notifier.info(i18next.t("Checking for updates"));

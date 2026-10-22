@@ -7,7 +7,7 @@ global.DataLoader = require('./dataLoader');
 module.exports = {
 
     initialize: async () => {
-        // 从 GitHub 或本地加载 herodata.json
+        // 尝试从本地读取 herodata.json
         var heroesByNameStr = null;
         try {
             heroesByNameStr = await Files.readFileSync(Files.getDataPath() + '/cache/herodata.json');
@@ -25,7 +25,7 @@ module.exports = {
         heroesByName = JSON.parse(heroesByNameStr);
         console.log('HERO DATA INITIALIZED');
 
-        // 从 GitHub 或本地加载 artifactdata.json
+        // 尝试从本地读取 artifactdata.json
         var artifactsByNameStr = null;
         try {
             artifactsByNameStr = await Files.readFileSync(Files.getDataPath() + '/cache/artifactdata.json');
@@ -42,14 +42,6 @@ module.exports = {
         if (artifactsByNameStr) {
             artifactsByName = JSON.parse(artifactsByNameStr);
         }
-
-        // 确保所有英雄的图片都已下载到本地 cachedimages
-        console.log('Ensuring all hero images are downloaded...');
-        const heroNames = Object.keys(heroesByName);
-        for (const name of heroNames) {
-            await DataLoader.ensureAssetsDownloaded(heroesByName[name]);
-        }
-        console.log('All hero images checked/downloaded');
 
         const baseStatsByName = {};
         Object.keys(heroesByName)
@@ -130,6 +122,45 @@ module.exports = {
 
         await Api.setArtifacts(artifactsByName);
         await Api.setBaseStats(baseStatsByName);
+    },
+
+    // 手动刷新数据（点击检查更新时调用）
+    refreshData: async () => {
+        console.log('Refreshing hero data from GitHub...');
+        
+        // 重新获取 herodata.json
+        const heroData = await DataLoader.fetchAndSaveJson('cache/herodata.json');
+        if (heroData) {
+            heroesByName = heroData;
+            console.log('herodata.json refreshed');
+        }
+        
+        // 重新获取 artifactdata.json
+        const artifactData = await DataLoader.fetchAndSaveJson('cache/artifactdata.json');
+        if (artifactData) {
+            artifactsByName = artifactData;
+            console.log('artifactdata.json refreshed');
+        }
+        
+        // 校验图片是否存在
+        console.log('Ensuring all hero images are downloaded...');
+        const heroNames = Object.keys(heroesByName);
+        for (const name of heroNames) {
+            await DataLoader.ensureAssetsDownloaded(heroesByName[name]);
+        }
+        console.log('All hero images checked/downloaded');
+        
+        // 重新设置 baseStats 和 artifacts
+        const baseStatsByName = {};
+        Object.keys(heroesByName)
+                .forEach(x => {
+                    const baseStats = module.exports.getBaseStatsByName(x);
+                    baseStatsByName[x] = baseStats;
+                });
+        await Api.setArtifacts(artifactsByName);
+        await Api.setBaseStats(baseStatsByName);
+        
+        console.log('Hero data refresh completed');
     },
 
     getAllHeroData: () => {

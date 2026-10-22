@@ -309,7 +309,6 @@
   "HeroesArtifactsSection": "HeroesArtifactsSection",
   "Heroic": "Heroic",
   "Hit 'Choose Folder', navigate into the folder where your screenshots are located, then hit 'Submit'. (The folder should show as empty, just select it)": "Hit 'Choose Folder', navigate into the folder where your screenshots are located, then hit 'Submit'. (The folder should show as empty, just select it)",
-  "Hit 'Choose Folder', navigate into the folder where your screenshots are located, then hit 'Submit'. (The folder should show as empty, just select it)": "Hit 'Choose Folder', navigate into the folder where your screenshots are located, then hit 'Submit'. (The folder should show as empty, just select it)",
   "Hit": "Hit",
   "Hp": "Hp",
   "hp": "hp",
@@ -645,7 +644,6 @@
   "[Select all]": "[Select all]",
   "\nFailed: ": "\nFailed: ",
   "__comment1": "end of GUI translation",
-
   "A Little Queen's Huge Crown": "A Little Queen's Huge Crown",
   "A Song for Everybody": "A Song for Everybody",
   "A Symbol of Unity": "A Symbol of Unity",
@@ -707,7 +705,7 @@
   "Biting Wind Star": "Biting Wind Star",
   "Black Hand of the Goddess": "Black Hand of the Goddess",
   "Blaze Dingo": "Blaze Dingo",
-  "Blazing Full Moon Trophy": "Blazing Full Moon Trophy",  
+  "Blazing Full Moon Trophy": "Blazing Full Moon Trophy",
   "Blessings of Camaraderie": "Blessings of Camaraderie",
   "Blood Blade Karin": "Blood Blade Karin",
   "Blood Moon Haste": "Blood Moon Haste",
@@ -1089,7 +1087,7 @@
   "XIII. Death": "XIII. Death",
   "XIV. Temperance": "XIV. Temperance",
   "XVI. The Tower": "XVI. The Tower",
-  "XVIII. The Moon": "XVIII. The Moon",  
+  "XVIII. The Moon": "XVIII. The Moon",
   "Yoonryoung": "Yoonryoung",
   "Yufine": "Yufine",
   "Yulha": "Yulha",
@@ -1098,5 +1096,7 @@
   "Zealot Carmainerose": "Zealot Carmainerose",
   "Zeno": "Zeno",
   "Zerato": "Zerato",
-  "__comment2": "end of character / artifact translation"
+  "__comment2": "end of character / artifact translation",
+  "拉取最新数据": "Pull Latest Data",
+  "Complete": "Complete"
 }

@@ -71,7 +71,8 @@ module.exports = {
     // 下载图片到 cachedimages
     downloadImage: async (imageUrl, relativePath) => {
         try {
-            const fileName = path.basename(relativePath);
+            // 提取文件名，处理 data/cachedimages/xxx.png 格式
+            let fileName = path.basename(relativePath);
             const localPath = Files.getDataPath() + '/cachedimages/' + fileName;
             
             // 检查本地是否已存在
@@ -109,9 +110,11 @@ module.exports = {
             if (assets[field]) {
                 try {
                     // 提取相对路径
-                    const urlParts = assets[field].split('cachedimages/');
+                    // 格式: https://raw.githubusercontent.com/.../main/data/cachedimages/c1144_s.png
+                    // 需要提取 data/cachedimages/c1144_s.png
+                    const urlParts = assets[field].split('/data/cachedimages/');
                     if (urlParts.length > 1) {
-                        const relativePath = 'cachedimages/' + urlParts[1];
+                        const relativePath = 'data/cachedimages/' + urlParts[1];
                         
                         // 检查本地是否存在
                         const fileName = path.basename(relativePath);

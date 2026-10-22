@@ -568,8 +568,21 @@ function renderClass(role) {
 
 
 function renderIcon(name) {
-    const url = HeroData.getHeroExtraInfo(name).assets.icon
-    const image = '<img src="' + url + '" width="32" height="32"></img>';
+    const data = HeroData.getHeroExtraInfo(name);
+    if (!data || !data.assets) return '<img src="' + Assets.getBlank() + '" width="32" height="32"></img>';
+    
+    const iconUrl = data.assets.icon;
+    if (!iconUrl) return '<img src="' + Assets.getBlank() + '" width="32" height="32"></img>';
+    
+    // Convert GitHub URL to local path
+    // e.g., https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/data/cachedimages/c1144_s.png -> data/cachedimages/c1144_s.png
+    if (iconUrl && iconUrl.includes('raw.githubusercontent.com')) {
+        const path = iconUrl.replace('https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/', '');
+        // Remove 'data/' prefix as getDataPath() already includes 'data' directory
+        const localPath = path.replace('data/', '');
+        return `<img src="${Path.join(Files.getDataPath(), localPath)}" width="32" height="32"></img>`;
+    }
+    const image = '<img src="' + iconUrl + '" width="32" height="32"></img>';
     return image;
 }
 

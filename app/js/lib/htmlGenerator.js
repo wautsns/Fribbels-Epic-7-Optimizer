@@ -217,7 +217,23 @@ function getHeroImage(item) {
         return Assets.getBlank(); // blank transparent
 
     const data = HeroData.getHeroExtraInfo(heroName);
-    return data.assets.icon;
+    if (!data || !data.assets) return Assets.getBlank();
+
+    const iconUrl = data.assets.icon;
+    if (!iconUrl) return Assets.getBlank();
+
+    // Convert GitHub URL to local path
+    // e.g., https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/data/cachedimages/c1144_s.png -> data/cachedimages/c1144_s.png
+    if (iconUrl && iconUrl.includes('raw.githubusercontent.com')) {
+        const path = iconUrl.replace('https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/', '');
+        // Remove 'data/' prefix as getDataPath() already includes 'data' directory
+        const localPath = path.replace('data/', '');
+        const fullLocalPath = Path.join(Files.getDataPath(), localPath);
+        
+        // 优先返回本地 cachedimages 中的图片路径
+        return fullLocalPath;
+    }
+    return iconUrl;
 }
 
 module.exports = {

@@ -1,0 +1,148 @@
+var fs = require('fs');
+var path = require('path');
+var axios = require('axios');
+
+// 初始化全局变量
+global.Files = require('./files');
+global.Path = require('path');
+
+const GITHUB_REPO = 'fribbels/Fribbels-Epic-7-Optimizer';
+const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main`;
+
+module.exports = {
+    
+    // 从 GitHub 获取 JSON 数据
+    getJsonFromGitHub: async (filePath) => {
+        try {
+            const response = await axios.get(`${GITHUB_RAW_URL}/${filePath}`, {
+                timeout: 30000, // 30秒超时
+                responseType: 'json'
+            });
+            return response.data;
+        } catch (error) {
+            console.error(`Failed to fetch ${filePath} from GitHub:`, error.message);
+            return null;
+        }
+    },
+
+    // 保存 JSON 到本地
+    saveJsonToLocal: async (filePath, data) => {
+        try {
+            const fullPath = Files.getDataPath() + '/' + filePath;
+            const dirPath = path.dirname(fullPath);
+            
+            if (!fs.existsSync(dirPath)) {
+                fs.mkdirSync(dirPath, { recursive: true });
+            }
+            
+            fs.writeFileSync(fullPath, JSON.stringify(data, null, 2));
+            console.log(`Saved ${filePath} to local`);
+            return true;
+        } catch (error) {
+            console.error(`Failed to save ${filePath}:`, error.message);
+            return false;
+        }
+    },
+
+    // 从 GitHub 获取并保存 JSON
+    fetchAndSaveJson: async (filePath) => {
+        const data = await module.exports.getJsonFromGitHub(filePath);
+        if (data) {
+            await module.exports.saveJsonToLocal(filePath, data);
+        }
+        return data;
+    },
+
+    // 从本地或 GitHub 获取 JSON（优先本地）
+    getJson: async (filePath) => {
+        // 首先尝试从本地读取
+        try {
+            const localData = await Files.readFileSync(Files.getDataPath() + '/' + filePath);
+            return JSON.parse(localData);
+        } catch (localError) {
+            console.log(`Local file not found for ${filePath}, fetching from GitHub...`);
+        }
+
+        // 本地没有则从 GitHub 获取
+        const data = await module.exports.fetchAndSaveJson(filePath);
+        return data;
+    },
+
+    // 下载图片到 cachedimages
+    downloadImage: async (imageUrl, relativePath) => {
+        try {
+            const fileName = path.basename(relativePath);
+            const localPath = Files.getDataPath() + '/cachedimages/' + fileName;
+            
+            // 检查本地是否已存在
+            if (fs.existsSync(localPath)) {
+                console.log(`Image already exists: ${fileName}`);
+                return localPath;
+            }
+
+            console.log(`Downloading image: ${fileName}`);
+            
+            const response = await axios.get(imageUrl, {
+                timeout: 15000,
+                responseType: 'arraybuffer'
+            });
+
+            // ArrayBuffer 转换成 Buffer
+            const buffer = Buffer.from(response.data);
+            fs.writeFileSync(localPath, buffer);
+            console.log(`Downloaded image to: ${localPath}`);
+            return localPath;
+        } catch (error) {
+            console.error(`Failed to download image ${imageUrl}:`, error.message);
+            return null;
+        }
+    },
+
+    // 获取 heroData 中的 assets，下载缺失的图片
+    ensureAssetsDownloaded: async (heroData) => {
+        if (!heroData || !heroData.assets) return;
+
+        const assets = heroData.assets;
+        const assetFields = ['icon', 'thumbnail'];
+
+        for (const field of assetFields) {
+            if (assets[field]) {
+                try {
+                    // 提取相对路径
+                    const urlParts = assets[field].split('cachedimages/');
+                    if (urlParts.length > 1) {
+                        const relativePath = 'cachedimages/' + urlParts[1];
+                        
+                        // 检查本地是否存在
+                        const fileName = path.basename(relativePath);
+                        const localPath = Files.getDataPath() + '/cachedimages/' + fileName;
+                        
+                        if (!fs.existsSync(localPath)) {
+                            // 本地不存在，从 GitHub 下载
+                            await module.exports.downloadImage(assets[field], relativePath);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error processing asset ${field}:`, error.message);
+                }
+            }
+        }
+    },
+
+    // 获取所有英雄的图片 URL
+    getHeroImageUrls: (heroData) => {
+        const urls = [];
+        if (!heroData || !heroData.assets) return urls;
+        
+        const assets = heroData.assets;
+        const assetFields = ['icon', 'thumbnail'];
+        
+        for (const field of assetFields) {
+            if (assets[field]) {
+                urls.push(assets[field]);
+            }
+        }
+        
+        return urls;
+    }
+};

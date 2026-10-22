@@ -2,26 +2,54 @@ var heroesByName = {};
 var artifactsByName = {};
 var eesByName = {};
 
+global.DataLoader = require('./dataLoader');
+
 module.exports = {
 
     initialize: async () => {
+        // 从 GitHub 或本地加载 herodata.json
+        var heroesByNameStr = null;
         try {
-            var heroesByNameStr = await Files.readFileSync(Files.getDataPath() + '/cache/herodata.json');
-            heroesByName = JSON.parse(heroesByNameStr);
-            // const heroNameList = Object.keys(heroesByName);
-        } catch (e) {
-            console.warn("Error loading hero data from file", e)
+            heroesByNameStr = await Files.readFileSync(Files.getDataPath() + '/cache/herodata.json');
+            console.log('Loaded herodata.json from local');
+        } catch (localError) {
+            console.log('Local herodata.json not found, fetching from GitHub...');
+            const githubData = await DataLoader.fetchAndSaveJson('cache/herodata.json');
+            if (githubData) {
+                heroesByNameStr = JSON.stringify(githubData);
+            } else {
+                console.error('Failed to fetch herodata.json from GitHub');
+                return;
+            }
         }
+        heroesByName = JSON.parse(heroesByNameStr);
+        console.log('HERO DATA INITIALIZED');
 
+        // 从 GitHub 或本地加载 artifactdata.json
+        var artifactsByNameStr = null;
         try {
-            var artifactsByNameStr = await Files.readFileSync(Files.getDataPath() + '/cache/artifactdata.json');
+            artifactsByNameStr = await Files.readFileSync(Files.getDataPath() + '/cache/artifactdata.json');
+            console.log('Loaded artifactdata.json from local');
+        } catch (localError) {
+            console.log('Local artifactdata.json not found, fetching from GitHub...');
+            const githubData = await DataLoader.fetchAndSaveJson('cache/artifactdata.json');
+            if (githubData) {
+                artifactsByNameStr = JSON.stringify(githubData);
+            } else {
+                console.error('Failed to fetch artifactdata.json from GitHub');
+            }
+        }
+        if (artifactsByNameStr) {
             artifactsByName = JSON.parse(artifactsByNameStr);
-            // const artifactNameList = Object.keys(artifactsByName);
-        } catch (e) {
-            console.warn("Error loading artifact data from file", e)
         }
 
-        console.warn("HERO DATA INITIALIZED")
+        // 确保所有英雄的图片都已下载到本地 cachedimages
+        console.log('Ensuring all hero images are downloaded...');
+        const heroNames = Object.keys(heroesByName);
+        for (const name of heroNames) {
+            await DataLoader.ensureAssetsDownloaded(heroesByName[name]);
+        }
+        console.log('All hero images checked/downloaded');
 
         const baseStatsByName = {};
         Object.keys(heroesByName)

@@ -10,16 +10,16 @@ const GITHUB_RAW_URL = 'https://e7-optimizer-game-data.s3-accelerate.amazonaws.c
 
 module.exports = {
     
-    // 从 GitHub 获取 JSON 数据
-    getJsonFromGitHub: async (filePath) => {
+    // 从 S3 获取 JSON 数据
+    getJsonFromS3: async (fileName) => {
         try {
-            const response = await axios.get(`${GITHUB_RAW_URL}/${filePath}`, {
+            const response = await axios.get(`${GITHUB_RAW_URL}/${fileName}`, {
                 timeout: 30000, // 30秒超时
                 responseType: 'json'
             });
             return response.data;
         } catch (error) {
-            console.error(`Failed to fetch ${filePath} from GitHub:`, error.message);
+            console.error(`Failed to fetch ${fileName} from S3:`, error.message);
             return null;
         }
     },
@@ -43,29 +43,27 @@ module.exports = {
         }
     },
 
-    // 从 GitHub 获取并保存 JSON
-    fetchAndSaveJson: async (filePath) => {
-        const data = await module.exports.getJsonFromGitHub(filePath);
+    // 从 S3 获取并保存 JSON
+    fetchAndSaveJson: async (fileName, localFilePath) => {
+        const data = await module.exports.getJsonFromS3(fileName);
         if (data) {
-            await module.exports.saveJsonToLocal(filePath, data);
+            await module.exports.saveJsonToLocal(localFilePath, data);
         }
         return data;
     },
 
-    // 从本地或 GitHub 获取 JSON（优先本地）
-    getJson: async (filePath) => {
-        // 首先尝试从本地读取
+    // 从本地获取 JSON
+    getJsonFromLocal: async (filePath) => {
         try {
             const localData = await Files.readFileSync(Files.getDataPath() + '/' + filePath);
             return JSON.parse(localData);
         } catch (localError) {
-            console.log(`Local file not found for ${filePath}, fetching from GitHub...`);
+            console.log(`Local file not found for ${filePath}`);
+            return null;
         }
-
-        // 本地没有则从 GitHub 获取
-        const data = await module.exports.fetchAndSaveJson(filePath);
-        return data;
     },
+
+    // 下载图片到 cachedimages
 
     // 下载图片到 cachedimages
     downloadImage: async (imageUrl, relativePath) => {

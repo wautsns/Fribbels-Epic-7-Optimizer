@@ -13,12 +13,12 @@ module.exports = {
             heroesByNameStr = await Files.readFileSync(Files.getDataPath() + '/cache/herodata.json');
             console.log('Loaded herodata.json from local');
         } catch (localError) {
-            console.log('Local herodata.json not found, fetching from GitHub...');
-            const githubData = await DataLoader.fetchAndSaveJson('cache/herodata.json');
-            if (githubData) {
-                heroesByNameStr = JSON.stringify(githubData);
+            console.log('Local herodata.json not found, fetching from S3...');
+            const s3Data = await DataLoader.fetchAndSaveJson('herodata.json', 'cache/herodata.json');
+            if (s3Data) {
+                heroesByNameStr = JSON.stringify(s3Data);
             } else {
-                console.error('Failed to fetch herodata.json from GitHub');
+                console.error('Failed to fetch herodata.json from S3');
                 return;
             }
         }
@@ -31,12 +31,12 @@ module.exports = {
             artifactsByNameStr = await Files.readFileSync(Files.getDataPath() + '/cache/artifactdata.json');
             console.log('Loaded artifactdata.json from local');
         } catch (localError) {
-            console.log('Local artifactdata.json not found, fetching from GitHub...');
-            const githubData = await DataLoader.fetchAndSaveJson('cache/artifactdata.json');
-            if (githubData) {
-                artifactsByNameStr = JSON.stringify(githubData);
+            console.log('Local artifactdata.json not found, fetching from S3...');
+            const s3Data = await DataLoader.fetchAndSaveJson('artifactdata.json', 'cache/artifactdata.json');
+            if (s3Data) {
+                artifactsByNameStr = JSON.stringify(s3Data);
             } else {
-                console.error('Failed to fetch artifactdata.json from GitHub');
+                console.error('Failed to fetch artifactdata.json from S3');
             }
         }
         if (artifactsByNameStr) {
@@ -126,17 +126,17 @@ module.exports = {
 
     // 手动刷新数据（点击检查更新时调用）
     refreshData: async () => {
-        console.log('Refreshing hero data from GitHub...');
+        console.log('Refreshing hero data from S3...');
         
         // 重新获取 herodata.json
-        const heroData = await DataLoader.fetchAndSaveJson('cache/herodata.json');
+        const heroData = await DataLoader.fetchAndSaveJson('herodata.json', 'cache/herodata.json');
         if (heroData) {
             heroesByName = heroData;
             console.log('herodata.json refreshed');
         }
         
         // 重新获取 artifactdata.json
-        const artifactData = await DataLoader.fetchAndSaveJson('cache/artifactdata.json');
+        const artifactData = await DataLoader.fetchAndSaveJson('artifactdata.json', 'cache/artifactdata.json');
         if (artifactData) {
             artifactsByName = artifactData;
             console.log('artifactdata.json refreshed');

@@ -155,6 +155,15 @@ module.exports = {
         await DataLoader.ensureArtifactImagesDownloaded(artifactsByName);
         console.log('All artifact images checked/downloaded');
         
+        // 拉取最新翻译数据（仅简体中文）
+        console.log('Pulling latest translation data...');
+        const translationResult = await DataLoader.pullTranslationData('zh');
+        if (translationResult.success) {
+            console.log(`Translation data updated, added ${translationResult.addedCount} new entries`);
+        } else {
+            console.error('Failed to update translation data:', translationResult.error);
+        }
+        
         // 重新设置 baseStats 和 artifacts
         const baseStatsByName = {};
         Object.keys(heroesByName)

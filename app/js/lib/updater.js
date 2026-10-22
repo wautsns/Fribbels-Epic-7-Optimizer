@@ -4,31 +4,7 @@ const currentVersion = "2.1.0";
 
 global.TEST = false;
 global.HeroData = require('./heroData');
-
-/********************************************************************************************
-    Release checklist:
-    - update changelog
-    - set TEST = false
-    - package jar
-    - update version here
-    - update version in app package.json
-    - update repo in project package.json
-    - yarn package
-
-    Patch update checklist
-    - Update server temp unit ids
-    - Update server temp items
-    - Scan artifact ids, update artifact file
-    - Download unit images
-    - Upload herodata copy to server
-    - Skill multipliers
-
-*********************************************************************************************/
-
-/********************************************************************************************
-    TODO:
-    - Update grid initialization with languages
-*********************************************************************************************/
+global.DataLoader = require('./dataLoader');
 
 module.exports = {
 
@@ -52,30 +28,6 @@ module.exports = {
     },
 
     checkForUpdates: async () => {
-        //
-        // try {
-        //     const latestData = await fetch('https://api.github.com/repos/fribbels/Fribbels-Epic-7-Optimizer/releases/latest')
-        //     const latestDataText = await latestData.text();
-        //     const latestDataJson = JSON.parse(latestDataText);
-        //     const latestVersion = latestDataJson.tag_name;
-
-        //     if (latestVersion != currentVersion) {
-        //         const shell = require('electron').shell;
-
-        //         // assuming $ is jQuery
-        //         $(document).on('click', 'a[href^="http"]', function(event) {
-        //             event.preventDefault();
-        //             shell.openExternal(this.href);
-        //         });
-
-        //         Dialog.htmlSuccessDisableOutsideClick(i18next.t("New version available: <a href='https://github.com/fribbels/Fribbels-Epic-7-Optimizer/releases'>") + latestVersion + "<a>");
-        //     }
-
-        //     // console.error(latestDataJson);
-        // } catch (e) {
-        //     console.error(e)
-        // }
-
         const version = document.getElementById('version');
         version.innerText = ": v" + currentVersion;
 
@@ -126,16 +78,17 @@ module.exports = {
             ipcRenderer.send('restart_app');
         }
 
-
+        // 拉取最新数据（英雄/神器/翻译）
         document.getElementById('pullLatestDataSubmit').addEventListener("click", async () => {
             Notifier.info(i18next.t("Pull Latest Data") + "...");
             await HeroData.refreshData();
             Notifier.info(i18next.t("Pull Latest Data") + " " + i18next.t("Complete"));
         });
 
+        // 检查更新
         document.getElementById('checkForUpdatesSubmit').addEventListener("click", async () => {
             Notifier.info(i18next.t("Checking for updates"));
             ipcRenderer.send('check');
         });
     }
-}
+};

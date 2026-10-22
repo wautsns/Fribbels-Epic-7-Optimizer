@@ -1051,7 +1051,7 @@ async function redrawHeroImage() {
 
 
     const data = HeroData.getHeroExtraInfo(name);
-    const image = data.assets.thumbnail;
+    const image = DataLoader.getHeroImagePath(data.assets.thumbnail);
     $('#inputHeroImage').attr("src", image);
 
 
@@ -1062,7 +1062,7 @@ async function redrawHeroImage() {
 
     if (artifactData) {
         // 使用 dataLoader.js 的方法获取神器图片路径
-        const artiUrl = await DataLoader.getArtifactImagePath(artifactData.code);
+        const artiUrl = await DataLoader.getArtifactImagePath(artifactData);
         $('#inputArtifactImage').attr("src", artiUrl);
     } else {
         $('#inputArtifactImage').attr("src", Assets.getBlank());

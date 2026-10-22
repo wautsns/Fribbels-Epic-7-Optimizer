@@ -824,7 +824,7 @@ function redrawHeroImage(index) {
     }
 
     const data = HeroData.getHeroExtraInfo(name);
-    const image = data.assets.thumbnail;
+    const image = DataLoader.getHeroImagePath(data.assets.thumbnail);
 
     $('#multiInputHeroImage' + index).attr("src", image);
 }

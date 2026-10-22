@@ -1369,5 +1369,11 @@
   "ae-WINTER": "ae-WINTER",
   "comment2": "end of character / artifact translation",
   "Pull Latest Data": "拉取最新数据",
-  "Complete": "完成"
+  "Complete": "完成",
+  "<b>Results - </b> Number of search results that satisfy the stat filters. There is a maximum of 5,000,000 results before the search stops (for memory limitations).": "<b>结果 - </b>满足数值筛选器的搜寻结果数. 搜寻停止前，有5,000,000组结果的搜寻上限（因为内存限制）.",
+  "Custom-Made Power Anchor": "量身特制力量之锚",
+  "Flame Dragon's Jewel": "火龙宝石",
+  "Haru": "小春",
+  "Renoa": "蕾诺娅",
+  "Sorrow of the Rose": "玫瑰之悲"
 }

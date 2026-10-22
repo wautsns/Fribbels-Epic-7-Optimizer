@@ -7,7 +7,8 @@ global.Files = require('./files');
 global.Path = require('path');
 
 const S3_BASE_URL = 'https://e7-optimizer-game-data.s3-accelerate.amazonaws.com';
-const ARTIFACT_IMAGE_BASE_URL = 'https://static.smilegatemegaport.com/event/live/epic7/guide/wearingStatus/images/artifact';
+const ARTIFACT_IMAGE_BASE_URL = 'https://static-pubcomm.onstove.com/event/live/epic7/guide/wearingStatus/images/artifact';
+const TRANSLATION_BASE_URL = 'https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/refs/heads/main/data/locales';
 
 module.exports = {
 
@@ -85,6 +86,26 @@ module.exports = {
         return urls;
     },
 
+    // 获取英雄图片路径（优先使用本地缓存，不存在时返回远程 URL）
+    getHeroImagePath: (imageUrl) => {
+        if (!imageUrl) {
+            return imageUrl;
+        }
+
+        const fileName = path.basename(imageUrl.split('?')[0]);
+        if (!fileName || fileName === '.' || fileName === path.sep) {
+            return imageUrl;
+        }
+
+        const localPath = Path.join(Files.getDataPath(), 'cachedimages', fileName);
+
+        if (fs.existsSync(localPath)) {
+            return localPath;
+        }
+
+        return imageUrl;
+    },
+
     // 下载英雄图片到 cachedimages
     downloadHeroImage: async (imageUrl, relativeFilePath) => {
         try {
@@ -143,9 +164,10 @@ module.exports = {
 
     // ==================== 神器图片下载 ====================
 
-    // 获取神器图片路径（优先本地，不存在则下载）
-    getArtifactImagePath: async (artifactCode) => {
-        if (!artifactCode || artifactCode.length <= 2) {
+    // 获取神器图片路径（rarity<3 使用占位图，其他情况优先本地，不存在则下载）
+    getArtifactImagePath: async (artifactData) => {
+        const artifactCode = artifactData && artifactData.code;
+        if (Number(artifactData && artifactData.rarity) < 3) {
             return Path.join(Files.getDataPath(), 'cachedimages/question_circle.png');
         }
 
@@ -213,25 +235,80 @@ module.exports = {
     ensureArtifactImagesDownloaded: async (artifactData) => {
         if (!artifactData) return;
 
-        const artifactCodes = Object.keys(artifactData);
+        const artifactCodes = Object.keys(artifactData)
+            .filter((code) => Number(artifactData[code].rarity) >= 3);
         console.log(`Checking ${artifactCodes.length} artifact images...`);
 
         let downloadedCount = 0;
         for (const code of artifactCodes) {
             const artifact = artifactData[code];
-            if (artifact.code && artifact.code.length > 2) {
-                try {
-                    const localPath = await module.exports.downloadArtifactImage(artifact.code);
-                    if (localPath) {
-                        downloadedCount++;
-                    }
-                } catch (error) {
-                    console.error(`Error ensuring artifact image for ${code}:`, error.message);
+            try {
+                const localPath = await module.exports.downloadArtifactImage(artifact.code);
+                if (localPath) {
+                    downloadedCount++;
                 }
+            } catch (error) {
+                console.error(`Error ensuring artifact image for ${code}:`, error.message);
             }
         }
 
         console.log(`Downloaded ${downloadedCount}/${artifactCodes.length} artifact images`);
+    },
+
+    // ==================== 翻译数据拉取 ====================
+
+    // 拉取并合并翻译数据
+    pullTranslationData: async (lang) => {
+        try {
+            const remoteTranslationUrl = `${TRANSLATION_BASE_URL}/${lang}/translation.json`;
+            const localTranslationPath = Files.getDataPath() + `/locales/${lang}/translation.json`;
+
+            // 获取远程翻译数据
+            const response = await axios.get(remoteTranslationUrl, {
+                timeout: 30000,
+                responseType: 'json'
+            });
+
+            const remoteTranslation = response.data;
+
+            // 读取本地翻译数据
+            let localTranslation = {};
+            try {
+                const localData = await Files.readFileSync(localTranslationPath);
+                localTranslation = JSON.parse(localData);
+            } catch (localError) {
+                console.log(`Local translation file not found for ${lang}, will create new file`);
+            }
+
+            // 比对并补充缺失的翻译项
+            const mergedTranslation = { ...localTranslation };
+            let addedCount = 0;
+
+            for (const key in remoteTranslation) {
+                if (!mergedTranslation[key]) {
+                    mergedTranslation[key] = remoteTranslation[key];
+                    addedCount++;
+                }
+            }
+
+            // 保存合并后的翻译数据
+            if (addedCount > 0) {
+                const dirPath = Path.dirname(localTranslationPath);
+                if (!fs.existsSync(dirPath)) {
+                    fs.mkdirSync(dirPath, { recursive: true });
+                }
+
+                fs.writeFileSync(localTranslationPath, JSON.stringify(mergedTranslation, null, 2));
+                console.log(`Added ${addedCount} new translation entries for ${lang}`);
+            } else {
+                console.log(`No new translations for ${lang}`);
+            }
+
+            return { success: true, addedCount };
+        } catch (error) {
+            console.error(`Failed to pull translation data for ${lang}:`, error.message);
+            return { success: false, error: error.message };
+        }
     }
 
 };

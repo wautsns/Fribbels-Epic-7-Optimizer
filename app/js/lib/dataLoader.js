@@ -6,8 +6,7 @@ var axios = require('axios');
 global.Files = require('./files');
 global.Path = require('path');
 
-const GITHUB_REPO = 'fribbels/Fribbels-Epic-7-Optimizer';
-const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main`;
+const GITHUB_RAW_URL = 'https://e7-optimizer-game-data.s3-accelerate.amazonaws.com';
 
 module.exports = {
     

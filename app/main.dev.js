@@ -11,7 +11,8 @@
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
 import path from 'path';
-import { app, BrowserWindow, ipcMain, Menu, MenuItem } from 'electron';
+import fs from 'fs';
+import { app, BrowserWindow, ipcMain, Menu, MenuItem, screen } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 const remoteMain = require("@electron/remote/main");
@@ -109,6 +110,62 @@ console.log("main.dev.ts");
 
 let mainWindow = null;
 
+// 记住窗口大小、位置和最大化状态，下次启动时恢复
+const DEFAULT_WINDOW_WIDTH = 1394;
+const DEFAULT_WINDOW_HEIGHT = 996;
+const getWindowStateFile = () =>
+  path.join(app.getPath('userData'), 'window-state.json');
+
+const loadWindowState = () => {
+  try {
+    const state = JSON.parse(fs.readFileSync(getWindowStateFile(), 'utf8'));
+    if (
+      !state ||
+      !Number.isFinite(state.width) ||
+      !Number.isFinite(state.height) ||
+      !Number.isFinite(state.x) ||
+      !Number.isFinite(state.y) ||
+      state.width < 400 ||
+      state.height < 300
+    ) {
+      return null;
+    }
+
+    // 换显示器/分辨率后，避免窗口恢复到屏幕外
+    const visible = screen.getAllDisplays().some(({ workArea }) =>
+      state.x < workArea.x + workArea.width &&
+      state.x + state.width > workArea.x &&
+      state.y < workArea.y + workArea.height &&
+      state.y + state.height > workArea.y
+    );
+
+    return visible ? state : null;
+  } catch (err) {
+    return null;
+  }
+};
+
+let saveWindowStateTimer = null;
+
+const saveWindowState = () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    const bounds = mainWindow.getNormalBounds();
+    fs.writeFileSync(
+      getWindowStateFile(),
+      JSON.stringify({ ...bounds, isMaximized: mainWindow.isMaximized() }),
+      'utf8'
+    );
+  } catch (err) {
+    console.error('Failed to save window state:', err);
+  }
+};
+
+const scheduleSaveWindowState = () => {
+  if (saveWindowStateTimer) clearTimeout(saveWindowStateTimer);
+  saveWindowStateTimer = setTimeout(saveWindowState, 500);
+};
+
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
   sourceMapSupport.install();
@@ -147,10 +204,11 @@ const createWindow = async () => {
     return path.join(RESOURCES_PATH, paths);
   };
 
-  mainWindow = new BrowserWindow({
+  const savedState = loadWindowState();
+  const windowOptions = {
     show: false,
-    width: 1174,
-    height: 842,
+    width: savedState ? savedState.width : DEFAULT_WINDOW_WIDTH,
+    height: savedState ? savedState.height : DEFAULT_WINDOW_HEIGHT,
     icon: getAssetPath('icon.png'),
     webPreferences:
       (process.env.NODE_ENV === 'development' || process.env.E2E_BUILD === 'true') && process.env.ERB_SECURE !== 'true' ?
@@ -165,7 +223,17 @@ const createWindow = async () => {
         enableRemoteModule: true,
         contextIsolation: false
       },
-  });
+  };
+  if (savedState) {
+    windowOptions.x = savedState.x;
+    windowOptions.y = savedState.y;
+  }
+
+  mainWindow = new BrowserWindow(windowOptions);
+
+  if (savedState && savedState.isMaximized) {
+    mainWindow.maximize();
+  }
 
   mainWindow.loadURL(`file://${__dirname}/app.html`);
   // mainWindow.webContents.openDevTools();
@@ -194,6 +262,11 @@ const createWindow = async () => {
 
   mainWindow.on('resize', () => {
     mainWindow.webContents.send('resize');
+    scheduleSaveWindowState();
+  });
+
+  mainWindow.on('move', () => {
+    scheduleSaveWindowState();
   });
 
   mainWindow.on('resized', () => {
@@ -201,6 +274,7 @@ const createWindow = async () => {
   });
 
   mainWindow.on('close', (e) => {
+    saveWindowState();
     if (!closed) {
       e.preventDefault();
       mainWindow.webContents.send('app-close');
@@ -229,6 +303,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  saveWindowState();
 });
 
 if (process.env.E2E_BUILD === 'true') {

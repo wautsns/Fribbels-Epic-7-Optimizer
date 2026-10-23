@@ -2042,7 +2042,7 @@ input:checked + .darkSlider:before {
 }
 
 .locatorTip {
-  width: 113px;
+  width: max-content;
   font-size: 12.5px;
   line-height: 17px;
 }

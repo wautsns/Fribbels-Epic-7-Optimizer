@@ -1,5 +1,7 @@
 const rangesliderJs = require('rangeslider-js');
 const ResultPriority = require('../resultPriority');
+const DominanceFilter = require('../dominanceFilter');
+const LimitConfiguration = require('../limitConfiguration');
 var permutations = 0;
 var progressTimer;
 var currentFilteredItems = [];
@@ -10,6 +12,29 @@ const fs = require('fs');
 var currentExecutionId;
 var resized = false;
 var resultPriorityStates = {};
+const gearTypes = ["Weapon", "Helmet", "Armor", "Necklace", "Ring", "Boots"];
+
+function countItemsByGear(items) {
+    const counts = {};
+    for (const gear of gearTypes) {
+        counts[gear] = 0;
+    }
+
+    for (const item of items) {
+        if (counts[item.gear] != undefined) {
+            counts[item.gear]++;
+        }
+    }
+
+    return counts;
+}
+
+function formatFilteredGearCount(filteredCount, dominanceRemovedCount, totalCount, percentage) {
+    return Number(filteredCount).toLocaleString()
+        + "(" + Number(dominanceRemovedCount).toLocaleString() + ")/"
+        + Number(totalCount).toLocaleString()
+        + " - (" + percentage + "%)";
+}
 
 function normalizePriorityIndex(index) {
     return index == null || index == undefined ? '' : index;
@@ -478,6 +503,18 @@ module.exports = {
 
         items = ModificationFilter.apply(items, params.inputSubstatMods, hero, submit, index);
 
+        if (params.inputFilterPriority != 100) {
+            PriorityFilter.calculatePriorityScores(params, items, baseStats, params.inputPredictReforges);
+        }
+
+        const dominanceInputCounts = countItemsByGear(items);
+        items = DominanceFilter.applyDominanceFilters(params, items, baseStats, params.inputPredictReforges);
+        const dominanceOutputCounts = countItemsByGear(items);
+        const dominanceRemovedCounts = {};
+        for (const gear of gearTypes) {
+            dominanceRemovedCounts[gear] = dominanceInputCounts[gear] - dominanceOutputCounts[gear];
+        }
+
         items = PriorityFilter.applyPriorityFilters(params, items, baseStats, allItems, params.inputPredictReforges, params.inputSubstatMods)
 
         items = items.sort((a, b) => {
@@ -497,7 +534,8 @@ module.exports = {
         currentFilteredItems = prioritizedItems;
         return {
             items,
-            allItems
+            allItems,
+            dominanceRemovedCounts,
         };
     },
 
@@ -540,6 +578,7 @@ module.exports = {
         request.inputEffMaxLimit = readNumber('inputMaxEffLimit' + index);
         request.inputResMinLimit = readNumber('inputMinResLimit' + index);
         request.inputResMaxLimit = readNumber('inputMaxResLimit' + index);
+        LimitConfiguration.setRequestFlags(request, index, isNumberInputConfigured);
 
         request.inputMinCpLimit = readNumber('inputMinCpLimit' + index);
         request.inputMaxCpLimit = readNumber('inputMaxCpLimit' + index);
@@ -676,23 +715,23 @@ module.exports = {
             return;
         }
 
-        $("#inputMinAtkLimit" + index).val(inputDisplayNumber(request.inputAtkMinLimit))
-        $("#inputMaxAtkLimit" + index).val(inputDisplayNumber(request.inputAtkMaxLimit))
-        $("#inputMinHpLimit" + index).val(inputDisplayNumber(request.inputHpMinLimit))
-        $("#inputMaxHpLimit" + index).val(inputDisplayNumber(request.inputHpMaxLimit))
-        $("#inputMaxHpLimit" + index).val(inputDisplayNumber(request.inputHpMaxLimit));
-        $("#inputMinDefLimit" + index).val(inputDisplayNumber(request.inputDefMinLimit));
-        $("#inputMaxDefLimit" + index).val(inputDisplayNumber(request.inputDefMaxLimit));
-        $("#inputMinSpdLimit" + index).val(inputDisplayNumber(request.inputSpdMinLimit));
-        $("#inputMaxSpdLimit" + index).val(inputDisplayNumber(request.inputSpdMaxLimit));
-        $("#inputMinCrLimit" + index).val(inputDisplayNumber(request.inputCrMinLimit));
-        $("#inputMaxCrLimit" + index).val(inputDisplayNumber(request.inputCrMaxLimit));
-        $("#inputMinCdLimit" + index).val(inputDisplayNumber(request.inputCdMinLimit));
-        $("#inputMaxCdLimit" + index).val(inputDisplayNumber(request.inputCdMaxLimit));
-        $("#inputMinEffLimit" + index).val(inputDisplayNumber(request.inputEffMinLimit));
-        $("#inputMaxEffLimit" + index).val(inputDisplayNumber(request.inputEffMaxLimit));
-        $("#inputMinResLimit" + index).val(inputDisplayNumber(request.inputResMinLimit));
-        $("#inputMaxResLimit" + index).val(inputDisplayNumber(request.inputResMaxLimit));
+        $("#inputMinAtkLimit" + index).val(LimitConfiguration.displayValue(request, 'inputAtkMinLimit', 'inputAtkMinConfigured', 0));
+        $("#inputMaxAtkLimit" + index).val(LimitConfiguration.displayValue(request, 'inputAtkMaxLimit', 'inputAtkMaxConfigured', 2147483647));
+        $("#inputMinHpLimit" + index).val(LimitConfiguration.displayValue(request, 'inputHpMinLimit', 'inputHpMinConfigured', 0));
+        $("#inputMaxHpLimit" + index).val(LimitConfiguration.displayValue(request, 'inputHpMaxLimit', 'inputHpMaxConfigured', 2147483647));
+
+        $("#inputMinDefLimit" + index).val(LimitConfiguration.displayValue(request, 'inputDefMinLimit', 'inputDefMinConfigured', 0));
+        $("#inputMaxDefLimit" + index).val(LimitConfiguration.displayValue(request, 'inputDefMaxLimit', 'inputDefMaxConfigured', 2147483647));
+        $("#inputMinSpdLimit" + index).val(LimitConfiguration.displayValue(request, 'inputSpdMinLimit', 'inputSpdMinConfigured', 0));
+        $("#inputMaxSpdLimit" + index).val(LimitConfiguration.displayValue(request, 'inputSpdMaxLimit', 'inputSpdMaxConfigured', 2147483647));
+        $("#inputMinCrLimit" + index).val(LimitConfiguration.displayValue(request, 'inputCrMinLimit', 'inputCrMinConfigured', 0));
+        $("#inputMaxCrLimit" + index).val(LimitConfiguration.displayValue(request, 'inputCrMaxLimit', 'inputCrMaxConfigured', 2147483647));
+        $("#inputMinCdLimit" + index).val(LimitConfiguration.displayValue(request, 'inputCdMinLimit', 'inputCdMinConfigured', 0));
+        $("#inputMaxCdLimit" + index).val(LimitConfiguration.displayValue(request, 'inputCdMaxLimit', 'inputCdMaxConfigured', 2147483647));
+        $("#inputMinEffLimit" + index).val(LimitConfiguration.displayValue(request, 'inputEffMinLimit', 'inputEffMinConfigured', 0));
+        $("#inputMaxEffLimit" + index).val(LimitConfiguration.displayValue(request, 'inputEffMaxLimit', 'inputEffMaxConfigured', 2147483647));
+        $("#inputMinResLimit" + index).val(LimitConfiguration.displayValue(request, 'inputResMinLimit', 'inputResMinConfigured', 0));
+        $("#inputMaxResLimit" + index).val(LimitConfiguration.displayValue(request, 'inputResMaxLimit', 'inputResMaxConfigured', 2147483647));
 
         $("#inputMinCpLimit" + index).val(inputDisplayNumber(request.inputMinCpLimit));
         $("#inputMaxCpLimit" + index).val(inputDisplayNumber(request.inputMaxCpLimit));
@@ -1122,6 +1161,7 @@ async function recalculateFilters(e, heroResponse) {
     module.exports.applyItemFilters(params, heroResponse, allItemsResponse, false).then(result => {
         var items = result.items;
         var allItems = result.allItems;
+        var dominanceRemovedCounts = result.dominanceRemovedCounts;
 
         const weapons = items.filter(x => x.gear == "Weapon");
         const helmets = items.filter(x => x.gear == "Helmet");
@@ -1152,12 +1192,12 @@ async function recalculateFilters(e, heroResponse) {
         const bootsPercent = Math.round(boots.length / (allBoots.length || 1) * 100);
 
         $('#maxPermutationsNum').text(Number(permutations).toLocaleString());
-        $('#filteredWeaponsNum').text(Number(weapons.length).toLocaleString() + " / " + Number(allWeapons.length).toLocaleString() + " - (" + weaponsPercent + "%)");
-        $('#filteredHelmetsNum').text(Number(helmets.length).toLocaleString() + " / " + Number(allHelmets.length).toLocaleString() + " - (" + helmetsPercent + "%)");
-        $('#filteredArmorsNum').text(Number(armors.length).toLocaleString() + " / " + Number(allArmors.length).toLocaleString() + " - (" + armorsPercent + "%)");
-        $('#filteredNecklacesNum').text(Number(necklaces.length).toLocaleString() + " / " + Number(allNecklaces.length).toLocaleString() + " - (" + necklacesPercent + "%)");
-        $('#filteredRingsNum').text(Number(rings.length).toLocaleString() + " / " + Number(allRings.length).toLocaleString() + " - (" + ringsPercent + "%)");
-        $('#filteredBootsNum').text(Number(boots.length).toLocaleString() + " / " + Number(allBoots.length).toLocaleString() + " - (" + bootsPercent + "%)");
+        $('#filteredWeaponsNum').text(formatFilteredGearCount(weapons.length, dominanceRemovedCounts.Weapon, allWeapons.length, weaponsPercent));
+        $('#filteredHelmetsNum').text(formatFilteredGearCount(helmets.length, dominanceRemovedCounts.Helmet, allHelmets.length, helmetsPercent));
+        $('#filteredArmorsNum').text(formatFilteredGearCount(armors.length, dominanceRemovedCounts.Armor, allArmors.length, armorsPercent));
+        $('#filteredNecklacesNum').text(formatFilteredGearCount(necklaces.length, dominanceRemovedCounts.Necklace, allNecklaces.length, necklacesPercent));
+        $('#filteredRingsNum').text(formatFilteredGearCount(rings.length, dominanceRemovedCounts.Ring, allRings.length, ringsPercent));
+        $('#filteredBootsNum').text(formatFilteredGearCount(boots.length, dominanceRemovedCounts.Boots, allBoots.length, bootsPercent));
     });
 }
 
@@ -1486,6 +1526,11 @@ function readNumber(id) {
     var possibleNaN = parseInt(document.getElementById(id).value);
 
     return isNaN(possibleNaN) ? undefined : possibleNaN;
+}
+
+function isNumberInputConfigured(id) {
+    const value = document.getElementById(id).value;
+    return value != null && value.trim() != '' && !isNaN(parseInt(value));
 }
 
 function readCheckbox(id) {

@@ -78,6 +78,23 @@ public class OptimizationRequest extends Request {
     public int inputEffMaxLimit = Integer.MAX_VALUE;
     public int inputResMinLimit;
     public int inputResMaxLimit = Integer.MAX_VALUE;
+
+    public Boolean inputAtkMinConfigured;
+    public Boolean inputAtkMaxConfigured;
+    public Boolean inputHpMinConfigured;
+    public Boolean inputHpMaxConfigured;
+    public Boolean inputDefMinConfigured;
+    public Boolean inputDefMaxConfigured;
+    public Boolean inputSpdMinConfigured;
+    public Boolean inputSpdMaxConfigured;
+    public Boolean inputCrMinConfigured;
+    public Boolean inputCrMaxConfigured;
+    public Boolean inputCdMinConfigured;
+    public Boolean inputCdMaxConfigured;
+    public Boolean inputEffMinConfigured;
+    public Boolean inputEffMaxConfigured;
+    public Boolean inputResMinConfigured;
+    public Boolean inputResMaxConfigured;
     public int inputMinCpLimit;
     public int inputMaxCpLimit = Integer.MAX_VALUE;
     public int inputMinHppsLimit;

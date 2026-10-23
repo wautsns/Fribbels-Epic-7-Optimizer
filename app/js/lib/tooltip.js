@@ -68,7 +68,12 @@ module.exports = {
 //         });
 
         tippy('#filterStatsTooltip', {
-            content: '<p>'+i18next.t("Select substat filters to filter results by. Left column is min (inclusive) and right column is max (inclusive).")+'</p>'+ i18next.t("ItemGS is the per-item filter for gear score, for example, used to find builds that only use items with > 70 GS.")});
+            content: '<p>'+i18next.t("Select substat filters to filter results by. Left column is min (inclusive) and right column is max (inclusive).")+'</p>'
+                +'<p>'+i18next.t("Before Top X% filtering, gear is compared only with gear in the same slot and set. An item is removed only when another item is no worse on every compared stat and better on at least one.")+'</p>'
+                +'<p>'+i18next.t("Flat Attack, Defense, and Health are converted to equivalent percentages using the selected hero's base stats before comparison.")+'</p>'
+                +'<p>'+i18next.t("For a stat without a maximum, higher values are preferred. With a maximum and a minimum explicitly set to 0, lower values are preferred. With a maximum and no minimum or a positive minimum, the values must match for dominance.")+'</p>'
+                +'<p>'+i18next.t("For dominance filtering, a minimum of 0 with no maximum means the stat is ignored. A minimum of 0 with a maximum means lower values are preferred.")+'</p>'
+                +'<p>'+i18next.t("ItemGS is the per-item filter for gear score, for example, used to find builds that only use items with > 70 GS.")+'</p>'});
 
         tippy('#filterSkillsTooltip', {
             content: '<p>'+i18next.t("Select skill damage filters. Skill options can be changed through the Change skill options menu. Heroes with extra procs on S1 and no S2 damage will have their S2 replaced with the S1 proc value.")+'</p>'});
@@ -147,6 +152,7 @@ module.exports = {
             content:
 
 '<p>'+i18next.t("Shows how many pieces of gear will be used in the search, after filters are applied.")+'</p>'
++'<p>'+i18next.t("The number in parentheses after each filtered gear count is the number of items removed by dominance filtering before Top X% is applied. It only counts items removed after the other gear filters have been applied.")+'</p>'
 +'<p>'+i18next.t("If you notice for example, you only have 2 rings being used, try expanding your filters to use more ring options. Or if you see too much gear being used, reduce your Top % filter to be more selective.")+'</p>'
 +'<p>'+i18next.t("<b>Permutations - </b> Number of permutations of the filtered gear that need to be searched. Make this number lower to make searches faster, but you will be searching less options.")+'</p>'
 +'<p>'+i18next.t("<b>Searched - </b> Number permutations already searched.")+'</p>'

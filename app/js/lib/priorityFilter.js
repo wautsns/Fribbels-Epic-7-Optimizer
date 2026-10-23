@@ -1,5 +1,11 @@
 module.exports = {
 
+    calculatePriorityScores: (params, items, baseStats, reforge) => {
+        for (const gear of items) {
+            calculateScore(gear, params, baseStats, reforge);
+        }
+    },
+
     applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
         var passed = [];
 
@@ -16,11 +22,10 @@ module.exports = {
         console.log("Grouped gears", groups);
         console.log("AllItems grouped gears", allItemsGroups);
 
+        module.exports.calculatePriorityScores(params, items, baseStats, reforge);
+
         for (var key of Object.keys(groups)) {
             var gearArr = groups[key];
-            for (var gear of gearArr) {
-                calculateScore(gear, params, baseStats, reforge);
-            }
 
             gearArr.sort((a, b) => b.score - a.score);
 
@@ -73,6 +78,7 @@ function calculateScore(item, params, baseStats, reforge) {
                   cdRolls * params.inputCdPriority +
                   effRolls * params.inputEffPriority +
                   resRolls * params.inputResPriority;
+
 
     if (isNaN(score) || item.main.value == 0 || item.main.value == null || item.main.value == undefined || isNaN(item.main.value)) {
         console.error("There's an unknown item in your gear data, go to the Gear tab to fix the stats on any Level 0 or Main stat 0 items. This is most likely caused by new Arena / Event / Automaton tower gear.", item, params, baseStats);

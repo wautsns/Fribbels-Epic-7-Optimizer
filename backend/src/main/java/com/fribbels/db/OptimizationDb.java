@@ -66,7 +66,9 @@ public class OptimizationDb {
 //        System.out.println("Filtered indices.length " + filteredIndices.length);
 //        System.out.println("FilteredIds size " + filteredIds.size());
 
-        if (filteredIds.size() == 0) {
+        // Only the "no filter applied yet" case returns the raw result set. A filter that
+        // matched nothing must return an empty page, otherwise every row shows up again.
+        if (!filtered) {
             return ArrayUtils.subarray(resultHeroStats, startRow, endRow);
         }
 

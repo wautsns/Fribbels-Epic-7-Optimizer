@@ -787,6 +787,13 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                                     result.setMods(Lists.newArrayList(allweapons[w].getMod(), allhelmets[h].getMod(), allarmors[a]
                                             .getMod(), allnecklaces[n].getMod(), allrings[r].getMod(), allboots[b].getMod()));
 
+                                    // The GPU kernel decides passes[] from its own float maths, which can differ by a
+                                    // point from the stored stats. Re-check with the HeroStats that get displayed so
+                                    // the grid never shows rows outside the requested limits.
+                                    if (!passesUpdatedFilter(request, result)) {
+                                        continue;
+                                    }
+
                                     final long resultIndex = resultsCounter.getAndIncrement();
                                     result.setId(String.valueOf(resultIndex));
                                     resultCollector.offer(result);

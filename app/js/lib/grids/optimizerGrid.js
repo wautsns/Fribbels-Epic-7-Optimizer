@@ -90,6 +90,17 @@ module.exports = {
     },
 
     setPinnedHero: (hero) => {
+        // heroes coming from the hero list have zeroed stats; fall back to the values that
+        // were stored with the optimization request so the before panel is not all zeros
+        const request = hero.optimizationRequest;
+        if (request && !hero.atk && !hero.hp) {
+            ['atk', 'hp', 'def', 'spd', 'cr', 'cd', 'eff', 'res'].forEach(key => {
+                if (request[key] != null) {
+                    hero[key] = request[key];
+                }
+            });
+        }
+
         hero.eq = 0
         optimizerGrid.gridOptions.api.setPinnedTopRowData([hero]);
         pinnedRow = hero;

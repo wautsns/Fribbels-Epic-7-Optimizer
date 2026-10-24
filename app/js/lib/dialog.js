@@ -1060,15 +1060,14 @@ module.exports = {
                         displayTitle: true,
                         selectAll: false,
                         textTemplate: function (el) {
-                            const assetKey = el[0].value + "Set";
+                const assetKey = el[0].value + "Set";
 
-                            if (Object.keys(assetsBySet).includes(assetKey)) {
-                                const asset = assetsBySet[assetKey];
-                            return i18next.t(el[0].value);
-                            }
+                if (Object.keys(assetsBySet).includes(assetKey)) {
+                    return i18next.t(el[0].value);
+                }
 
-                            return el.html()
-                        },
+                return el.html()
+            },
                         styler: function (row) {
                             return '';
                         }

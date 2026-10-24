@@ -222,8 +222,10 @@ module.exports = {
             redrawHeroImage();
             module.exports.redrawHeroSelector();
             module.exports.loadPreviousHeroFilters(heroResponse, null, true);
-            OptimizerGrid.setPinnedHero(heroResponse.hero);
-            StatPreview.draw(heroResponse.hero, heroResponse.hero)
+            // the pinned row doubles as the "before" panel, so it needs the hero's real
+            // numbers instead of the zeroed stat fields of the hero payload
+            OptimizerGrid.setPinnedHero(Object.assign({}, heroResponse.hero, heroResponse.baseStats, { equipment: heroResponse.hero.equipment }));
+            module.exports.drawBaseStats(heroResponse)
         });
 
         // $('#forceNumberSelect').change(recalculateFilters);
@@ -681,6 +683,16 @@ module.exports = {
         return request;
     },
 
+    // The hero payload carries zeroed stat fields; the usable numbers are the hero's base
+    // stats, so the preview panel shows those until a result row is compared.
+    drawBaseStats: (heroResponse) => {
+        const stats = (heroResponse && (heroResponse.baseStats || heroResponse.hero)) || null;
+        if (!stats) return;
+
+        const filled = Object.assign({ atk: 0, def: 0, hp: 0, spd: 0, cr: 0, cd: 0, eff: 0, res: 0, score: 0 }, stats);
+        StatPreview.draw(filled, filled);
+    },
+
     loadPreviousHeroFilters: async (heroResponse, index, recalc, tab) => {
         if (index == null || index == undefined) {
             index = '';
@@ -693,6 +705,10 @@ module.exports = {
 
         const hero = heroResponse.hero;
         const request = hero.optimizationRequest;
+
+        if (index === '') {
+            module.exports.drawBaseStats(heroResponse);
+        }
 
         if (request) {
             setResultPriorityState(index, {

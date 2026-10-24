@@ -32,7 +32,6 @@ module.exports = {
                 const assetKey = el[0].value + "Set";
 
                 if (Object.keys(assetsBySet).includes(assetKey)) {
-                    const asset = assetsBySet[assetKey];
                     return i18next.t(el[0].value);
                 }
 
@@ -90,6 +89,7 @@ module.exports = {
         $('#inputRingStat').multipleSelect(Object.assign({}, selectAllMultipleSelectOptions, {placeholder: i18next.t("Ring")},{formatSelectAll () {return i18next.t('[Select all]')}}));
         $('#inputBootsStat').multipleSelect(Object.assign({}, selectAllMultipleSelectOptions, {placeholder: i18next.t("Boots")},{formatSelectAll () {return i18next.t('[Select all]')}}));
         $('#inputExcludeSet').multipleSelect(Object.assign({}, groupSelectMultipleSelectOptions, {placeholder: i18next.t("Exclude sets")}));
+
         $('#inputHeroAdd').multipleSelect(Object.assign({}, heroSelectorOptions, {placeholder: i18next.t("Hero")}))
         $('#addHeroesSelector').multipleSelect(Object.assign({}, addHeroSelectorOptions, {placeholder: i18next.t("Hero")}))
 
@@ -99,6 +99,29 @@ module.exports = {
         $('#optionsS1').multipleSelect(Object.assign({}, excludeEquippedSelectOptions, {placeholder: i18next.t("Exclude equipped"), selectAll: true},{formatSelectAll () {return i18next.t('[Select all]')}}));
         $('#optionsS2').multipleSelect(Object.assign({}, excludeEquippedSelectOptions, {placeholder: i18next.t("Exclude equipped"), selectAll: true},{formatSelectAll () {return i18next.t('[Select all]')}}));
         $('#optionsS3').multipleSelect(Object.assign({}, excludeEquippedSelectOptions, {placeholder: i18next.t("Exclude equipped"), selectAll: true},{formatSelectAll () {return i18next.t('[Select all]')}}));
+
+        // Set icons are added to the dropdown rows only (never to the collapsed summary, which
+        // the plugin re-renders without a change event when a hero is switched).
+        const decorateSetDropdowns = () => {
+            const bySet = Assets.getAssetsBySet();
+
+            $('.inputSetFilterSelect').each(function () {
+                $(this).closest('.ms-parent').find('.ms-drop li').each(function () {
+                    const $row = $(this);
+                    if ($row.find('img.ms-set-icon').length) return;
+
+                    const value = $row.find('input').attr('value');
+                    const asset = value && bySet[value + 'Set'];
+                    if (asset) {
+                        $row.find('label > span').prepend('<img class="ms-set-icon" src="' + asset + '">');
+                    }
+                });
+            });
+        };
+
+        window.decorateSetDropdowns = decorateSetDropdowns;
+        setTimeout(decorateSetDropdowns, 0);
+        $(document).on('click', '.ms-choice', () => setTimeout(decorateSetDropdowns, 60));
 
         // $('#optionsExcludeGearFrom' + index).multipleSelect('setSelects', ["0", "3", "6", "9", "12", "15"])
 

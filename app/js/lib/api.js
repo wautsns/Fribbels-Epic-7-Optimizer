@@ -277,10 +277,17 @@ module.exports = {
     getHeroById: async (id, useReforgeStats) => {
         // Autosave interferes with the reforge display
         const useReforgeStatsOverride = HeroesTab.getUseReforgedStats();
-        return post('/heroes/getHeroById', {
+        const response = await post('/heroes/getHeroById', {
             id: id,
             useReforgeStats: useReforgeStatsOverride
         });
+
+        // the hero payload carries zeroed stat fields, the usable numbers are in baseStats
+        if (response && response.hero && response.baseStats) {
+            response.hero = Object.assign({}, response.hero, response.baseStats);
+        }
+
+        return response;
     },
 
     equipItemsOnHero: async (heroId, itemIds, useReforgeStats) => {

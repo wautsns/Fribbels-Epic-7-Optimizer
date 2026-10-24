@@ -1714,6 +1714,7 @@ input:checked + .darkSlider:before {
   cursor: move;
   cursor: -webkit-grabbing;
   background-color: var(--inactive-color);
+  color: var(--font-color);
   border-radius: 5px;
   margin-top: 5px;
   min-height: 30px;
@@ -2102,4 +2103,13 @@ input:checked + .darkSlider:before {
 
 .skillTypeSelect {
   width: 250px !important;
+}
+
+/* small set icons inside multiple-select dropdowns */
+.ms-set-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+    vertical-align: -4px;
+    object-fit: contain;
 }

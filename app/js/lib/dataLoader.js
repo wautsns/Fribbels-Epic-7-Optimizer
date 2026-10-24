@@ -201,7 +201,6 @@ module.exports = {
         const localArtifactPath = Files.getDataPath() + '/cachedimages/' + artifactFileName;
 
         if (fs.existsSync(localArtifactPath)) {
-            console.log(`Artifact image already exists: ${artifactFileName}`);
             return localArtifactPath;
         }
 

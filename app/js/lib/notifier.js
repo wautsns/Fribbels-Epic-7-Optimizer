@@ -3,6 +3,22 @@ var globalOptions = {
 }
 var notifier = new AWN(globalOptions)
 
+// Persistent toast: duration <= 0 disables the library's auto dismiss timer
+function stickyToast(text, translate) {
+    const el = notifier.info(translate ? i18next.t(text) : text, { durations: { info: 0 } });
+    return {
+        close: () => {
+            try {
+                if (el && el.parentNode) {
+                    el.parentNode.removeChild(el);
+                }
+            } catch (error) {
+                // ignore
+            }
+        },
+    };
+}
+
 module.exports = {
     initialize: () => {
         globalOptions = {
@@ -27,6 +43,10 @@ module.exports = {
     info: (text) => {
         notifier.info(i18next.t(text));
     },
+
+    // stays on screen until close() is called
+    sticky: (text) => stickyToast(text, true),
+    stickyRaw: (text) => stickyToast(text, false),
 
     success: (text) => {
         notifier.success(i18next.t(text));

@@ -199,7 +199,7 @@ label {
   display: inline;
   vertical-align: middle;
 }
-input {
+input, button {
   vertical-align: middle;
   font-family: 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
 }

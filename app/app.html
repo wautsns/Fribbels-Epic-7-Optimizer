@@ -1598,6 +1598,7 @@ window.jQuery = $;
         </div>
 
         <div class="heroesTabButtonRow">
+          <input type="submit" value="One-Click Equip" class="gearPreviewButton" id="emulatorSelectHero" data-t>
           <input type="submit" value="Unequip Items" class="gearPreviewButton" id="unequipHeroesSubmit" data-t>
           <input type="submit" value="Lock Items" class="gearPreviewButton" id="lockHeroesSubmit" data-t>
           <input type="submit" value="Unlock Items" class="gearPreviewButton" id="unlockHeroesSubmit" data-t>
@@ -1975,6 +1976,13 @@ window.jQuery = $;
           <input type="text" id="settingLocatorWidth" class="settingsNumber">
           <div class="switchText" data-t>
             Locator width setting: # of columns per row on the Manage Equipment page for equipping heroes. Rescan items to update locator
+          </div>
+        </div>
+
+        <div class="toggleRow">
+          <input type="text" id="settingAdbPath" class="settingsNumber" style="width: 320px;">
+          <div class="switchText" data-t>
+            Emulator adb path (leave empty to auto-detect). Used by "One-Click Equip" on the Heroes tab
           </div>
         </div>
 

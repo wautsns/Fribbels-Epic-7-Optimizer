@@ -136,6 +136,7 @@ module.exports = {
             icon: 'success',
             html: html,
             confirmButtonText: i18next.t("OK"),
+            showCloseButton: true,
             allowOutsideClick: outsideClickDisable
             // cancelButtonText: i18next.t("Cancel")
         })
@@ -146,6 +147,7 @@ module.exports = {
             icon: 'error',
             html: html,
             confirmButtonText: i18next.t("OK"),
+            showCloseButton: true,
             allowOutsideClick: outsideClickDisable
             // cancelButtonText: i18next.t("Cancel")
         })

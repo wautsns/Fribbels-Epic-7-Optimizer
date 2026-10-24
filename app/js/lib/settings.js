@@ -123,6 +123,7 @@ module.exports = {
             settingMaxRamGb: 6,
             settingPenDefense: 1_500,
             settingLocatorWidth: 5,
+            settingAdbPath: '',
             settingDefaultPath: defaultPath,
             settingExcludeEquipped: [],
             settingEnhanceLimit: 0,
@@ -236,6 +237,8 @@ module.exports = {
             settings.settingLocatorWidth = 5;
         }
 
+        document.getElementById('settingAdbPath').value = settings.settingAdbPath || '';
+
         if (settings.settingDarkMode) {
             document.getElementById('darkSlider').checked = true;
             DarkMode.toggle();
@@ -310,6 +313,7 @@ module.exports = {
             settingMaxRamGb: parseInt(module.exports.parseNumberValue('settingMaxRamGb') || 6),
             settingPenDefense: parseInt(module.exports.parseNumberValue('settingPenDefense') || 1_500),
             settingLocatorWidth: parseInt(module.exports.parseNumberValue('settingLocatorWidth') || 5),
+            settingAdbPath: document.getElementById('settingAdbPath').value.trim(),
             settingDefaultPath: pathOverride ? pathOverride : defaultPath,
             settingExcludeEquipped: $('#optionsExcludeGearFrom').multipleSelect('getSelects'),
             settingEnhanceLimit: $('#optionsEnhanceLimit').multipleSelect('getSelects'),

@@ -44,6 +44,7 @@
     "sortablejs": "latest",
     "string-similarity": "latest",
     "sweetalert2": "^10.10.4",
+    "tesseract.js": "^7.0.0",
     "tinygradient": "^1.1.2",
     "tippy": "^0.0.0",
     "tippy.js": "^6.2.7",

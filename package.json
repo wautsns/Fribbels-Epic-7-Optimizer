@@ -128,7 +128,14 @@
       "owner": "wautsns",
       "repo": "Fribbels-Epic-7-Optimizer",
       "private": false
-    }
+    },
+    "asarUnpack": [
+      "assets/tesseract/**",
+      "node_modules/tesseract.js/**",
+      "node_modules/tesseract.js-core/**",
+      "node_modules/wasm-feature-detect/**",
+      "node_modules/node-fetch/**"
+    ]
   },
   "jest": {
     "testURL": "http://localhost/",

@@ -50,6 +50,7 @@ global.OptimizerTab = require('./tabs/optimizerTab');
 global.MultiOptimizerTab = require('./tabs/multiOptimizerTab');
 global.ItemsTab = require('./tabs/itemsTab');
 global.EnhancingTab = require('./tabs/enhancingTab');
+global.EmulatorEquip = require('./emulator/emulatorEquip');
 
 // Grid
 global.HeroesGrid = require('./grids/heroesGrid');
@@ -127,6 +128,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await Settings.initialize();
         Saves.initialize();
         await Saves.loadAutoSave();
+        EmulatorEquip.initialize();
         MultiOptimizerTab.initialize();
 
         Tooltip.initialize();

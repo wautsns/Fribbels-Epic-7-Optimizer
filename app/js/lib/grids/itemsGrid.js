@@ -24,6 +24,8 @@ var currentAggregate = {};
 var selectedCell = null;
 
 module.exports = {
+    getPreviewItem: () => selectedCell,
+
     async editedItem() {
         if (selectedCell) {
             response = await Api.getItemById(selectedCell.id);

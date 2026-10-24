@@ -3,6 +3,8 @@ const tinygradient = require('tinygradient');
 var useReforgedStats = true;
 
 module.exports = {
+    getSelectedGear,
+
     initialize: () => {
         setupEventListeners();
         const selector = document.getElementById('addHeroesSelector')

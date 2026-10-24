@@ -10,6 +10,57 @@ const S3_BASE_URL = 'https://e7-optimizer-game-data.s3-accelerate.amazonaws.com'
 const ARTIFACT_IMAGE_BASE_URL = 'https://static-pubcomm.onstove.com/event/live/epic7/guide/wearingStatus/images/artifact';
 const TRANSLATION_BASE_URL = 'https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/refs/heads/main/data/locales';
 
+// raw.githubusercontent is reset on some networks, so github files are tried through a few
+// mirrors in order (the fastest reachable one wins); anything else is used as-is
+const GITHUB_RAW_PREFIX = 'https://raw.githubusercontent.com/';
+
+function githubMirrors(url) {
+    const urls = [];
+
+    if (url && url.startsWith(GITHUB_RAW_PREFIX)) {
+        const parts = url.slice(GITHUB_RAW_PREFIX.length).split('/');
+        const owner = parts[0];
+        const repo = parts[1];
+        let branch;
+        let rest;
+
+        if (parts[2] === 'refs' && parts[3] === 'heads') {
+            branch = parts[4];
+            rest = parts.slice(5).join('/');
+        } else {
+            branch = parts[2];
+            rest = parts.slice(3).join('/');
+        }
+
+        const repoPath = `gh/${owner}/${repo}@${branch}/${rest}`;
+        urls.push(`https://gcore.jsdelivr.net/${repoPath}`);
+        urls.push(`https://gh-proxy.com/${url}`);
+        urls.push(`https://fastly.jsdelivr.net/${repoPath}`);
+    }
+
+    urls.push(url);
+    return urls;
+}
+
+async function axiosWithMirrors(url, options) {
+    let lastError = null;
+
+    for (const candidate of githubMirrors(url)) {
+        try {
+            const response = await axios.get(candidate, options);
+            if (candidate !== url) {
+                console.log('Fetched through mirror:', candidate.slice(0, 60) + '...');
+            }
+            return response;
+        } catch (error) {
+            lastError = error;
+            console.warn('Source failed:', candidate.slice(0, 60) + '...', '-', error.message);
+        }
+    }
+
+    throw lastError || new Error('No source available');
+}
+
 module.exports = {
 
     // ==================== JSON 数据加载 ====================
@@ -119,7 +170,7 @@ module.exports = {
 
             console.log(`Downloading hero image: ${fileName}`);
 
-            const response = await axios.get(imageUrl, {
+            const response = await axiosWithMirrors(imageUrl, {
                 timeout: 15000,
                 responseType: 'arraybuffer'
             });
@@ -262,9 +313,9 @@ module.exports = {
             const remoteTranslationUrl = `${TRANSLATION_BASE_URL}/${lang}/translation.json`;
             const localTranslationPath = Files.getDataPath() + `/locales/${lang}/translation.json`;
 
-            // 获取远程翻译数据
-            const response = await axios.get(remoteTranslationUrl, {
-                timeout: 30000,
+            // 获取远程翻译数据（github 被重置时自动换镜像）
+            const response = await axiosWithMirrors(remoteTranslationUrl, {
+                timeout: 15000,
                 responseType: 'json'
             });
 

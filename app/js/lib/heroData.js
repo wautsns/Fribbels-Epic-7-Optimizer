@@ -4,6 +4,69 @@ var eesByName = {};
 
 global.DataLoader = require('./dataLoader');
 
+// The raw herodata.json leaves some skill options empty (support skills, new heroes), the
+// app relies on every skill having at least one option, so they are filled in here.
+function normalizeSkillOptions() {
+    Object.keys(heroesByName).forEach(name => {
+        const hero = heroesByName[name];
+        if (!hero || typeof hero !== 'object') return;
+
+        if (!hero.skills) {
+            hero.skills = {
+                S1: { hitTypes: ['normal'], options: [] },
+                S2: { hitTypes: ['normal'], options: [] },
+                S3: { hitTypes: ['normal'], options: [] },
+            };
+        }
+
+        for (const skill of ['S1', 'S2', 'S3']) {
+            let skillData = hero.skills[skill];
+            if (!skillData || typeof skillData !== 'object') {
+                skillData = hero.skills[skill] = {};
+            }
+
+            if (!Array.isArray(skillData.options)) {
+                skillData.options = [];
+            }
+
+            const hitTypes = Array.isArray(skillData.hitTypes) ? skillData.hitTypes : [];
+
+            for (const hitType of hitTypes) {
+                if (!hitType) continue;
+
+                if (!skillData.options.find(option => option && option.name && option.name.includes(hitType))) {
+                    skillData.options.push({
+                        name: skill + ' ' + hitType,
+                        rate: skillData.rate,
+                        note: skillData.note,
+                        pow: skillData.pow,
+                        targets: skillData.targets,
+                        selfHpScaling: skillData.selfHpScaling,
+                        selfAtkScaling: skillData.selfAtkScaling,
+                        selfDefScaling: skillData.selfDefScaling,
+                        selfSpdScaling: skillData.selfSpdScaling,
+                        increasedValue: skillData.increasedValue,
+                        extraSelfHpScaling: skillData.extraSelfHpScaling,
+                        extraSelfDefScaling: skillData.extraSelfDefScaling,
+                        extraSelfAtkScaling: skillData.extraSelfAtkScaling,
+                        cdmgIncrease: skillData.cdmgIncrease,
+                        penetration: skillData.penetration,
+                    });
+                }
+            }
+
+            if (skillData.options.length === 0) {
+                skillData.options.push({
+                    name: skill + ' n/a',
+                    targets: 0,
+                    rate: 0,
+                    pow: 0,
+                });
+            }
+        }
+    });
+}
+
 module.exports = {
 
     initialize: async () => {
@@ -132,6 +195,8 @@ module.exports = {
         const heroData = await DataLoader.fetchAndSaveJson('herodata.json', 'cache/herodata.json');
         if (heroData) {
             heroesByName = heroData;
+            // fresh data has empty skill option lists, fill them like initialize() does
+            normalizeSkillOptions();
             console.log('herodata.json refreshed');
         }
         

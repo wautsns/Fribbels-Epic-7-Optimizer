@@ -176,7 +176,7 @@ module.exports = {
 
                 // stays visible while this slot is being processed
                 const progress = Notifier.stickyRaw
-                    ? Notifier.stickyRaw(`${i18next.t('Equipping in game...')} (${index + 1}/${items.length}) ${currentSlot}`)
+                    ? Notifier.stickyRaw(`${i18next.t('Equipping in game...')} ${currentSlot} (${index + 1}/${items.length})`)
                     : null;
 
                 try {

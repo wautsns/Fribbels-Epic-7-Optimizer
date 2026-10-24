@@ -6,8 +6,8 @@ import com.fribbels.request.OptimizationRequest;
 
 public class SetFormat000OptimizerKernel extends GpuOptimizerKernel {
 
-    public SetFormat000OptimizerKernel(final OptimizationRequest request, final float[] flattenedWeaponAccs, final float[] flattenedHelmetAccs, final float[] flattenedArmorAccs, final float[] flattenedNecklaceAccs, final float[] flattenedRingAccs, final float[] flattenedBootAccs, final float bonusBaseAtk, final float bonusBaseDef, final float bonusBaseHp, final float atkSetBonus, final float hpSetBonus, final float defSetBonus, final float speedSetBonus, final float revengeSetBonus, final float reversalSetBonus, final float penSetDmgBonus, final float targetDefense, final float bonusMaxAtk, final float bonusMaxDef, final float bonusMaxHp, final int SETTING_RAGE_SET, final int SETTING_PEN_SET, final HeroStats base, final Hero hero, final long argSize, final long wSize, final long hSize, final long aSize, final long nSize, final long rSize, final long bSize, final long max, final long[] setSolutionBitMasks) {
-        super(request, flattenedWeaponAccs, flattenedHelmetAccs, flattenedArmorAccs, flattenedNecklaceAccs, flattenedRingAccs, flattenedBootAccs, bonusBaseAtk, bonusBaseDef, bonusBaseHp, atkSetBonus, hpSetBonus, defSetBonus, speedSetBonus, revengeSetBonus, reversalSetBonus, penSetDmgBonus, targetDefense, bonusMaxAtk, bonusMaxDef, bonusMaxHp, SETTING_RAGE_SET, SETTING_PEN_SET, base, hero, argSize, wSize, hSize, aSize, nSize, rSize, bSize, max, setSolutionBitMasks);
+    public SetFormat000OptimizerKernel(final OptimizationRequest request, final float[] flattenedWeaponAccs, final float[] flattenedHelmetAccs, final float[] flattenedArmorAccs, final float[] flattenedNecklaceAccs, final float[] flattenedRingAccs, final float[] flattenedBootAccs, final float bonusBaseAtk, final float bonusBaseDef, final float bonusBaseHp, final float atkSetBonus, final float hpSetBonus, final float defSetBonus, final float speedSetBonus, final float revengeSetBonus, final float reversalSetBonus, final float penSetDmgBonus, final float targetDefense, final float bonusMaxAtk, final float bonusMaxDef, final float bonusMaxHp, final int SETTING_RAGE_SET, final int SETTING_PEN_SET, final HeroStats base, final Hero hero, final long argSize, final long wSize, final long hSize, final long aSize, final long nSize, final long rSize, final long bSize, final long max) {
+        super(request, flattenedWeaponAccs, flattenedHelmetAccs, flattenedArmorAccs, flattenedNecklaceAccs, flattenedRingAccs, flattenedBootAccs, bonusBaseAtk, bonusBaseDef, bonusBaseHp, atkSetBonus, hpSetBonus, defSetBonus, speedSetBonus, revengeSetBonus, reversalSetBonus, penSetDmgBonus, targetDefense, bonusMaxAtk, bonusMaxDef, bonusMaxHp, SETTING_RAGE_SET, SETTING_PEN_SET, base, hero, argSize, wSize, hSize, aSize, nSize, rSize, bSize, max);
     }
 
     @Override
@@ -126,6 +126,8 @@ public class SetFormat000OptimizerKernel extends GpuOptimizerKernel {
             final int iRset = (int)rSet;
             final int iBset = (int)bSet;
 
+            final long setMask = computeSetBitMask(iWset, iHset, iAset, iNset, iRset, iBset);
+
             final int setIndex = iWset * 7962624
                 + iHset * 331776
                 + iAset * 13824
@@ -140,23 +142,23 @@ public class SetFormat000OptimizerKernel extends GpuOptimizerKernel {
 //                    + iRset * 18
 //                    + iBset;
 
-            final int hpSet = (int)((setSolutionBitMasks[setIndex] & 1L) + ((setSolutionBitMasks[setIndex] >>> 1) & 1L) + ((setSolutionBitMasks[setIndex] >>> 2) & 1L));
-            final int defSet = (int)(((setSolutionBitMasks[setIndex] >>> 3) & 1L) + ((setSolutionBitMasks[setIndex] >>> 4) & 1L) + ((setSolutionBitMasks[setIndex] >>> 5) & 1L));
-            final int atkSet = (int)((setSolutionBitMasks[setIndex] >>> 6) & 1L);
-            final int speedSet = (int)((setSolutionBitMasks[setIndex] >>> 7) & 1L);
-            final int crSet = (int)(((setSolutionBitMasks[setIndex] >>> 8) & 1L) + ((setSolutionBitMasks[setIndex] >>> 9) & 1L) + ((setSolutionBitMasks[setIndex] >>> 10) & 1L));
-            final int effSet = (int)(((setSolutionBitMasks[setIndex] >>> 11) & 1L) + ((setSolutionBitMasks[setIndex] >>> 12) & 1L) + ((setSolutionBitMasks[setIndex] >>> 13) & 1L));
-            final int cdSet = (int)((setSolutionBitMasks[setIndex] >>> 14) & 1L);
-            final int resSet = (int)(((setSolutionBitMasks[setIndex] >>> 17) & 1L) + ((setSolutionBitMasks[setIndex] >>> 18) & 1L) + ((setSolutionBitMasks[setIndex] >>> 19) & 1L));
-            final int rageSet = (int)((setSolutionBitMasks[setIndex] >>> 21) & 1L);
-            final int penSet = (int)((setSolutionBitMasks[setIndex] >>> 23) & 1L);
-            final int revengeSet = (int)((setSolutionBitMasks[setIndex] >>> 24) & 1L);
-//            final int protectionSet = (int)((setSolutionBitMasks[setIndex] >>> 25) & 1L);
-//            final int injurySet = (int)((setSolutionBitMasks[setIndex] >>> 26) & 1L);
-            final int torrentSet = (int)(((setSolutionBitMasks[setIndex] >>> 27) & 1L) + ((setSolutionBitMasks[setIndex] >>> 28) & 1L) + ((setSolutionBitMasks[setIndex] >>> 29) & 1L));
-            final int reversalSet = (int)((setSolutionBitMasks[setIndex] >>> 30) & 1L);
-            final int warfareSet = (int)((setSolutionBitMasks[setIndex] >>> 32) & 1L);
-            final int weakeningSet = (int)((setSolutionBitMasks[setIndex] >>> 34) & 1L);
+            final int hpSet = (int)((setMask & 1L) + ((setMask >>> 1) & 1L) + ((setMask >>> 2) & 1L));
+            final int defSet = (int)(((setMask >>> 3) & 1L) + ((setMask >>> 4) & 1L) + ((setMask >>> 5) & 1L));
+            final int atkSet = (int)((setMask >>> 6) & 1L);
+            final int speedSet = (int)((setMask >>> 7) & 1L);
+            final int crSet = (int)(((setMask >>> 8) & 1L) + ((setMask >>> 9) & 1L) + ((setMask >>> 10) & 1L));
+            final int effSet = (int)(((setMask >>> 11) & 1L) + ((setMask >>> 12) & 1L) + ((setMask >>> 13) & 1L));
+            final int cdSet = (int)((setMask >>> 14) & 1L);
+            final int resSet = (int)(((setMask >>> 17) & 1L) + ((setMask >>> 18) & 1L) + ((setMask >>> 19) & 1L));
+            final int rageSet = (int)((setMask >>> 21) & 1L);
+            final int penSet = (int)((setMask >>> 23) & 1L);
+            final int revengeSet = (int)((setMask >>> 24) & 1L);
+//            final int protectionSet = (int)((setMask >>> 25) & 1L);
+//            final int injurySet = (int)((setMask >>> 26) & 1L);
+            final int torrentSet = (int)(((setMask >>> 27) & 1L) + ((setMask >>> 28) & 1L) + ((setMask >>> 29) & 1L));
+            final int reversalSet = (int)((setMask >>> 30) & 1L);
+            final int warfareSet = (int)((setMask >>> 32) & 1L);
+            final int weakeningSet = (int)((setMask >>> 34) & 1L);
 
             final float atk =  ((bonusBaseAtk  + wAtk+hAtk+aAtk+nAtk+rAtk+bAtk + (atkSet * atkSetBonus)) * bonusMaxAtk);
             final float hp =   ((bonusBaseHp   + wHp+hHp+aHp+nHp+rHp+bHp + (hpSet * hpSetBonus + warfareSet * hpSetBonus + torrentSet * hpSetBonus/-2)) * bonusMaxHp);

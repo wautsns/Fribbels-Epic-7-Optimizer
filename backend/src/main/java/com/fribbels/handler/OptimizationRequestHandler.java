@@ -68,7 +68,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
     private AtomicLong resultsCounter = new AtomicLong(0);
     private volatile TopKResultCollector activeResultCollector;
 
-    private long[] setSolutionBitMasks;
 
     private boolean canUseGpu = true;
 
@@ -79,7 +78,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
     private static final int SET_EXPONENTIAL = 191102976; // 24 ^ 6
 
     private boolean[] permutations = new boolean[SET_EXPONENTIAL];
-    private int[] setPermutationIndicesPlusOne = new int[SET_EXPONENTIAL];
 
     public static OptimizationRequestHandler instance;
 
@@ -95,109 +93,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 
 
             ExecutorService t = Executors.newFixedThreadPool(3);
-            t.execute(() -> {
-                try {
-                    System.out.println("Starting setSolutionBitMasks generation...");
-                    long start = System.currentTimeMillis();
-                    setSolutionBitMasks = new long[SET_EXPONENTIAL];
-                    int count = 0;
-                    for (int a = 0; a < SET_COUNT; a++) {
-                        for (int b = 0; b < SET_COUNT; b++) {
-                            for (int c = 0; c < SET_COUNT; c++) {
-                                for (int d = 0; d < SET_COUNT; d++) {
-                                    for (int e = 0; e < SET_COUNT; e++) {
-                                        for (int f = 0; f < SET_COUNT; f++) {
-                                            int[] sets = new int[]{a, b, c, d, e, f};
-                                            int[] counters = convertSetsToSetCounters(sets);
-
-                                            long l = 0;
-
-                                            l += counters[23] / 2 > 0 ? 1L : 0L; // fervor
-                                            l <<= 1;
-                                            l += counters[22] / 4 > 0 ? 1L : 0L; // weakening
-                                            l <<= 1;
-                                            l += counters[21] / 2 > 0 ? 1L : 0L; // pursuit
-                                            l <<= 1;
-                                            l += counters[20] / 4 > 0 ? 1L : 0L; // warfare (opener)
-                                            l <<= 1;
-                                            l += counters[19] / 4 > 0 ? 1L : 0L; // riposte
-                                            l <<= 1;
-                                            l += counters[18] / 4 > 0 ? 1L : 0L; // reversal
-                                            l <<= 1;
-                                            l += counters[17] / 2 > 0 ? 1L : 0L; // torrent 1
-                                            l <<= 1;
-                                            l += counters[17] / 2 - 1 > 0 ? 1L : 0L; // torrent 2
-                                            l <<= 1;
-                                            l += counters[17] / 2 - 2 > 0 ? 1L : 0L; // torrent 3
-                                            l <<= 1;
-                                            l += counters[16] / 4 > 0 ? 1L : 0L; // protection
-                                            l <<= 1;
-                                            l += counters[15] / 4 > 0 ? 1L : 0L; // injury
-                                            l <<= 1;
-                                            l += counters[14] / 4 > 0 ? 1L : 0L; // revenge
-                                            l <<= 1;
-                                            l += counters[13] / 2 > 0 ? 1L : 0L; // pen
-                                            l <<= 1;
-                                            l += counters[12] / 2 > 0 ? 1L : 0L; // immunity
-                                            l <<= 1;
-                                            l += counters[11] / 4 > 0 ? 1L : 0L; // rage
-                                            l <<= 1;
-                                            l += counters[10] / 2 > 0 ? 1L : 0L; // unity - should be x3 but don't need it
-                                            l <<= 1;
-                                            l += counters[9] / 2 > 0 ? 1L : 0L; // res1
-                                            l <<= 1;
-                                            l += counters[9] / 2 - 1 > 0 ? 1L : 0L; // res2
-                                            l <<= 1;
-                                            l += counters[9] / 2 - 2 > 0 ? 1L : 0L; // res3
-                                            l <<= 1;
-                                            l += counters[8] / 4 > 0 ? 1L : 0L; // counter
-                                            l <<= 1;
-                                            l += counters[7] / 4 > 0 ? 1L : 0L; // lifesteal
-                                            l <<= 1;
-                                            l += counters[6] / 4 > 0 ? 1L : 0L; // destr
-                                            l <<= 1;
-                                            l += counters[5] / 2 > 0 ? 1L : 0L; // hit1
-                                            l <<= 1;
-                                            l += counters[5] / 2 - 1 > 0 ? 1L : 0L; // hit2
-                                            l <<= 1;
-                                            l += counters[5] / 2 - 2 > 0 ? 1L : 0L; // hit3
-                                            l <<= 1;
-                                            l += counters[4] / 2 > 0 ? 1L : 0L; // crit1
-                                            l <<= 1;
-                                            l += counters[4] / 2 - 1 > 0 ? 1L : 0L; // crit2
-                                            l <<= 1;
-                                            l += counters[4] / 2 - 2 > 0 ? 1L : 0L;  // crit3
-                                            l <<= 1;
-                                            l += counters[3] / 4 > 0 ? 1L : 0L; // spd
-                                            l <<= 1;
-                                            l += counters[2] / 4 > 0 ? 1L : 0L; // atk
-                                            l <<= 1;
-                                            l += counters[1] / 2 > 0 ? 1L : 0L; // def1
-                                            l <<= 1;
-                                            l += counters[1] / 2 - 1 > 0 ? 1L : 0L; // def2
-                                            l <<= 1;
-                                            l += counters[1] / 2 - 2 > 0 ? 1L : 0L; // def3
-                                            l <<= 1;
-                                            l += counters[0] / 2 > 0 ? 1L : 0L; // hp1
-                                            l <<= 1;
-                                            l += counters[0] / 2 - 1 > 0 ? 1L : 0L; // hp2
-                                            l <<= 1;
-                                            l += counters[0] / 2 - 2 > 0 ? 1L : 0L; // hp3
-
-                                            setSolutionBitMasks[count] = l;
-                                            count++;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    System.out.println("Finished setSolutionBitMasks generation in " + (System.currentTimeMillis() - start) + "ms. First element: " + setSolutionBitMasks[0] + ", Last element: " + setSolutionBitMasks[setSolutionBitMasks.length - 1]);
-                } catch (Throwable e) {
-                     System.err.println("Error generating set solution bit masks: ");
-                     e.printStackTrace();
-                }
-            });
 
             t.execute(() -> {
                 try {
@@ -247,7 +142,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 
         t.execute(() -> {
             permutations = new boolean[SET_EXPONENTIAL];
-            setPermutationIndicesPlusOne = new int[SET_EXPONENTIAL];
         });
     }
 
@@ -750,7 +644,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                     nSize,
                     rSize,
                     bSize,
-                    max, setSolutionBitMasks
+                    max
             );
 
             try {
@@ -1208,7 +1102,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 //        final boolean[] permutations = new boolean[SET_EXPONENTIAL];
 //        final int[] setPermutationIndicesPlusOne = new int[SET_EXPONENTIAL];
         Arrays.fill(permutations, false);
-        Arrays.fill(setPermutationIndicesPlusOne, 0);
 //        int[] setSolutionCounters;
 
 //        setSolutionCounters = new int[1];
@@ -1223,7 +1116,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 
             Arrays.fill(permutations, true);
 //            setSolutionCounters = new int[1];
-            setPermutationIndicesPlusOne[0] = 1;
         } else if (setFormat == 1) {
             // [4][2][0]
 
@@ -1244,7 +1136,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 //                        }
 //
                         permutations[index1D] = true;
-                        setPermutationIndicesPlusOne[index1D] = i + 1;
                     }
                     //                    System.out.println(Arrays.toString(indices));
                     //                    System.out.println(set1);
@@ -1278,7 +1169,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 //                            }
 //
                             permutations[index1D] = true;
-                            setPermutationIndicesPlusOne[index1D] = i + 1;
                         }
                         //                        System.out.println(Arrays.toString(indicesInstance));
                         //                        System.out.println(set1);
@@ -1315,7 +1205,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 //                                    }
 //
                                     permutations[index1D] = true;
-                                    setPermutationIndicesPlusOne[index1D] = i + 1;
                                 }
                                 //                                System.out.println(Arrays.toString(indicesInstance));
                                 //                                System.out.println(set1);
@@ -1353,7 +1242,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 //                                }
 //
                                 permutations[index1D] = true;
-                                setPermutationIndicesPlusOne[index1D] = i + 1;
                             }
                             //                            System.out.println(Arrays.toString(indicesInstance));
                             //                            System.out.println(set1);
@@ -1385,7 +1273,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
 //                            }
 //
                             permutations[index1D] = true;
-                            setPermutationIndicesPlusOne[index1D] = i + 1;
                         }
                         //                        System.out.println(Arrays.toString(indices));
                         //                        System.out.println(set1);
@@ -1401,7 +1288,6 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
         }
 
         request.setBoolArr(permutations);
-        request.setSetPermutationIndicesPlusOne(setPermutationIndicesPlusOne);
 //        request.setSetSolutionCounters(setSolutionCounters);
 
     }
@@ -1439,8 +1325,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
             final long nSize,
             final long rSize,
             final long bSize,
-            final long max,
-            final long[] longSetMasks
+            final long max
     ) {
         if (request.getSetFormat() == 0) {
             return new SetFormat000OptimizerKernel(
@@ -1476,8 +1361,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                     nSize,
                     rSize,
                     bSize,
-                    max,
-                    longSetMasks
+                    max
             );
         }
         return new GpuOptimizerKernel(
@@ -1513,8 +1397,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                 nSize,
                 rSize,
                 bSize,
-                max,
-                longSetMasks
+                    max
         );
     }
 }

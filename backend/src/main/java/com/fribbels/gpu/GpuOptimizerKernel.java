@@ -88,7 +88,6 @@ public class GpuOptimizerKernel extends Kernel {
 //    @Constant final float s1AtkIncrease;
 
     @Constant final boolean[] boolArr;
-    @Constant final int[] setPermutationIndicesPlusOne;
     final int[] setSolutionCounters;
     @Constant final long max;
 
@@ -197,7 +196,6 @@ public class GpuOptimizerKernel extends Kernel {
 
     int iteration;
     boolean[] passes;
-    @Constant final long[] setSolutionBitMasks;
 
 //    @Local int[] localSetsBuffer = new int[256 * 16];
 //    @Local final float[] localStatBuffer = new float[256 * 21];
@@ -235,8 +233,7 @@ public class GpuOptimizerKernel extends Kernel {
             final long nSize,
             final long rSize,
             final long bSize,
-            final long max,
-            final long[] setSolutionBitMasks
+            final long max
     ) {
         this.flattenedWeaponAccs = flattenedWeaponAccs;
         this.flattenedHelmetAccs = flattenedHelmetAccs;
@@ -437,9 +434,7 @@ public class GpuOptimizerKernel extends Kernel {
 
         this.max = max;
         this.boolArr = request.boolArr;
-        this.setPermutationIndicesPlusOne = request.setPermutationIndicesPlusOne;
         this.setSolutionCounters = request.setSolutionCounters;
-        this.setSolutionBitMasks = setSolutionBitMasks;
 
         final DamageMultipliers dm = hero.getDamageMultipliers();
 
@@ -624,6 +619,8 @@ public class GpuOptimizerKernel extends Kernel {
             final int iRset = (int)rSet;
             final int iBset = (int)bSet;
 
+            final long setMask = computeSetBitMask(iWset, iHset, iAset, iNset, iRset, iBset);
+
             final int setIndex = iWset * 7962624
                 + iHset * 331776
                 + iAset * 13824
@@ -684,25 +681,25 @@ public class GpuOptimizerKernel extends Kernel {
 
             //            debug[id] = min(1, longSetMasks[setIndex] & (1 << 7));
 
-            final int hpSet = (int)((setSolutionBitMasks[setIndex] & 1L) + ((setSolutionBitMasks[setIndex] >>> 1) & 1L) + ((setSolutionBitMasks[setIndex] >>> 2) & 1L));
-            final int defSet = (int)(((setSolutionBitMasks[setIndex] >>> 3) & 1L) + ((setSolutionBitMasks[setIndex] >>> 4) & 1L) + ((setSolutionBitMasks[setIndex] >>> 5) & 1L));
-            final int atkSet = (int)((setSolutionBitMasks[setIndex] >>> 6) & 1L);
-            final int speedSet = (int)((setSolutionBitMasks[setIndex] >>> 7) & 1L);
-            final int crSet = (int)(((setSolutionBitMasks[setIndex] >>> 8) & 1L) + ((setSolutionBitMasks[setIndex] >>> 9) & 1L) + ((setSolutionBitMasks[setIndex] >>> 10) & 1L));
-            final int effSet = (int)(((setSolutionBitMasks[setIndex] >>> 11) & 1L) + ((setSolutionBitMasks[setIndex] >>> 12) & 1L) + ((setSolutionBitMasks[setIndex] >>> 13) & 1L));
-            final int cdSet = (int)((setSolutionBitMasks[setIndex] >>> 14) & 1L);
-            final int resSet = (int)(((setSolutionBitMasks[setIndex] >>> 17) & 1L) + ((setSolutionBitMasks[setIndex] >>> 18) & 1L) + ((setSolutionBitMasks[setIndex] >>> 19) & 1L));
-            final int rageSet = (int)((setSolutionBitMasks[setIndex] >>> 21) & 1L);
-            final int penSet = (int)((setSolutionBitMasks[setIndex] >>> 23) & 1L);
-            final int revengeSet = (int)((setSolutionBitMasks[setIndex] >>> 24) & 1L);
-//            final int injurySet = (int)((setSolutionBitMasks[setIndex] >>> 25) & 1L);
-//            final int protectionSet = (int)((setSolutionBitMasks[setIndex] >>> 26) & 1L);
-            final int torrentSet = (int)(((setSolutionBitMasks[setIndex] >>> 27) & 1L) + ((setSolutionBitMasks[setIndex] >>> 28) & 1L) + ((setSolutionBitMasks[setIndex] >>> 29) & 1L));
-            final int reversalSet = (int)((setSolutionBitMasks[setIndex] >>> 30) & 1L);
-            final int riposteSet = (int)((setSolutionBitMasks[setIndex] >>> 31) & 1L);
-            final int warfareSet = (int)((setSolutionBitMasks[setIndex] >>> 32) & 1L);
-            final int pursuitSet = (int)((setSolutionBitMasks[setIndex] >>> 33) & 1L);
-            final int weakeningSet = (int)((setSolutionBitMasks[setIndex] >>> 34) & 1L);
+            final int hpSet = (int)((setMask & 1L) + ((setMask >>> 1) & 1L) + ((setMask >>> 2) & 1L));
+            final int defSet = (int)(((setMask >>> 3) & 1L) + ((setMask >>> 4) & 1L) + ((setMask >>> 5) & 1L));
+            final int atkSet = (int)((setMask >>> 6) & 1L);
+            final int speedSet = (int)((setMask >>> 7) & 1L);
+            final int crSet = (int)(((setMask >>> 8) & 1L) + ((setMask >>> 9) & 1L) + ((setMask >>> 10) & 1L));
+            final int effSet = (int)(((setMask >>> 11) & 1L) + ((setMask >>> 12) & 1L) + ((setMask >>> 13) & 1L));
+            final int cdSet = (int)((setMask >>> 14) & 1L);
+            final int resSet = (int)(((setMask >>> 17) & 1L) + ((setMask >>> 18) & 1L) + ((setMask >>> 19) & 1L));
+            final int rageSet = (int)((setMask >>> 21) & 1L);
+            final int penSet = (int)((setMask >>> 23) & 1L);
+            final int revengeSet = (int)((setMask >>> 24) & 1L);
+//            final int injurySet = (int)((setMask >>> 25) & 1L);
+//            final int protectionSet = (int)((setMask >>> 26) & 1L);
+            final int torrentSet = (int)(((setMask >>> 27) & 1L) + ((setMask >>> 28) & 1L) + ((setMask >>> 29) & 1L));
+            final int reversalSet = (int)((setMask >>> 30) & 1L);
+            final int riposteSet = (int)((setMask >>> 31) & 1L);
+            final int warfareSet = (int)((setMask >>> 32) & 1L);
+            final int pursuitSet = (int)((setMask >>> 33) & 1L);
+            final int weakeningSet = (int)((setMask >>> 34) & 1L);
 
             // Set calculations using localbuffer instead off mask
 //            localSetsBuffer[setJump] = 0;
@@ -853,7 +850,7 @@ public class GpuOptimizerKernel extends Kernel {
 //            if (true)
 //                return;
 
-            passes[id] = !(f1 || f2 || f3) && setPermutationIndicesPlusOne[setIndex] > 0;
+            passes[id] = !(f1 || f2 || f3) && boolArr[setIndex];
 //            passes[id] = setIndex >= 340122242;
         }
     }
@@ -891,6 +888,96 @@ public class GpuOptimizerKernel extends Kernel {
         //        System.out.println(m);
 
         return value;
+    }
+
+    // The 38 bit set mask is computed on the fly from the six set ids instead of being
+    // looked up in a precomputed long[24^6] table (1.5 GB of heap and GPU memory).
+    protected long computeSetBitMask(final int setA, final int setB, final int setC,
+                                   final int setD, final int setE, final int setF) {
+        final int[] counters = new int[24];
+        counters[setA]++;
+        counters[setB]++;
+        counters[setC]++;
+        counters[setD]++;
+        counters[setE]++;
+        counters[setF]++;
+
+        long l = 0;
+
+        l += counters[23] / 2 > 0 ? 1L : 0L; // fervor
+        l <<= 1;
+        l += counters[22] / 4 > 0 ? 1L : 0L; // weakening
+        l <<= 1;
+        l += counters[21] / 2 > 0 ? 1L : 0L; // pursuit
+        l <<= 1;
+        l += counters[20] / 4 > 0 ? 1L : 0L; // warfare (opener)
+        l <<= 1;
+        l += counters[19] / 4 > 0 ? 1L : 0L; // riposte
+        l <<= 1;
+        l += counters[18] / 4 > 0 ? 1L : 0L; // reversal
+        l <<= 1;
+        l += counters[17] / 2 > 0 ? 1L : 0L; // torrent 1
+        l <<= 1;
+        l += counters[17] / 2 - 1 > 0 ? 1L : 0L; // torrent 2
+        l <<= 1;
+        l += counters[17] / 2 - 2 > 0 ? 1L : 0L; // torrent 3
+        l <<= 1;
+        l += counters[16] / 4 > 0 ? 1L : 0L; // protection
+        l <<= 1;
+        l += counters[15] / 4 > 0 ? 1L : 0L; // injury
+        l <<= 1;
+        l += counters[14] / 4 > 0 ? 1L : 0L; // revenge
+        l <<= 1;
+        l += counters[13] / 2 > 0 ? 1L : 0L; // pen
+        l <<= 1;
+        l += counters[12] / 2 > 0 ? 1L : 0L; // immunity
+        l <<= 1;
+        l += counters[11] / 4 > 0 ? 1L : 0L; // rage
+        l <<= 1;
+        l += counters[10] / 2 > 0 ? 1L : 0L; // unity - should be x3 but don't need it
+        l <<= 1;
+        l += counters[9] / 2 > 0 ? 1L : 0L; // res1
+        l <<= 1;
+        l += counters[9] / 2 - 1 > 0 ? 1L : 0L; // res2
+        l <<= 1;
+        l += counters[9] / 2 - 2 > 0 ? 1L : 0L; // res3
+        l <<= 1;
+        l += counters[8] / 4 > 0 ? 1L : 0L; // counter
+        l <<= 1;
+        l += counters[7] / 4 > 0 ? 1L : 0L; // lifesteal
+        l <<= 1;
+        l += counters[6] / 4 > 0 ? 1L : 0L; // destr
+        l <<= 1;
+        l += counters[5] / 2 > 0 ? 1L : 0L; // hit1
+        l <<= 1;
+        l += counters[5] / 2 - 1 > 0 ? 1L : 0L; // hit2
+        l <<= 1;
+        l += counters[5] / 2 - 2 > 0 ? 1L : 0L; // hit3
+        l <<= 1;
+        l += counters[4] / 2 > 0 ? 1L : 0L; // crit1
+        l <<= 1;
+        l += counters[4] / 2 - 1 > 0 ? 1L : 0L; // crit2
+        l <<= 1;
+        l += counters[4] / 2 - 2 > 0 ? 1L : 0L;  // crit3
+        l <<= 1;
+        l += counters[3] / 4 > 0 ? 1L : 0L; // spd
+        l <<= 1;
+        l += counters[2] / 4 > 0 ? 1L : 0L; // atk
+        l <<= 1;
+        l += counters[1] / 2 > 0 ? 1L : 0L; // def1
+        l <<= 1;
+        l += counters[1] / 2 - 1 > 0 ? 1L : 0L; // def2
+        l <<= 1;
+        l += counters[1] / 2 - 2 > 0 ? 1L : 0L; // def3
+        l <<= 1;
+        l += counters[0] / 2 > 0 ? 1L : 0L; // hp1
+        l <<= 1;
+        l += counters[0] / 2 - 1 > 0 ? 1L : 0L; // hp2
+        l <<= 1;
+        l += counters[0] / 2 - 2 > 0 ? 1L : 0L; // hp3
+
+
+        return l;
     }
 }
 

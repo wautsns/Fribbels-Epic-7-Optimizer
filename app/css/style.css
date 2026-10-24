@@ -1321,8 +1321,9 @@ body.dark-theme input {
 #substatPriorityLabel {
   cursor: pointer;
 }
-#substatPriorityLabel:hover:after{
+#substatPriorityLabel:hover:after {
   cursor: pointer;
+  content: attr(data-content);
 }
 #statsLabel {
   cursor: pointer;
@@ -2112,4 +2113,19 @@ input:checked + .darkSlider:before {
     margin-right: 6px;
     vertical-align: -4px;
     object-fit: contain;
+}
+
+/* result priority + auto attribute priority side by side */
+.priorityButtonRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.priorityButtonRow .gearActionButtonSmaller {
+  width: auto;
+  flex: 1 1 0;
+  margin-right: 0;
+  margin-bottom: 0;
 }

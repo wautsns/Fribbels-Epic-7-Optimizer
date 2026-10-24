@@ -2,6 +2,7 @@ const rangesliderJs = require('rangeslider-js');
 const ResultPriority = require('../resultPriority');
 const DominanceFilter = require('../dominanceFilter');
 const LimitConfiguration = require('../limitConfiguration');
+const AttributePriority = require('../attributePriority');
 var permutations = 0;
 var progressTimer;
 var currentFilteredItems = [];
@@ -322,6 +323,20 @@ module.exports = {
             }
         });
 
+        document.getElementById('autoAttributePriorityButton').addEventListener("click", async () => {
+            const heroId = document.getElementById('inputHeroAdd').value;
+            if (!heroId) return;
+
+            // derive the attribute priority sliders from the stat filters, set bonuses and
+            // accessory main stats that are already selected on this screen
+            const heroResponse = await Api.getHeroById(heroId, $('#inputPredictReforges').prop('checked'));
+            const params = module.exports.getOptimizationRequestParams();
+            const priorities = AttributePriority.compute(params, heroResponse.hero, heroResponse.baseStats);
+
+            module.exports.applyAttributePriorities(priorities);
+            recalculateFilters();
+        });
+
         // document.getElementById('accessorySetsLabel').addEventListener("click", async () => {
         //     Selectors.clearGearMainAndSets();
         //     recalculateFilters();
@@ -336,6 +351,32 @@ module.exports = {
         module.exports.buildSlider('#effSlider', true)
         module.exports.buildSlider('#resSlider', true)
         module.exports.buildSlider('#filterSlider', true)
+    },
+
+    applyAttributePriorities: (priorities) => {
+        const sliders = [
+            ['atk', '#atkSlider'],
+            ['hp', '#hpSlider'],
+            ['def', '#defSlider'],
+            ['spd', '#spdSlider'],
+            ['cr', '#crSlider'],
+            ['cd', '#cdSlider'],
+            ['eff', '#effSlider'],
+            ['res', '#resSlider'],
+        ];
+
+        for (const [key, selector] of sliders) {
+            const value = Math.max(0, Math.min(8, Math.round((priorities && priorities[key]) || 0)));
+            const input = document.querySelector(selector + 'Input');
+            if (input) {
+                input.setAttribute('value', value);
+            }
+
+            const slider = document.querySelector(selector);
+            if (slider && slider['rangeslider-js']) {
+                slider['rangeslider-js'].update({ value: value });
+            }
+        }
     },
 
     buildSlider: (slider, recalc) => {

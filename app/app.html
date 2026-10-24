@@ -417,92 +417,6 @@ window.jQuery = $;
 
             <div class="vertical"></div>
 
-            <div id="stat-priority-panel" class="constraints-panel-col">
-
-              <div class="panelLabel">
-                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="substatPriorityTooltip"></img>
-                <div class="panelLabelText" id="substatPriorityLabel" data-t>Substat priority (clear)</div>
-              </div>
-
-              <div class="horizontalSpace"></div>
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Atk</div>
-                <input class="sliderInput" id="atkSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="atkSlider" type="range" min="0" max="8" value="0" step="1"></div>
-              </div>
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Def</div>
-                <input class="sliderInput" id="defSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="defSlider" type="range" min="0" max="8" value="0" step="1"></div>
-              </div>
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Hp</div>
-                <input class="sliderInput" id="hpSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="hpSlider" type="range" min="0" max="8" value="0" step="1"></div>
-              </div>
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Spd</div>
-                <input class="sliderInput" id="spdSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="spdSlider" type="range" min="0" max="8" value="0" step="1"></div>
-              </div>
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Cr</div>
-                <input class="sliderInput" id="crSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="crSlider" type="range" min="0" max="8" value="0" step="1"></div>
-              </div>
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Cd</div>
-                <input class="sliderInput" id="cdSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="cdSlider" type="range" min="0" max="8" value="0" step="1"></div>
-              </div>
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Eff</div>
-                <input class="sliderInput" id="effSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="effSlider" type="range" min="0" max="8" value="0" step="1"></div>
-              </div>
-
-              <div class="horizontalSpace" ></div>
-
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Res</div>
-                <input class="sliderInput" id="resSliderInput" type="number" value="0" readonly>
-                <div class="sliderContainer"><input class="slider" id="resSlider" type="range" min="0" max="8" value="0" step="1"></div>
-              </div>
-
-              <div class="horizontalSpace" ></div>
-
-              <input type="submit" class="gearActionButtonSmaller" value="Result priority" id="resultPriorityButton" data-t>
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="sliderRow">
-                <div class="sliderLabel" data-t>Top %</div>
-                <input class="sliderInput" id="filterSliderInput" type="number" value="7" readonly>
-                <div class="sliderContainer"><input class="slider" id="filterSlider" type="range" min="1" max="25" value="7" step="3"></div>
-              </div>
-            </div>
-            <div class="vertical"></div>
-
             <div id="constraints-focus-panel" class="constraints-panel-col">
               <div class="panelLabel">
                 <img src="./assets/tooltip.png" class="tooltipImageLeft" id="accessoryMainStatsTooltip"></img>
@@ -657,6 +571,80 @@ window.jQuery = $;
                   <option value="Fervor" data-t>Fervor</option>
                 </optgroup>
               </select><br>
+            </div>
+            <div class="vertical"></div>
+
+            <div id="stat-priority-panel" class="constraints-panel-col">
+
+              <div class="panelLabel">
+                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="substatPriorityTooltip"></img>
+                <div class="panelLabelText" id="substatPriorityLabel" data-content=" (clear)" data-t>Attribute priority</div>
+              </div>
+
+              <div class="horizontalSpace"></div>
+
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Top %</div>
+              <input class="sliderInput" id="filterSliderInput" type="number" value="7" readonly>
+              <div class="sliderContainer"><input class="slider" id="filterSlider" type="range" min="1" max="25" value="7" step="3"></div>
+              </div>
+
+              <div class="horizontalSpace" ></div>
+
+              <div class="priorityButtonRow">
+                <input type="submit" class="gearActionButtonSmaller" value="Result priority" id="resultPriorityButton" data-t>
+                <input type="submit" class="gearActionButtonSmaller" value="Auto" id="autoAttributePriorityButton" data-t>
+              </div>
+
+              <div class="horizontalSpace" ></div>
+
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Atk</div>
+              <input class="sliderInput" id="atkSliderInput" type="number" value="0" readonly>
+              <div class="sliderContainer"><input class="slider" id="atkSlider" type="range" min="0" max="8" value="0" step="1"></div>
+              </div>
+              <div class="horizontalSpace" ></div>
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Def</div>
+              <input class="sliderInput" id="defSliderInput" type="number" value="0" readonly>
+              <div class="sliderContainer"><input class="slider" id="defSlider" type="range" min="0" max="8" value="0" step="1"></div>
+              </div>
+              <div class="horizontalSpace" ></div>
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Hp</div>
+              <input class="sliderInput" id="hpSliderInput" type="number" value="0" readonly>
+              <div class="sliderContainer"><input class="slider" id="hpSlider" type="range" min="0" max="8" value="0" step="1"></div>
+              </div>
+              <div class="horizontalSpace" ></div>
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Spd</div>
+              <input class="sliderInput" id="spdSliderInput" type="number" value="0" readonly>
+              <div class="sliderContainer"><input class="slider" id="spdSlider" type="range" min="0" max="8" value="0" step="1"></div>
+              </div>
+              <div class="horizontalSpace" ></div>
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Cr</div>
+              <input class="sliderInput" id="crSliderInput" type="number" value="0" readonly>
+              <div class="sliderContainer"><input class="slider" id="crSlider" type="range" min="0" max="8" value="0" step="1"></div>
+              </div>
+              <div class="horizontalSpace" ></div>
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Cd</div>
+              <input class="sliderInput" id="cdSliderInput" type="number" value="0" readonly>
+              <div class="sliderContainer"><input class="slider" id="cdSlider" type="range" min="0" max="8" value="0" step="1"></div>
+              </div>
+              <div class="horizontalSpace" ></div>
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Eff</div>
+              <input class="sliderInput" id="effSliderInput" type="number" value="0" readonly>
+              <div class="sliderContainer"><input class="slider" id="effSlider" type="range" min="0" max="8" value="0" step="1"></div>
+              </div>
+              <div class="horizontalSpace" ></div>
+              <div class="sliderRow">
+              <div class="sliderLabel" data-t>Res</div>
+              <input class="sliderInput" id="resSliderInput" type="number" value="0" readonly>
+              <div class="sliderContainer"><input class="slider" id="resSlider" type="range" min="0" max="8" value="0" step="1"></div>
+              </div>
             </div>
           </div>
 

@@ -826,7 +826,7 @@ module.exports = {
                             <div id="stat-priority-panel" class="constraints-panel-col">
 
                               <div class="panelLabel">
-                                <div class="panelLabelText" id="substatPriorityLabel${index}" data-t>${i18next.t("Substat priority")}</div>
+                                <div class="panelLabelText" id="substatPriorityLabel${index}" data-t>${i18next.t("Attribute priority")}</div>
                               </div>
 
                               <div class="sliderRow">

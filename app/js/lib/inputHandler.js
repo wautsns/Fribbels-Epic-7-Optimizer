@@ -47,7 +47,6 @@ global.ColorPicker = require('./colorPicker');
 // Tab
 global.HeroesTab = require('./tabs/heroesTab');
 global.OptimizerTab = require('./tabs/optimizerTab');
-global.MultiOptimizerTab = require('./tabs/multiOptimizerTab');
 global.ItemsTab = require('./tabs/itemsTab');
 global.EnhancingTab = require('./tabs/enhancingTab');
 global.EmulatorEquip = require('./emulator/emulatorEquip');
@@ -129,7 +128,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         Saves.initialize();
         await Saves.loadAutoSave();
         EmulatorEquip.initialize();
-        MultiOptimizerTab.initialize();
 
         Tooltip.initialize();
         ColorPicker.initialize();

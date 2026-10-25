@@ -48,33 +48,33 @@ window.jQuery = $;
 </div> -->
 
 <div class="tabset" style="white-space: nowrap;">
-  <!-- Tab 1 -->
-  <input type="radio" name="tabset" id="tab1" checked>
-  <label for="tab1" class="tabLabel" id="tab1label" data-t>Optimizer</label>
+<!-- Tab 1 -->
+<input type="radio" name="tabset" id="tab4" checked>
+<label for="tab4" class="tabLabel" id="tab4label" data-t>Heroes</label>
 
-  <input type="radio" name="tabset" id="tab2">
-  <label for="tab2" class="tabLabel" id="tab2label" data-t>Multi-Optimizer</label>
-  <!-- Tab 2 -->
-  <!--   <input type="radio" name="tabset" id="tab3" style="display: none">
-  <label for="tab3" class="tabLabel" style="display: none" data-t>Ocr Debugger</label> -->
-  <!-- Tab 3 -->
-  <input type="radio" name="tabset" id="tab3" >
-  <label for="tab3" class="tabLabel" id="tab3label" data-t>Gear</label>
-  <!-- Tab 4 -->
-  <input type="radio" name="tabset" id="tab4" >
-  <label for="tab4" class="tabLabel" id="tab4label" data-t>Heroes</label>
-  <!-- Tab 5 -->
-  <input type="radio" name="tabset" id="tab5">
-  <label for="tab5" class="tabLabel" id="tab5label" data-t>Enhancing</label>
+<!-- Tab 2 -->
+<input type="radio" name="tabset" id="tab1" >
+<label for="tab1" class="tabLabel" id="tab1label" data-t>Optimizer</label>
 
-  <input type="radio" name="tabset" id="tab6" >
-  <label for="tab6" class="tabLabel" data-t>Importer</label>
-  <!-- Tab 6 -->
-  <input type="radio" name="tabset" id="tab7" >
-  <label for="tab7" class="tabLabel" data-t>Settings</label>
-  <!-- Tab 7 -->
-  <input type="radio" name="tabset" id="tab8" >
-  <label for="tab8" class="tabLabel" data-t>Information</label>
+<!-- Tab 3 -->
+<input type="radio" name="tabset" id="tab3" >
+<label for="tab3" class="tabLabel" id="tab3label" data-t>Gear</label>
+
+<!-- Tab 4 -->
+<input type="radio" name="tabset" id="tab5">
+<label for="tab5" class="tabLabel" id="tab5label" data-t>Enhancing</label>
+
+<!-- Tab 5 -->
+<input type="radio" name="tabset" id="tab6" >
+<label for="tab6" class="tabLabel" id="tab6label" data-t>Importer</label>
+
+<!-- Tab 6 -->
+<input type="radio" name="tabset" id="tab7" >
+<label for="tab7" class="tabLabel" id="tab7label" data-t>Settings</label>
+
+<!-- Tab 7 -->
+<input type="radio" name="tabset" id="tab8" >
+<label for="tab8" class="tabLabel" id="tab8label" data-t>Information</label>
 
   <!-- Tab 10 -->
 <!--   <input type="radio" name="tabset" id="tab10" style="display: none">
@@ -82,6 +82,148 @@ window.jQuery = $;
  -->
   <div id="hoverDiv"></div>
   <div class="tab-panels">
+    <div id="heroes-section" class="tab-panel">
+      <div class="heroesSectionContainer">
+        <div class="heroesTabButtonRow">
+          <div class="heroesTabTopButtonRowLeft">
+            <select id="addHeroesSelector" class="gearPreviewButton"></select>
+
+            <input type="submit" value="Add New Hero" class="gearPreviewButton" id="addHeroesSubmit" data-t>
+          </div>
+
+
+          <div class="heroesTabTopButtonRowRight">
+            <div class="heroTabButton">
+              <div class="gearTabButton" id="clearHeroFilter">
+                <div class="gearTabButtonLabel" style="margin-right:5px" data-t>Clear</div>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="heroesTabTopButtonRowRight">
+            <div class="gearTabSetFilterIconsRow">
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="warriorClassFilter">
+                  <img class="gearTabIcon" src="./assets/classwarrior.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="knightClassFilter">
+                  <img class="gearTabIcon" src="./assets/classknight.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="assassinClassFilter">
+                  <img class="gearTabIcon" src="./assets/classassassin.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="rangerClassFilter">
+                  <img class="gearTabIcon" src="./assets/classranger.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="mageClassFilter">
+                  <img class="gearTabIcon" src="./assets/classmage.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="manauserClassFilter">
+                  <img class="gearTabIcon" src="./assets/classmanauser.png"></img>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="heroesTabTopButtonRowRight">
+            <div class="gearTabSetFilterIconsRow">
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="fireElementFilter">
+                  <img class="gearTabIcon" src="./assets/elementfire.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="iceElementFilter">
+                  <img class="gearTabIcon" src="./assets/elementice.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="windElementFilter">
+                  <img class="gearTabIcon" src="./assets/elementearth.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="lightElementFilter">
+                  <img class="gearTabIcon" src="./assets/elementlight.png"></img>
+                </div>
+              </div>
+              <div class="heroTabButton">
+                <div class="gearTabButton" id="darkElementFilter">
+                  <img class="gearTabIcon" src="./assets/elementdark.png"></img>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+
+          <div class="reforgeSwitch">
+            <div class="reforgeSwitchLabel" data-t>Use reforged stats</div>
+            <div class="switch">
+              <input id="heroesTabUseReforgedStats" type="checkbox" class="switch-input" />
+              <label for="heroesTabUseReforgedStats" class="switch-label"></label>
+            </div>
+          </div>
+        </div>
+
+
+
+
+        <div class="heroesTableContainer">
+          <div id="heroes-table" class="ag-theme-balham"></div>
+        </div>
+        <div class="buildsTableContainer">
+          <div id="builds-table" class="ag-theme-balham"></div>
+        </div>
+        <div class="heroesTabButtonRow">
+          <input type="submit" value="Add Bonus Stats" class="gearPreviewButton" id="addHeroStatsSubmit" data-t>
+          <input type="submit" value="Add Substat Mods" class="gearPreviewButton" id="addSubstatModsSubmit" data-t>
+          <input type="submit" value="Set Hero Rank" class="gearPreviewButton" id="setHeroRankSubmit" data-t>
+
+          <input type="submit" value="Equip Build" class="gearPreviewButton" id="equipBuildSubmit" data-t>
+          <input type="submit" value="Rename Build" class="gearPreviewButton" id="editBuildSubmit" data-t>
+          <input type="submit" value="Save As Build" class="gearPreviewButton" id="saveAsBuildSubmit" data-t>
+          <input type="submit" value="Remove Build" class="gearPreviewButton" id="removeBuildSubmit" data-t>
+          <input type="submit" value="Remove Hero" class="gearPreviewButton" id="removeHeroesSubmit" data-t>
+        </div>
+
+        <div id="heroes-equipped-section">
+          <div id="heroes-equipped-weapon" class="gear-preview-row">
+          </div>
+          <div id="heroes-equipped-helmet" class="gear-preview-row">
+          </div>
+          <div id="heroes-equipped-armor" class="gear-preview-row">
+          </div>
+          <div id="heroes-equipped-necklace" class="gear-preview-row">
+          </div>
+          <div id="heroes-equipped-ring" class="gear-preview-row">
+          </div>
+          <div id="heroes-equipped-boots" class="gear-preview-row">
+          </div>
+        </div>
+
+        <div class="heroesTabButtonRow">
+          <input type="submit" value="One-Click Equip" class="gearPreviewButton" id="emulatorSelectHero" data-t>
+          <input type="submit" value="Unequip Items" class="gearPreviewButton" id="unequipHeroesSubmit" data-t>
+          <input type="submit" value="Lock Items" class="gearPreviewButton" id="lockHeroesSubmit" data-t>
+          <input type="submit" value="Unlock Items" class="gearPreviewButton" id="unlockHeroesSubmit" data-t>
+          <input type="submit" value="Select All" class="gearPreviewButton" id="heroPreviewSelectAll" data-t>
+          <input type="submit" value="Deselect All" class="gearPreviewButton" id="heroPreviewDeselectAll" data-t>
+        </div>
+
+      </div>
+    </div>
     <div id="optimizer-section" class="tab-panel">
       <div id="optimizer-tab" class="tab">
         <div id="optimizer-panel" class="optimizer-panel">
@@ -755,80 +897,6 @@ window.jQuery = $;
         </div>
       </div>
     </div>
-
-    <div id="multi-optimizer-section" class="tab-panel">
-        <div class="multiOptimizerControlPanel">
-          <b><input type="submit" value="Guide" class="gearPreviewButton" id="multiGuide" data-t ></b><br>
-          <input type="submit" value="Start all" class="gearPreviewButton" id="multiStartAll" data-t ><br>
-          <input type="submit" value="Cancel all" class="gearPreviewButton" id="multiCancelAll" data-t ><br>
-          <input type="submit" value="Remove all" class="gearPreviewButton" id="multiRemoveAll" data-t ><br>
-          <input type="submit" value="Deselect all" class="gearPreviewButton" id="multiDeselectAll" data-t ><br>
-        </div>
-        <div class="horizontalLine inactiveColorBorder"></div>
-    </div>
-
-
-
-
-
-
-
-
-
-<!--
-    <div id="ocr-debugger-section" class="tab-panel">
-      <a>Url:</a><br>
-      <input type="text" id="ocr-test-input-url" value="" style="width:800px"><br>
-      <a  data-t>Folder:</a><br>
-      <input type="text" id="ocr-test-input-folder" value="" style="width:800px"><br>
-      <a  data-t>Left:</a><br>
-      <input type="number" id="ocr-test-input-left" value="65"><br>
-      <a  data-t>Top:</a><br>
-      <input type="number" id="ocr-test-input-top" value="214"><br>
-      <a  data-t>Width:</a><br>
-      <input type="number" id="ocr-test-input-width" value="27"><br>
-      <a  data-t>Height:</a><br>
-      <input type="number" id="ocr-test-input-height" value="20"><br>
-
-      <input type="submit" value="Submit" id="ocr-test-submit-number" data-t><a data-t>Submit Number</a><br>
-      <input type="submit" value="Submit" id="ocr-test-submit-text" data-t><a data-t>Submit Text</a><br>
-
-      <input type="submit" value="Submit" id="ocr-test-file-scan" data-t><a data-t>File Scan</a><br>
-
-      <br><br>
-
-      <input type="submit" value="Submit" id="ocr-test-main-name" data-t><a data-t>Main Stat name</a><br>
-      <input type="submit" value="Submit" id="ocr-test-main-numbers" data-t><a data-t>Main Stat numbers</a><br>
-      <input type="submit" value="Submit" id="ocr-test-sub-name" data-t><a data-t>Sub Stat name</a><br>
-      <input type="submit" value="Submit" id="ocr-test-sub-numbers" data-t><a data-t>Sub Stat numbers</a><br>
-      <input type="submit" value="Submit" id="ocr-test-all" data-t><a data-t>All</a><br>
-      <input type="submit" value="Submit" id="ocr-test-jimp" data-t><a data-t>Jimp</a><br>
-      <input type="submit" value="Submit" id="ocr-test-full-scan" data-t><a data-t>Full scan</a><br>
-      <input type="submit" value="Submit" id="ocr-test-lib" data-t><a data-t>Lib</a><br>
-
-      <br>
-
-      <input type="submit" value="Submit" id="ocr-test-debug1" data-t><a data-t>Debug1</a><br>
-      <img src="" id="ocr-test-crop"/>
-      <br>
-      <img src="" id="ocr-test-crop1"/>
-      <img src="" id="ocr-test-crop2"/>
-      <img src="" id="ocr-test-crop3"/>
-      <img src="" id="ocr-test-crop4"/>
-      <img src="" id="ocr-test-crop5"/>
-      <img src="" id="ocr-test-crop6"/>
-    </div>
-
- -->
-
-
-
-
-
-
-
-
-
     <div id="gear-section" class="tab-panel">
       <div class="gearSectionContainer">
       <!-- <h2>gear-section</h2> -->
@@ -1445,161 +1513,6 @@ window.jQuery = $;
         </div>
       </div>
     </div>
-
-
-
-
-
-
-
-
-
-    <div id="heroes-section" class="tab-panel">
-      <div class="heroesSectionContainer">
-        <div class="heroesTabButtonRow">
-          <div class="heroesTabTopButtonRowLeft">
-            <select id="addHeroesSelector" class="gearPreviewButton"></select>
-
-            <input type="submit" value="Add New Hero" class="gearPreviewButton" id="addHeroesSubmit" data-t>
-          </div>
-
-
-          <div class="heroesTabTopButtonRowRight">
-            <div class="heroTabButton">
-              <div class="gearTabButton" id="clearHeroFilter">
-                <div class="gearTabButtonLabel" style="margin-right:5px" data-t>Clear</div>
-              </div>
-            </div>
-          </div>
-
-
-          <div class="heroesTabTopButtonRowRight">
-            <div class="gearTabSetFilterIconsRow">
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="fireElementFilter">
-                  <img class="gearTabIcon" src="./assets/elementfire.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="iceElementFilter">
-                  <img class="gearTabIcon" src="./assets/elementice.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="windElementFilter">
-                  <img class="gearTabIcon" src="./assets/elementearth.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="lightElementFilter">
-                  <img class="gearTabIcon" src="./assets/elementlight.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="darkElementFilter">
-                  <img class="gearTabIcon" src="./assets/elementdark.png"></img>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-
-          <div class="heroesTabTopButtonRowRight">
-            <div class="gearTabSetFilterIconsRow">
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="warriorClassFilter">
-                  <img class="gearTabIcon" src="./assets/classwarrior.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="knightClassFilter">
-                  <img class="gearTabIcon" src="./assets/classknight.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="assassinClassFilter">
-                  <img class="gearTabIcon" src="./assets/classassassin.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="rangerClassFilter">
-                  <img class="gearTabIcon" src="./assets/classranger.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="mageClassFilter">
-                  <img class="gearTabIcon" src="./assets/classmage.png"></img>
-                </div>
-              </div>
-              <div class="heroTabButton">
-                <div class="gearTabButton" id="manauserClassFilter">
-                  <img class="gearTabIcon" src="./assets/classmanauser.png"></img>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="reforgeSwitch">
-            <div class="reforgeSwitchLabel" data-t>Use reforged stats</div>
-            <div class="switch">
-              <input id="heroesTabUseReforgedStats" type="checkbox" class="switch-input" />
-              <label for="heroesTabUseReforgedStats" class="switch-label"></label>
-            </div>
-          </div>
-        </div>
-
-
-
-
-        <div class="heroesTableContainer">
-          <div id="heroes-table" class="ag-theme-balham"></div>
-        </div>
-        <div class="buildsTableContainer">
-          <div id="builds-table" class="ag-theme-balham"></div>
-        </div>
-        <div class="heroesTabButtonRow">
-          <input type="submit" value="Add Bonus Stats" class="gearPreviewButton" id="addHeroStatsSubmit" data-t>
-          <input type="submit" value="Add Substat Mods" class="gearPreviewButton" id="addSubstatModsSubmit" data-t>
-          <input type="submit" value="Set Hero Rank" class="gearPreviewButton" id="setHeroRankSubmit" data-t>
-
-          <input type="submit" value="Equip Build" class="gearPreviewButton" id="equipBuildSubmit" data-t>
-          <input type="submit" value="Rename Build" class="gearPreviewButton" id="editBuildSubmit" data-t>
-          <input type="submit" value="Save As Build" class="gearPreviewButton" id="saveAsBuildSubmit" data-t>
-          <input type="submit" value="Remove Build" class="gearPreviewButton" id="removeBuildSubmit" data-t>
-          <input type="submit" value="Remove Hero" class="gearPreviewButton" id="removeHeroesSubmit" data-t>
-        </div>
-
-        <div id="heroes-equipped-section">
-          <div id="heroes-equipped-weapon" class="gear-preview-row">
-          </div>
-          <div id="heroes-equipped-helmet" class="gear-preview-row">
-          </div>
-          <div id="heroes-equipped-armor" class="gear-preview-row">
-          </div>
-          <div id="heroes-equipped-necklace" class="gear-preview-row">
-          </div>
-          <div id="heroes-equipped-ring" class="gear-preview-row">
-          </div>
-          <div id="heroes-equipped-boots" class="gear-preview-row">
-          </div>
-        </div>
-
-        <div class="heroesTabButtonRow">
-          <input type="submit" value="One-Click Equip" class="gearPreviewButton" id="emulatorSelectHero" data-t>
-          <input type="submit" value="Unequip Items" class="gearPreviewButton" id="unequipHeroesSubmit" data-t>
-          <input type="submit" value="Lock Items" class="gearPreviewButton" id="lockHeroesSubmit" data-t>
-          <input type="submit" value="Unlock Items" class="gearPreviewButton" id="unlockHeroesSubmit" data-t>
-          <input type="submit" value="Select All" class="gearPreviewButton" id="heroPreviewSelectAll" data-t>
-          <input type="submit" value="Deselect All" class="gearPreviewButton" id="heroPreviewDeselectAll" data-t>
-        </div>
-
-      </div>
-    </div>
-
-
-
-
     <div id="enhancingSection" class="tab-panel">
 
       <div class="enhanceGuide" data-t>
@@ -1634,8 +1547,6 @@ window.jQuery = $;
         </div>
       </div>
     </div>
-
-
     <div id="importer-section" class="tab-panel">
       <div class="importerWrapper">
 
@@ -1945,15 +1856,6 @@ window.jQuery = $;
       </div>
     </div>
     </div>
-
-
-
-
-
-
-
-
-
     <div id="settingsTab" class="tab-panel">
       <h2 data-t>Settings</h2>
 
@@ -2198,8 +2100,6 @@ window.jQuery = $;
       <br>
 
     </div>
-
-
     <div id="aboutTab" class="tab-panel">
 
       <h1 data-t>Links</h1>

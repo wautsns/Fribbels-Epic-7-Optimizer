@@ -31,15 +31,14 @@
   user-select: none;
 }
 
-.tabset > input:first-child:checked ~ .tab-panels > .tab-panel:first-child,
-.tabset > input:nth-child(3):checked ~ .tab-panels > .tab-panel:nth-child(2),
-.tabset > input:nth-child(5):checked ~ .tab-panels > .tab-panel:nth-child(3),
-.tabset > input:nth-child(7):checked ~ .tab-panels > .tab-panel:nth-child(4),
-.tabset > input:nth-child(9):checked ~ .tab-panels > .tab-panel:nth-child(5),
-.tabset > input:nth-child(11):checked ~ .tab-panels > .tab-panel:nth-child(6),
-.tabset > input:nth-child(13):checked ~ .tab-panels > .tab-panel:nth-child(7),
-.tabset > input:nth-child(15):checked ~ .tab-panels > .tab-panel:nth-child(8),
-.tabset > input:nth-child(17):checked ~ .tab-panels > .tab-panel:nth-child(9) {
+/* id based instead of positional, so tabs can be reordered without renumbering */
+.tabset > #tab4:checked ~ .tab-panels > #heroes-section,
+.tabset > #tab1:checked ~ .tab-panels > #optimizer-section,
+.tabset > #tab3:checked ~ .tab-panels > #gear-section,
+.tabset > #tab5:checked ~ .tab-panels > #enhancingSection,
+.tabset > #tab6:checked ~ .tab-panels > #importer-section,
+.tabset > #tab7:checked ~ .tab-panels > #settingsTab,
+.tabset > #tab8:checked ~ .tab-panels > #aboutTab {
   display: block;
 }
 
@@ -584,7 +583,7 @@ input, button {
   font-weight: 400;
   text-align: center;
   font-family: 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
-  font-size: 1em;
+  font-size: 13px;
   display: flex;
   justify-content: center;
   align-items: center;

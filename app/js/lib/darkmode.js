@@ -52,7 +52,6 @@ module.exports = {
             OptimizerGrid.toggleDarkMode(true);
             ItemsGrid.toggleDarkMode(true);
             HeroesGrid.toggleDarkMode(true);
-            MultiOptimizerTab.toggleDarkMode(true);
         } else {
             $("#darkThemeCss").attr("disabled", true);
             // document.querySelector(':root').style.setProperty('--bg-color', 'white');
@@ -95,7 +94,6 @@ module.exports = {
             OptimizerGrid.toggleDarkMode(false);
             ItemsGrid.toggleDarkMode(false);
             HeroesGrid.toggleDarkMode(false);
-            MultiOptimizerTab.toggleDarkMode(false);
         }
     },
 

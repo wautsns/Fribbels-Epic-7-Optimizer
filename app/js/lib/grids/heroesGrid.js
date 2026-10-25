@@ -1,5 +1,6 @@
 const tinygradient = require('tinygradient');
 const colorPicker = require('../colorPicker');
+const LimitConfiguration = require('../limitConfiguration');
 
 var lightGradient = {gradient:tinygradient([
     {color: '#F5A191', pos: 0}, // red
@@ -218,6 +219,164 @@ module.exports = {
     },
 }
 
+
+/* 神器列内容右对齐（带 [+30] 后缀，右对齐更整齐），表头保持居中 */
+const ARTIFACT_CELL_STYLE = {
+    'height': '100%',
+    'display': 'flex',
+    'justify-content': 'flex-end',
+    'align-items': 'center',
+    'padding-right': '6px',
+    'overflow': 'hidden',
+    'white-space': 'nowrap',
+    'text-overflow': 'ellipsis',
+};
+
+/* 其它文本列左对齐 + 省略号 */
+const TEXT_CELL_STYLE = {
+    'height': '100%',
+    'display': 'flex',
+    'justify-content': 'flex-start',
+    'align-items': 'center',
+    'padding-left': '6px',
+    'overflow': 'hidden',
+    'white-space': 'nowrap',
+    'text-overflow': 'ellipsis',
+};
+
+/* 文本列只有在被截断时才弹 tooltip */
+let tooltipMeasureCtx = null;
+let cachedCellFont = null;
+
+function measureTextWidth(text, font) {
+    if (!tooltipMeasureCtx) {
+        tooltipMeasureCtx = document.createElement('canvas').getContext('2d');
+    }
+    tooltipMeasureCtx.font = font;
+    return tooltipMeasureCtx.measureText(text).width;
+}
+
+/** 从表格里已渲染的单元格取一次字体（字体不会变，取到就缓存） */
+function getCellFont() {
+    if (cachedCellFont) return cachedCellFont;
+    const cell = document.querySelector('#heroes-table .ag-cell');
+    if (cell) {
+        const style = window.getComputedStyle(cell);
+        if (style.fontSize && style.fontFamily) {
+            cachedCellFont = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+            return cachedCellFont;
+        }
+    }
+    return '13px sans-serif';
+}
+
+const tooltipFitCache = new Map();
+const TOOLTIP_FIT_CACHE_LIMIT = 500;
+
+/** 文本是否放得下（带缓存） */
+function fitsInWidth(text, font, available) {
+    const key = `${font}|${available}|${text}`;
+    const cached = tooltipFitCache.get(key);
+    if (cached !== undefined) return cached;
+
+    const fits = measureTextWidth(text, font) <= available;
+    if (tooltipFitCache.size >= TOOLTIP_FIT_CACHE_LIMIT) {
+        tooltipFitCache.clear();
+    }
+    tooltipFitCache.set(key, fits);
+    return fits;
+}
+
+/**
+ * 只有被截断（显示省略号）时才返回文本，让 ag-Grid 弹提示。
+ * 只在鼠标悬停时触发，不进入渲染循环。
+ */
+function truncatedTooltipGetter(params) {
+    const text = params.value;
+    if (!text) return '';
+
+    try {
+        // 用列的实际宽度判断（不依赖 eGridCell，某些版本 hover 时取不到）
+        const columnWidth = params.column && params.column.getActualWidth
+            ? params.column.getActualWidth()
+            : (params.eGridCell ? params.eGridCell.clientWidth : 0);
+        if (!columnWidth) return text;
+
+        // 单元格左右内边距共 6px，再留 2px 余量
+        const available = columnWidth - 8;
+        if (available <= 0) return text;
+
+        return fitsInWidth(text, getCellFont(), available) ? '' : text;
+    } catch (e) {
+        return text;
+    }
+}
+
+/* 面板需求的输出顺序：速度优先，其余按 攻/防/血/暴率/暴伤/命中/抵抗 */
+const STAT_REQUIREMENT_ORDER = ['Spd', 'Atk', 'Def', 'Hp', 'Cr', 'Cd', 'Eff', 'Res'];
+
+/* 属性列 → i18n key */
+const STAT_LABEL_KEYS = {
+    inputAtkMinLimit: 'Atk',
+    inputHpMinLimit: 'Hp',
+    inputDefMinLimit: 'Def',
+    inputSpdMinLimit: 'Spd',
+    inputCrMinLimit: 'CRate',
+    inputCdMinLimit: 'CDmg',
+    inputEffMinLimit: 'Eff',
+    inputResMinLimit: 'Res',
+};
+
+/**
+ * 神器列：当前佩戴的神器 + 等级，如 蓝玫瑰尖刺[+30]
+ */
+function formatArtifactDisplay(hero) {
+    if (!hero || !hero.artifactName) return '';
+    const name = i18next.t(hero.artifactName);
+    const level = String(hero.artifactLevel == null ? '' : hero.artifactLevel).replace(/[^0-9]/g, '');
+    return level ? `${name}[+${level}]` : name;
+}
+
+/**
+ * 面板需求列：按配装器里配的属性过滤生成文本
+ * - 上下限都没配（或下限为 0 且无上限）→ 不显示该属性
+ * - 只有下限 → 生命≥20000
+ * - 只有上限 → 速度≤150
+ * - 都有 → 130≤速度≤200
+ */
+function formatStatRequirements(hero) {
+    const request = hero && hero.optimizationRequest;
+    if (!request) return '';
+
+    // 先算出每个属性的文本，再按固定顺序拼接（速度优先）
+    const texts = {};
+    for (const definition of LimitConfiguration.definitions) {
+        const min = Number(request[definition.minKey]);
+        const max = Number(request[definition.maxKey]);
+        // 未配置时后端存的是默认值（下限 0 / 上限 2147483647），必须靠 Configured 标记判断
+        const minSet = LimitConfiguration.isConfigured(request, definition.minKey, definition.minConfiguredKey, 0);
+        const maxSet = LimitConfiguration.isConfigured(request, definition.maxKey, definition.maxConfiguredKey, 2147483647);
+        const hasMin = minSet && Number.isFinite(min) && min > 0;
+        const hasMax = maxSet && Number.isFinite(max) && max > 0;
+        if (!hasMin && !hasMax) continue;
+
+        const statKey = definition.minKey.replace('input', '').replace('MinLimit', '');
+        const label = i18next.t(STAT_LABEL_KEYS[definition.minKey]);
+        if (hasMin && hasMax) {
+            texts[statKey] = `${min}≤${label}≤${max}`;
+        } else if (hasMin) {
+            texts[statKey] = `${label}≥${min}`;
+        } else {
+            texts[statKey] = `${label}≤${max}`;
+        }
+    }
+
+    return STAT_REQUIREMENT_ORDER
+        .filter(statKey => texts[statKey])
+        .map(statKey => texts[statKey])
+        .join(' ');
+}
+
 function buildGrid(localeText) {
     const DIGITS_2 = 40;
     const DIGITS_3 = 40;
@@ -244,13 +403,14 @@ function buildGrid(localeText) {
                 return params.rowNode.data.name;
             }},
             {headerName: i18next.t('icon'), sortable: false, field: 'name', width: 60, cellRenderer: (params) => renderIcon(params.value)},
-            {headerName: i18next.t('elem'), field: 'attribute', width: 45, filter: 'agTextColumnFilter', cellRenderer: (params) => renderElement(params.value)},
-            {headerName: i18next.t('class'), field: 'role', width: 50, filter: 'agTextColumnFilter', cellRenderer: (params) => renderClass(params.value)},
+            {headerName: i18next.t('class'), field: 'role', width: 50, sortable: false, cellRenderer: (params) => renderClass(params.value)},
+            {headerName: i18next.t('elem'), field: 'attribute', width: 45, sortable: false, cellRenderer: (params) => renderElement(params.value)},
             //{headerName: i18next.t('name'), field: 'name', width: 0, wrapText: true, cellStyle: {'display':'none'}},
-            {headerName: i18next.t('name'), field: 'label', width: 155, wrapText: true, sortingOrder: ['asc', 'desc', null], cellStyle: {'white-space': 'normal !important', 'line-height': '16px'}, cellRenderer: (params) => renderName(params)},
+            {headerName: i18next.t('name'), field: 'label', width: 155, wrapText: true, sortable: false, cellStyle: {'white-space': 'normal !important', 'line-height': '16px'}, cellRenderer: (params) => renderName(params)},
+            {headerName: i18next.t('Artifact'), width: 140, sortable: false, valueGetter: (params) => formatArtifactDisplay(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: ARTIFACT_CELL_STYLE},
             // {headerName: i18next.t('Stars'), field: 'rarity', width: 50},
             // {headerName: i18next.t('Class'), field: 'role', width: 100, cellRenderer: (params) => renderClass(params.value)},
-            {headerName: i18next.t('sets'), field: 'equipment', width: 85, cellRenderer: (params) => renderSets(params.value)},
+            {headerName: i18next.t('sets'), field: 'equipment', width: 85, sortable: false, cellRenderer: (params) => renderSets(params.value)},
             {headerName: i18next.t('atk'), field: 'atk', width: DIGITS_4},
             {headerName: i18next.t('def'), field: 'def', width: DIGITS_4},
             {headerName: i18next.t('hp'), field: 'hp', width: DIGITS_5},
@@ -259,21 +419,24 @@ function buildGrid(localeText) {
             {headerName: i18next.t('cd'), field: 'cd', width: DIGITS_3},
             {headerName: i18next.t('eff'), field: 'eff', width: DIGITS_3},
             {headerName: i18next.t('res'), field: 'res', width: DIGITS_3},
+            {headerName: i18next.t('Panel requirement'), flex: 1, minWidth: 200, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
+            // 以下衍生属性列继续隐藏
             // {headerName: i18next.t('cp'), field: 'cp', width: DIGITS_6},
             // {headerName: i18next.t('hps'), field: 'hpps', width: DIGITS_4},
-            {headerName: i18next.t('ehp'), field: 'ehp', width: DIGITS_6},
+            // {headerName: i18next.t('ehp'), field: 'ehp', width: DIGITS_6},
             // {headerName: i18next.t('ehps'), field: 'ehpps', width: DIGITS_5},
-            {headerName: i18next.t('dmg'), field: 'dmg', width: DIGITS_5},
+            // {headerName: i18next.t('dmg'), field: 'dmg', width: DIGITS_5},
             // {headerName: i18next.t('dmgs'), field: 'dmgps', width: DIGITS_4},
-            {headerName: i18next.t('mcd'), field: 'mcdmg', width: 55, width: DIGITS_3},
-            // {headerName: i18next.t('mcds'), field: 'mcdmgps', width: 55, width: DIGITS_4},
-            {headerName: i18next.t('dmgh'), field: 'dmgh', width: 55, width: DIGITS_5},
-            {headerName: i18next.t('dmgd'), field: 'dmgd', width: 55, width: DIGITS_5},
-            {headerName: i18next.t('gs'), field: 'score', width: 55, width: DIGITS_3},
+            // {headerName: i18next.t('mcd'), field: 'mcdmg', width: DIGITS_3},
+            // {headerName: i18next.t('mcds'), field: 'mcdmgps', width: DIGITS_4},
+            // {headerName: i18next.t('dmgh'), field: 'dmgh', width: DIGITS_5},
+            // {headerName: i18next.t('dmgd'), field: 'dmgd', width: DIGITS_5},
+            // {headerName: i18next.t('gs'), field: 'score', width: DIGITS_3},
             // {headerName: i18next.t('upg'), field: 'upgrades', width: 65, width: DIGITS_2},
         ],
         rowSelection: 'single',
         rowData: [],
+        tooltipShowDelay: 300,
         suppressScrollOnNewData: true,
         rowHeight: 32,
         pagination: true,

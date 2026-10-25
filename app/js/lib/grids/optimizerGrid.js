@@ -33,6 +33,16 @@ var pinnedRow = {
 
 module.exports = {
 
+    // the grid can be created while the optimizer tab is hidden (the app starts on the
+    // heroes tab), so it needs a layout pass once the tab becomes visible
+    layout: () => {
+        try {
+            optimizerGrid.gridOptions.api.doLayout();
+            optimizerGrid.gridOptions.api.refreshView();
+        } catch (e) {
+        }
+    },
+
     toggleDarkMode(enabled) {
         if (enabled) {
             gradient = darkGradient;

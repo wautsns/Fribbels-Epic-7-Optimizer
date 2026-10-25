@@ -246,6 +246,9 @@ module.exports = {
             await module.exports.redrawHeroSelector();
             recalculateFilters();
             fixSliders()
+
+            // the app can start on another tab, let the grid measure itself once visible
+            setTimeout(() => OptimizerGrid.layout(), 50);
         });
 
         document.getElementById('substatPriorityLabel').addEventListener("click", async () => {

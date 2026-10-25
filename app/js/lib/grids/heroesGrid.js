@@ -377,6 +377,75 @@ function formatStatRequirements(hero) {
         .join(' ');
 }
 
+const PANEL_REQUIREMENT_COL_ID = 'panelRequirement';
+const PANEL_REQUIREMENT_MIN_WIDTH = 120;
+const PANEL_REQUIREMENT_PADDING = 18;   // 左右内边距 + 余量
+
+let fittingPanelColumn = false;
+let panelFitTimer = null;
+
+/** 按内容算一个合适的宽度（表头文字也参与比较） */
+function measurePanelRequirementWidth() {
+    const font = getCellFont();
+    let max = measureTextWidth(i18next.t('Panel requirement'), font);
+
+    for (const hero of currentHeroes) {
+        const text = formatStatRequirements(hero);
+        if (!text) continue;
+        const width = measureTextWidth(text, font);
+        if (width > max) max = width;
+    }
+    return Math.ceil(max + PANEL_REQUIREMENT_PADDING);
+}
+
+/**
+ * 面板需求列：宽度贴合最长内容，但不超过「容器宽 - 其它列宽」，因此不会出现横向滚动条
+ */
+function fitPanelRequirementColumn() {
+    if (fittingPanelColumn) return;
+    try {
+        const api = heroesGrid && heroesGrid.gridOptions && heroesGrid.gridOptions.api;
+        if (!api) return;
+
+        const container = document.querySelector('#heroes-table');
+        if (!container || !container.clientWidth) return;
+
+        const states = api.getColumnState() || [];
+        let others = 0;
+        for (const col of states) {
+            if (col.colId !== PANEL_REQUIREMENT_COL_ID) {
+                others += col.width || 0;
+            }
+        }
+
+        const available = container.clientWidth - others - 2;
+        if (available <= 0) return;
+
+        const wanted = measurePanelRequirementWidth();
+        let target = Math.min(wanted, available);
+        target = Math.max(target, Math.min(PANEL_REQUIREMENT_MIN_WIDTH, available));
+        target = Math.max(target, 60);
+
+        fittingPanelColumn = true;
+        api.setColumnWidth(PANEL_REQUIREMENT_COL_ID, target, true);
+    } catch (e) {
+        console.warn('fitPanelRequirementColumn failed', e);
+    } finally {
+        setTimeout(() => {
+            fittingPanelColumn = false;
+        }, 0);
+    }
+}
+
+/** 数据或尺寸变化后延后重算，避免抖动 */
+function schedulePanelColumnFit() {
+    if (panelFitTimer) clearTimeout(panelFitTimer);
+    panelFitTimer = setTimeout(() => {
+        panelFitTimer = null;
+        fitPanelRequirementColumn();
+    }, 60);
+}
+
 function buildGrid(localeText) {
     const DIGITS_2 = 40;
     const DIGITS_3 = 40;
@@ -408,6 +477,7 @@ function buildGrid(localeText) {
             //{headerName: i18next.t('name'), field: 'name', width: 0, wrapText: true, cellStyle: {'display':'none'}},
             {headerName: i18next.t('name'), field: 'label', width: 155, wrapText: true, sortable: false, cellStyle: {'white-space': 'normal !important', 'line-height': '16px'}, cellRenderer: (params) => renderName(params)},
             {headerName: i18next.t('Artifact'), width: 140, sortable: false, valueGetter: (params) => formatArtifactDisplay(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: ARTIFACT_CELL_STYLE},
+            {colId: 'panelRequirement', headerName: i18next.t('Panel requirement'), width: 200, minWidth: 120, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
             // {headerName: i18next.t('Stars'), field: 'rarity', width: 50},
             // {headerName: i18next.t('Class'), field: 'role', width: 100, cellRenderer: (params) => renderClass(params.value)},
             {headerName: i18next.t('sets'), field: 'equipment', width: 85, sortable: false, cellRenderer: (params) => renderSets(params.value)},
@@ -419,7 +489,6 @@ function buildGrid(localeText) {
             {headerName: i18next.t('cd'), field: 'cd', width: DIGITS_3},
             {headerName: i18next.t('eff'), field: 'eff', width: DIGITS_3},
             {headerName: i18next.t('res'), field: 'res', width: DIGITS_3},
-            {headerName: i18next.t('Panel requirement'), flex: 1, minWidth: 200, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
             // 以下衍生属性列继续隐藏
             // {headerName: i18next.t('cp'), field: 'cp', width: DIGITS_6},
             // {headerName: i18next.t('hps'), field: 'hpps', width: DIGITS_4},
@@ -442,6 +511,8 @@ function buildGrid(localeText) {
         pagination: true,
         paginationPageSize: 100000,
         localeText:localeText,
+        onModelUpdated: () => schedulePanelColumnFit(),
+        onGridSizeChanged: () => schedulePanelColumnFit(),
         onRowSelected: onHeroRowSelected,
         onRowClicked: onHeroRowClick,
         onRowDragEnter: onRowDragEnter,
@@ -529,6 +600,7 @@ function buildGrid(localeText) {
     const gridDiv = document.getElementById('heroes-table');
     const buildsGridDiv = document.getElementById('builds-table');
     heroesGrid = new Grid(gridDiv, gridOptions);
+    schedulePanelColumnFit();
     buildsGrid = new Grid(buildsGridDiv, buildsGridOptions);
 }
 

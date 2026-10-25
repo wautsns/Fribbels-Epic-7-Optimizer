@@ -129,6 +129,8 @@
   "Appended": "Appended",
   "Archetypes": "Archetypes",
   "Are you sure you want to overwrite the optimizer's hero data with ingame hero data?": "Are you sure you want to overwrite the optimizer's hero data with ingame hero data?",
+  "Are you sure you want to remove this build?": "Are you sure you want to remove this build?",
+  "Are you sure you want to remove this hero? This will also remove all of its saved builds.": "Are you sure you want to remove this hero? This will also remove all of its saved builds.",
   "Armor": "Armor",
   "Panel requirement": "Panel requirement",
   "Artifact": "Artifact",

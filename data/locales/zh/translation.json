@@ -137,6 +137,8 @@
     "Appended": "成功追加",
     "Archetypes": "装备类型",
     "Are you sure you want to overwrite the optimizer's hero data with ingame hero data?": "你确定要使用\"游戏中英雄数据\"覆盖掉当前计算仿真器中已储存的英雄数据吗？",
+    "Are you sure you want to remove this build?": "确定要删除该配置吗？",
+    "Are you sure you want to remove this hero? This will also remove all of its saved builds.": "确定要删除该英雄吗？这也会同时删除它所有的配置。",
     "Armor": "盔甲",
     "Armors": "盔甲",
     "Panel requirement": "面板需求",

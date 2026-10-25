@@ -41,21 +41,8 @@ module.exports = {
     },
 
     initialize: () => {
-        if (i18next.language == 'zh') {
-          var localeText = AG_GRID_LOCALE_ZH;
-        } else if (i18next.language == 'zh-TW') {
-          var localeText = AG_GRID_LOCALE_ZH_TW;
-        } else if (i18next.language == 'fr') {
-          var localeText = AG_GRID_LOCALE_FR;
-        } else if (i18next.language == 'ja') {
-          var localeText = AG_GRID_LOCALE_JA;
-        } else if (i18next.language == 'ko') {
-          var localeText = AG_GRID_LOCALE_KO;
-        } else if (i18next.language == 'ru') {
-          var localeText = AG_GRID_LOCALE_RU;
-        } else {
-          var localeText = AG_GRID_LOCALE_EN;
-        }
+        // 只保留 en / zh 两种语言
+        var localeText = i18next.language == 'zh' ? AG_GRID_LOCALE_ZH : AG_GRID_LOCALE_EN;
         console.log('localeText:'+localeText);
 
         buildGrid(localeText);

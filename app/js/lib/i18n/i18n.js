@@ -1,30 +1,25 @@
 /* eslint-disable */
 module.exports = {
     initialize: async () => {
+        // 只保留 en / zh 两种语言
         require(Files.path(Files.getDataPath() + '/locales/en/gridlocale.js'))
         require(Files.path(Files.getDataPath() + '/locales/zh/gridlocale.js'))
-        require(Files.path(Files.getDataPath() + '/locales/ko/gridlocale.js'))
-        require(Files.path(Files.getDataPath() + '/locales/zh-TW/gridlocale.js'))
-        require(Files.path(Files.getDataPath() + '/locales/fr/gridlocale.js'))
-        require(Files.path(Files.getDataPath() + '/locales/ja/gridlocale.js'))
-        require(Files.path(Files.getDataPath() + '/locales/ru/gridlocale.js'))
 
         window.i18next.use(window.i18nextHttpBackend).use({
             type: 'languageDetector',
             async: false,
             detect: () => {
-                let lang = navigator.language || navigator.userLanguage;
-                // Map zh-CN to zh
-                if (lang && lang.startsWith('zh-CN')) {
-                    lang = 'zh';
-                }
-                return lang;
+                // 只有 en / zh 两份语言文件，其余系统语言统一回落到 en
+                const queryLang = new URLSearchParams(window.location.search).get('lng');
+                let lang = queryLang || navigator.language || navigator.userLanguage || 'en';
+                // 各种中文变体 (zh-CN / zh-TW / zh-HK ...) 统一使用 zh
+                return lang.toLowerCase().startsWith('zh') ? 'zh' : 'en';
             },
             init: () => {},
             cacheUserLanguage: () => {},
         }).init({
             debug: false,
-            preload: ['en', 'zh', 'zh-TW', 'fr', 'ko', 'ja', 'ru', 'dev'],
+            preload: ['en', 'zh'],
             ignoreIds: ['loadFromGameExportOutputText', 'exportOutputText'],
             translateAttributes: ['placeholder', 'title', 'alt', 'value#input.type=button', 'value#input.type=submit', 'data-content'],
             saveMissing: true,

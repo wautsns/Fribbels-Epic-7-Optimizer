@@ -86,6 +86,12 @@ module.exports = {
 
             console.warn("REMOVEBUILD", row, existingBuild);
 
+            const confirmed = await Dialog.confirmation(
+                i18next.t("Are you sure you want to remove this build?"),
+                i18next.t("Remove Build")
+            );
+            if (!confirmed) return;
+
             Api.removeBuild(row.id, existingBuild).then(x => {
                 HeroesGrid.refreshBuilds();
                 Saves.autoSave();
@@ -183,6 +189,12 @@ module.exports = {
             console.log("removeHeroesSubmit");
             const row = HeroesGrid.getSelectedRow();
             if (!row) return;
+
+            const confirmed = await Dialog.confirmation(
+                i18next.t("Are you sure you want to remove this hero? This will also remove all of its saved builds."),
+                i18next.t("Remove Hero")
+            );
+            if (!confirmed) return;
 
             Api.removeHeroById(row.id).then(async response => {
                 console.log("RESPONSE", response)

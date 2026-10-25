@@ -1180,10 +1180,10 @@ module.exports = {
         });
     },
 
-    confirmation: async (text) => {
+    confirmation: async (text, title = '') => {
         return new Promise(async (resolve, reject) => {
             const result = await Swal.fire({
-                title: '',
+                title: title,
                 icon: 'question',
                 text: text,
                 focusConfirm: false,

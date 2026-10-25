@@ -857,6 +857,45 @@ input[type=number]::-webkit-outer-spin-button {
 .ms-drop ul>li.hide-radio label {
     padding: 0px 8px;
 }
+
+/* Set filter dropdowns: show the options in two columns to reduce scrolling */
+.ms-parent.ms-two-column .ms-drop {
+  /* Size the dropdown to its content so neither column gets extra empty space */
+  width: max-content;
+  min-width: 100%;
+  max-width: 380px;
+  /* The dropdown is wider than its parent, so keep it inside the window by
+     growing it towards the left instead of the right edge */
+  left: auto;
+  right: 0;
+}
+
+.ms-parent.ms-two-column .ms-drop ul {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: start;
+  align-content: start;
+  column-gap: 16px;
+}
+
+.ms-parent.ms-two-column .ms-drop ul>li.multiple {
+  float: none;
+  width: auto !important;
+  min-width: 0;
+}
+
+.ms-parent.ms-two-column .ms-drop ul>li.group {
+  grid-column: 1 / -1;
+  clear: both;
+}
+
+.ms-parent.ms-two-column .ms-drop ul>li label,
+.ms-parent.ms-two-column .ms-drop ul>li label>span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 #stat-priority-panel {
     min-width: 220px;
 }

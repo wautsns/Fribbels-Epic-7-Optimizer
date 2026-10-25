@@ -100,13 +100,25 @@ module.exports = {
         $('#optionsS2').multipleSelect(Object.assign({}, excludeEquippedSelectOptions, {placeholder: i18next.t("Exclude equipped"), selectAll: true},{formatSelectAll () {return i18next.t('[Select all]')}}));
         $('#optionsS3').multipleSelect(Object.assign({}, excludeEquippedSelectOptions, {placeholder: i18next.t("Exclude equipped"), selectAll: true},{formatSelectAll () {return i18next.t('[Select all]')}}));
 
+        // The plugin inserts its `.ms-parent` wrapper as the next sibling of the original
+        // <select> (the wrapper copies the select classes), so resolve it that way too.
+        const getSetSelectParent = ($select) => {
+            const $closestParent = $select.closest('.ms-parent');
+            return $closestParent.length ? $closestParent : $select.nextAll('.ms-parent').first();
+        };
+
         // Set icons are added to the dropdown rows only (never to the collapsed summary, which
         // the plugin re-renders without a change event when a hero is switched).
         const decorateSetDropdowns = () => {
             const bySet = Assets.getAssetsBySet();
 
-            $('.inputSetFilterSelect').each(function () {
-                $(this).closest('.ms-parent').find('.ms-drop li').each(function () {
+            $('select.inputSetFilterSelect').each(function () {
+                const $parent = getSetSelectParent($(this));
+
+                // Set lists are long, so the dropdown is rendered in two columns
+                $parent.addClass('ms-two-column');
+
+                $parent.find('.ms-drop li').each(function () {
                     const $row = $(this);
                     if ($row.find('img.ms-set-icon').length) return;
 

@@ -523,18 +523,18 @@ function buildGrid(localeText) {
         navigateToNextCell: GridRenderer.arrowKeyNavigator(this, "heroesGrid"),
     };
 
+    // 配置表不允许手动排序：行顺序始终由后端返回的配装结果优先级决定
     const buildsGridOptions = {
         defaultColDef: {
             width: 45,
-            sortable: true,
-            sortingOrder: ['desc', 'asc'],
+            sortable: false,
             cellStyle: columnGradient,
             // suppressNavigable: true,
             cellClass: 'no-border'
             // valueFormatter: numberFormatter,
         },
         columnDefs: [
-            {headerName: i18next.t('name'), field: 'name', sortingOrder: ['asc', 'desc', null], width: 400},
+            {headerName: i18next.t('name'), field: 'name', width: 400},
             {headerName: i18next.t('sets'), field: 'sets', width: 100, cellRenderer: (params) => GridRenderer.renderSets(params.value)},
             {headerName: i18next.t('atk'), field: 'atk'},
             {headerName: i18next.t('def'), field: 'def'},

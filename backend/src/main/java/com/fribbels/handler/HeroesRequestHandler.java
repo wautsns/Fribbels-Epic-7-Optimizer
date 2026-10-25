@@ -1,5 +1,6 @@
 package com.fribbels.handler;
 
+import com.fribbels.core.ResultPriorityComparator;
 import com.fribbels.core.StatCalculator;
 import com.fribbels.db.ArtifactStatsDb;
 import com.fribbels.db.BaseStatsDb;
@@ -281,7 +282,9 @@ public class HeroesRequestHandler extends RequestHandler implements HttpHandler 
     public String getAllHeroes(final GetAllHeroesRequest request) {
         try {
             final List<Hero> rawHeroes = heroDb.getAllHeroes();
-            final List<Hero> heroes = rawHeroes.stream().map(x -> x.withCp(x.getCp())).collect(Collectors.toList());
+            final List<Hero> heroes = rawHeroes.stream()
+                    .map(x -> withBuildsSortedByResultPriority(x.withCp(x.getCp())))
+                    .collect(Collectors.toList());
 
             //        System.out.println("Heroes" + heroes);
 
@@ -467,11 +470,37 @@ public class HeroesRequestHandler extends RequestHandler implements HttpHandler 
 
         addStatsToHero(hero, request.isUseReforgeStats());
         final GetHeroByIdResponse response = GetHeroByIdResponse.builder()
-                .hero(hero)
+                .hero(withBuildsSortedByResultPriority(hero))
                 .baseStats(baseStats)
                 .build();
 
         return toJson(response);
+    }
+
+    /**
+     * Returns a hero copy whose builds are ordered by the hero's currently saved result
+     * priority. The builds stored in the hero database keep their original save order,
+     * and the ordering is recalculated every time the hero is returned, so adjusting the
+     * result priority is reflected immediately.
+     *
+     * @param hero hero to sort the builds of
+     * @return hero with sorted builds, or the same hero when there is nothing to sort
+     */
+    private Hero withBuildsSortedByResultPriority(final Hero hero) {
+        final List<HeroStats> builds = hero.getBuilds();
+        if (builds == null || builds.size() < 2) return hero;
+
+        final OptimizationRequest optimizationRequest = hero.getOptimizationRequest();
+        if (optimizationRequest == null) return hero;
+
+        final List<String> resultPriority = optimizationRequest.getResultPriority();
+        // No configured result priority means there is nothing to sort by, keep the save order
+        if (resultPriority == null || resultPriority.isEmpty()) return hero;
+
+        final List<HeroStats> sortedBuilds = new ArrayList<>(builds);
+        sortedBuilds.sort(new ResultPriorityComparator(resultPriority, optimizationRequest.getResultDislike()));
+
+        return hero.withBuilds(sortedBuilds);
     }
 
     public String getBaseStats(final IdRequest request) {

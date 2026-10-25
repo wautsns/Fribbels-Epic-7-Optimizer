@@ -547,7 +547,7 @@ module.exports = {
             return item.reforgedWss > min && item.reforgedWss < max
         })
 
-        items = ModificationFilter.apply(items, params.inputSubstatMods, hero, submit, index);
+        items = ModificationFilter.apply(items, params.inputSubstatMods, hero, submit);
 
         if (params.inputFilterPriority != 100) {
             PriorityFilter.calculatePriorityScores(params, items, baseStats, params.inputPredictReforges);
@@ -737,7 +737,7 @@ module.exports = {
         StatPreview.draw(filled, filled);
     },
 
-    loadPreviousHeroFilters: async (heroResponse, index, recalc, tab) => {
+    loadPreviousHeroFilters: async (heroResponse, index, recalc) => {
         if (index == null || index == undefined) {
             index = '';
         }
@@ -878,9 +878,7 @@ module.exports = {
             recalculateFilters(null, heroResponse);
         }
         fixSliders(index)
-        if (tab != 'multiOptimizer') {
-            calculatePlaceholderRatings(index)
-        }
+        calculatePlaceholderRatings(index)
     },
 
     // True if blocking error

@@ -579,6 +579,12 @@ input, button {
   font-size: 14px;
   font-weight: 800;
 }
+/* ag-Grid balham 主题默认是 12px + 系统字体栈，字号偏小、且和文本列不一致；
+   整个表格统一成 13px + Noto/雅黑（表头另有 14px 规则） */
+.ag-theme-balham {
+  font-family: 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+}
 .ag-cell-value {
   font-weight: 400;
   text-align: center;
@@ -2009,34 +2015,6 @@ input:checked + .darkSlider:before {
   margin-right: 20px;
 }
 
-.multiInfoPanel {
-  padding: 5px 8px 5px 8px;
-  width: 142px;
-  flex-grow: 0;
-  flex-shrink: 0;
-  line-height: 14px;
-  margin-right: 5px;
-  border-radius: 7px;
-}
-
-.multiTopRow {
-  display: flex;
-  flex-direction: row;
-  height: 310px;
-}
-
-.multiGrid {
-  min-width: 1200px;
-  flex-grow: 1;
-  margin-right: 15px;
-}
-
-.editFiltersDialog {
-  display: flex;
-  flex-direction: row;
-  text-align: left;
-  font-size: 14px;
-}
 /*
 .ag-theme-balham .ag-ltr .ag-cell-range-single-cell, .ag-theme-balham .ag-ltr .ag-cell-range-single-cell.ag-cell-range-handle, .ag-theme-balham .ag-ltr .ag-context-menu-open .ag-cell-focus:not(.ag-cell-range-selected), .ag-theme-balham .ag-ltr .ag-has-focus .ag-cell-focus:not(.ag-cell-range-selected), .ag-theme-balham .ag-ltr .ag-has-focus .ag-full-width-row.ag-row-focus .ag-cell-wrapper.ag-row-group, .ag-theme-balham .ag-rtl .ag-cell-range-single-cell, .ag-theme-balham .ag-rtl .ag-cell-range-single-cell.ag-cell-range-handle, .ag-theme-balham .ag-rtl .ag-context-menu-open .ag-cell-focus:not(.ag-cell-range-selected), .ag-theme-balham .ag-rtl .ag-has-focus .ag-cell-focus:not(.ag-cell-range-selected), .ag-theme-balham .ag-rtl .ag-has-focus .ag-full-width-row.ag-row-focus .ag-cell-wrapper.ag-row-group {
   border: 1px solid transparent;
@@ -2045,26 +2023,6 @@ input:checked + .darkSlider:before {
 .ag-theme-balham .ag-cell, .ag-theme-balham .ag-full-width-row .ag-cell-wrapper.ag-row-group {
   border: none !important;
 }*/
-
-.injectedSummaryRow {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: row;
-}
-.injectedSummaryComponent {
-  width: 200px;
-}
-.multiSpace {
-  height: 1px;
-  display: block;
-}
-.multiOptimizerControlPanel {
-  display: flex;
-  flex-direction: row;
-  margin-left: 8px;
-  margin-bottom: 5px;
-  margin-top: 5px;
-}
 
 .inactiveColorBorder {
   border-color: var(--inactive-color);

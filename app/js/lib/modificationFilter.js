@@ -15,33 +15,10 @@ const statList = [
 ]
 
 var moddedItems = {}
-var multiModdedItems = [
-
-]
-
-function createMultiOptimizerSlotIfNotExistsAndReturnsMultiOrNot(index) {
-    if (index == null || index == undefined) {
-        return false;
-    }
-
-    if (multiModdedItems[index] == undefined || multiModdedItems[index] == null) {
-        multiModdedItems[index] = {};
-    }
-    return true;
-}
 
 module.exports = {
-    getModsByIds: (gearIds, mods, index) => {
-        var modCollection;
-        var isMulti = createMultiOptimizerSlotIfNotExistsAndReturnsMultiOrNot(index);
-
-        if (isMulti) {
-            console.log("MultiOptimizer modded items", moddedItems)
-            modCollection = multiModdedItems[index];
-        } else {
-            console.log("SingleOptimizer modded items", moddedItems)
-            modCollection = moddedItems;
-        }
+    getModsByIds: (gearIds, mods) => {
+        var modCollection = moddedItems;
 
         const result = []
         for (var i = 0; i < mods.length; i++) {
@@ -79,9 +56,7 @@ module.exports = {
         return result;
     },
 
-    apply: (items, enableMods, hero, submit, index) => {
-        var isMulti = createMultiOptimizerSlotIfNotExistsAndReturnsMultiOrNot(index)
-
+    apply: (items, enableMods, hero, submit) => {
         if (enableMods && (!hero.keepStats || hero.keepStats.length == 0)) {
             if (submit) {
                 Dialog.error("Substat mods are enabled, but the hero's 'Keep' substat list is empty. Please use 'Add Substat Mods' button on the Heroes tab to adjust your mod preferences");
@@ -92,11 +67,7 @@ module.exports = {
         if (!enableMods || !hero.limitRolls || (hero.rollQuality == undefined || hero.rollQuality == null)) {
             for (var item of items) {
                 item.modId = item.id;
-                if (isMulti) {
-                    multiModdedItems[index][item.id] = item;
-                } else {
-                    moddedItems[item.id] = item;
-                }
+                moddedItems[item.id] = item;
             }
             return items;
         }
@@ -246,11 +217,7 @@ module.exports = {
             // newItems.push.apply(newItems, tempNewItems)
         }
 
-        if (isMulti) {
-            multiModdedItems[index] = newModdedItems;
-        } else {
-            moddedItems = newModdedItems;
-        }
+        moddedItems = newModdedItems;
 
         console.warn("newItems", items, newItems);
 

@@ -207,96 +207,95 @@ module.exports = {
 }
 
 
-/* 神器列内容右对齐（带 [+30] 后缀，右对齐更整齐），表头保持居中 */
+/* 英雄表行高（下面的文本单元格用同样的 line-height 来垂直居中） */
+const HERO_ROW_HEIGHT = 32;
+
+/*
+ * 神器列内容右对齐（带 [+30] 后缀，右对齐更整齐），表头保持居中。
+ * 注意：这里不能用 display:flex —— flex 容器里的文本会变成匿名 flex item，
+ * text-overflow:ellipsis 不生效，超长文本会被直接切掉、看不到省略号。
+ * 用 block + line-height 做垂直居中，省略号才会正常显示。
+ */
 const ARTIFACT_CELL_STYLE = {
     'height': '100%',
-    'display': 'flex',
-    'justify-content': 'flex-end',
-    'align-items': 'center',
+    'display': 'block',
+    'line-height': `${HERO_ROW_HEIGHT}px`,
+    'text-align': 'right',
     'padding-right': '6px',
     'overflow': 'hidden',
     'white-space': 'nowrap',
     'text-overflow': 'ellipsis',
 };
 
-/* 其它文本列左对齐 + 省略号 */
+/* 其它文本列左对齐 + 省略号（同样用 block 布局，保证超长时显示 ...） */
 const TEXT_CELL_STYLE = {
     'height': '100%',
-    'display': 'flex',
-    'justify-content': 'flex-start',
-    'align-items': 'center',
+    'display': 'block',
+    'line-height': `${HERO_ROW_HEIGHT}px`,
+    'text-align': 'left',
     'padding-left': '6px',
     'overflow': 'hidden',
     'white-space': 'nowrap',
     'text-overflow': 'ellipsis',
 };
 
-/* 文本列只有在被截断时才弹 tooltip */
-let tooltipMeasureCtx = null;
-let cachedCellFont = null;
+/* 文本列只有在被截断（显示省略号）时才弹 tooltip */
 
-function measureTextWidth(text, font) {
-    if (!tooltipMeasureCtx) {
-        tooltipMeasureCtx = document.createElement('canvas').getContext('2d');
-    }
-    tooltipMeasureCtx.font = font;
-    return tooltipMeasureCtx.measureText(text).width;
-}
-
-/** 从表格里已渲染的单元格取一次字体（字体不会变，取到就缓存） */
-function getCellFont() {
-    if (cachedCellFont) return cachedCellFont;
-    const cell = document.querySelector('#heroes-table .ag-cell');
-    if (cell) {
-        const style = window.getComputedStyle(cell);
-        if (style.fontSize && style.fontFamily) {
-            cachedCellFont = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-            return cachedCellFont;
-        }
-    }
-    return '13px sans-serif';
-}
-
-const tooltipFitCache = new Map();
-const TOOLTIP_FIT_CACHE_LIMIT = 500;
-
-/** 文本是否放得下（带缓存） */
-function fitsInWidth(text, font, available) {
-    const key = `${font}|${available}|${text}`;
-    const cached = tooltipFitCache.get(key);
-    if (cached !== undefined) return cached;
-
-    const fits = measureTextWidth(text, font) <= available;
-    if (tooltipFitCache.size >= TOOLTIP_FIT_CACHE_LIMIT) {
-        tooltipFitCache.clear();
-    }
-    tooltipFitCache.set(key, fits);
-    return fits;
+/**
+ * 找到当前渲染出来的那个单元格。
+ * ag-Grid 的 tooltip 参数里没有 DOM 节点（v26 只给 column / rowIndex），
+ * 所以按「行 + 列 id」查一次。
+ */
+function findRenderedCell(column, rowIndex) {
+    if (!column || rowIndex == null) return null;
+    const row = document.querySelector(`#heroes-table .ag-center-cols-container .ag-row[row-index="${rowIndex}"]`);
+    if (!row) return null;
+    return row.querySelector(`.ag-cell[col-id="${column.getColId()}"]`);
 }
 
 /**
  * 只有被截断（显示省略号）时才返回文本，让 ag-Grid 弹提示。
- * 只在鼠标悬停时触发，不进入渲染循环。
+ *
+ * 注意：ag-Grid 是在单元格渲染时就把 tooltip 文字算好并缓存的，那时布局还没完成
+ * （查不到单元格），所以这里取不到单元格时先返回空；布局完成后由
+ * scheduleTextTooltipRefresh() 刷新这些单元格，再按真实溢出状态重新计算。
  */
 function truncatedTooltipGetter(params) {
     const text = params.value;
     if (!text) return '';
 
-    try {
-        // 用列的实际宽度判断（不依赖 eGridCell，某些版本 hover 时取不到）
-        const columnWidth = params.column && params.column.getActualWidth
-            ? params.column.getActualWidth()
-            : (params.eGridCell ? params.eGridCell.clientWidth : 0);
-        if (!columnWidth) return text;
+    const cell = findRenderedCell(params.column, params.rowIndex);
+    if (!cell) return '';
 
-        // 单元格左右内边距共 6px，再留 2px 余量
-        const available = columnWidth - 8;
-        if (available <= 0) return text;
+    return cell.scrollWidth > cell.clientWidth + 1 ? text : '';
+}
 
-        return fitsInWidth(text, getCellFont(), available) ? '' : text;
-    } catch (e) {
-        return text;
-    }
+let textTooltipRefreshTimer = null;
+
+/** 布局变化（flex 列宽、窗口缩放、数据更新）后，让文本列重算一次缓存的 tooltip */
+function scheduleTextTooltipRefresh() {
+    if (textTooltipRefreshTimer) clearTimeout(textTooltipRefreshTimer);
+    textTooltipRefreshTimer = setTimeout(() => {
+        textTooltipRefreshTimer = null;
+        try {
+            const gridOptions = heroesGrid && heroesGrid.gridOptions;
+            const api = gridOptions && gridOptions.api;
+            const columnApi = gridOptions && (gridOptions.columnApi || gridOptions.api);
+            if (!api || !api.refreshCells || !columnApi || !columnApi.getAllGridColumns) return;
+
+            const columns = columnApi.getAllGridColumns()
+                .filter((col) => {
+                    const def = col.getColDef && col.getColDef();
+                    return def && def.tooltipValueGetter === truncatedTooltipGetter;
+                })
+                .map((col) => col.getColId());
+            if (columns.length) {
+                api.refreshCells({ columns: columns, force: true });
+            }
+        } catch (e) {
+            console.warn('scheduleTextTooltipRefresh failed', e);
+        }
+    }, 80);
 }
 
 /* 面板需求的输出顺序：速度优先，其余按 攻/防/血/暴率/暴伤/命中/抵抗 */
@@ -364,75 +363,6 @@ function formatStatRequirements(hero) {
         .join(' ');
 }
 
-const PANEL_REQUIREMENT_COL_ID = 'panelRequirement';
-const PANEL_REQUIREMENT_MIN_WIDTH = 120;
-const PANEL_REQUIREMENT_PADDING = 18;   // 左右内边距 + 余量
-
-let fittingPanelColumn = false;
-let panelFitTimer = null;
-
-/** 按内容算一个合适的宽度（表头文字也参与比较） */
-function measurePanelRequirementWidth() {
-    const font = getCellFont();
-    let max = measureTextWidth(i18next.t('Panel requirement'), font);
-
-    for (const hero of currentHeroes) {
-        const text = formatStatRequirements(hero);
-        if (!text) continue;
-        const width = measureTextWidth(text, font);
-        if (width > max) max = width;
-    }
-    return Math.ceil(max + PANEL_REQUIREMENT_PADDING);
-}
-
-/**
- * 面板需求列：宽度贴合最长内容，但不超过「容器宽 - 其它列宽」，因此不会出现横向滚动条
- */
-function fitPanelRequirementColumn() {
-    if (fittingPanelColumn) return;
-    try {
-        const api = heroesGrid && heroesGrid.gridOptions && heroesGrid.gridOptions.api;
-        if (!api) return;
-
-        const container = document.querySelector('#heroes-table');
-        if (!container || !container.clientWidth) return;
-
-        const states = api.getColumnState() || [];
-        let others = 0;
-        for (const col of states) {
-            if (col.colId !== PANEL_REQUIREMENT_COL_ID) {
-                others += col.width || 0;
-            }
-        }
-
-        const available = container.clientWidth - others - 2;
-        if (available <= 0) return;
-
-        const wanted = measurePanelRequirementWidth();
-        let target = Math.min(wanted, available);
-        target = Math.max(target, Math.min(PANEL_REQUIREMENT_MIN_WIDTH, available));
-        target = Math.max(target, 60);
-
-        fittingPanelColumn = true;
-        api.setColumnWidth(PANEL_REQUIREMENT_COL_ID, target, true);
-    } catch (e) {
-        console.warn('fitPanelRequirementColumn failed', e);
-    } finally {
-        setTimeout(() => {
-            fittingPanelColumn = false;
-        }, 0);
-    }
-}
-
-/** 数据或尺寸变化后延后重算，避免抖动 */
-function schedulePanelColumnFit() {
-    if (panelFitTimer) clearTimeout(panelFitTimer);
-    panelFitTimer = setTimeout(() => {
-        panelFitTimer = null;
-        fitPanelRequirementColumn();
-    }, 60);
-}
-
 function buildGrid(localeText) {
     const DIGITS_2 = 40;
     const DIGITS_3 = 40;
@@ -464,7 +394,7 @@ function buildGrid(localeText) {
             //{headerName: i18next.t('name'), field: 'name', width: 0, wrapText: true, cellStyle: {'display':'none'}},
             {headerName: i18next.t('name'), field: 'label', width: 155, wrapText: true, sortable: false, cellStyle: {'white-space': 'normal !important', 'line-height': '16px'}, cellRenderer: (params) => renderName(params)},
             {headerName: i18next.t('Artifact'), width: 140, sortable: false, valueGetter: (params) => formatArtifactDisplay(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: ARTIFACT_CELL_STYLE},
-            {colId: 'panelRequirement', headerName: i18next.t('Panel requirement'), width: 200, minWidth: 120, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
+            {colId: 'panelRequirement', headerName: i18next.t('Panel requirement'), flex: 1, minWidth: 120, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
             // {headerName: i18next.t('Stars'), field: 'rarity', width: 50},
             // {headerName: i18next.t('Class'), field: 'role', width: 100, cellRenderer: (params) => renderClass(params.value)},
             {headerName: i18next.t('sets'), field: 'equipment', width: 85, sortable: false, cellRenderer: (params) => renderSets(params.value)},
@@ -494,12 +424,15 @@ function buildGrid(localeText) {
         rowData: [],
         tooltipShowDelay: 300,
         suppressScrollOnNewData: true,
-        rowHeight: 32,
+        rowHeight: HERO_ROW_HEIGHT,
         pagination: true,
         paginationPageSize: 100000,
         localeText:localeText,
-        onModelUpdated: () => schedulePanelColumnFit(),
-        onGridSizeChanged: () => schedulePanelColumnFit(),
+        // 文本列的 tooltip 依赖布局后的真实宽度，数据/尺寸/列宽变化后重算一次
+        onModelUpdated: () => scheduleTextTooltipRefresh(),
+        onGridSizeChanged: () => scheduleTextTooltipRefresh(),
+        onFirstDataRendered: () => scheduleTextTooltipRefresh(),
+        onColumnResized: () => scheduleTextTooltipRefresh(),
         onRowSelected: onHeroRowSelected,
         onRowClicked: onHeroRowClick,
         onRowDragEnter: onRowDragEnter,
@@ -587,7 +520,6 @@ function buildGrid(localeText) {
     const gridDiv = document.getElementById('heroes-table');
     const buildsGridDiv = document.getElementById('builds-table');
     heroesGrid = new Grid(gridDiv, gridOptions);
-    schedulePanelColumnFit();
     buildsGrid = new Grid(buildsGridDiv, buildsGridOptions);
 }
 

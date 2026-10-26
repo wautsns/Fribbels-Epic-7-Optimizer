@@ -6,6 +6,8 @@ var axios = require('axios');
 global.Files = require('./files');
 global.Path = require('path');
 
+const ArtifactImage = require('./artifactImage');
+
 const S3_BASE_URL = 'https://e7-optimizer-game-data.s3-accelerate.amazonaws.com';
 const ARTIFACT_IMAGE_BASE_URL = 'https://static-pubcomm.onstove.com/event/live/epic7/guide/wearingStatus/images/artifact';
 const TRANSLATION_BASE_URL = 'https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/refs/heads/main/data/locales';
@@ -241,7 +243,7 @@ module.exports = {
         }
     },
 
-    // 下载神器图片到 cachedimages
+    // 下载神器图片到 cachedimages：下载后处理成统一规格（裁边 + 64px + 轻锐化）再落盘
     downloadArtifactImage: async (artifactCode) => {
         if (!artifactCode || artifactCode.length <= 2) {
             console.log('Invalid artifact code');
@@ -270,7 +272,8 @@ module.exports = {
                 fs.mkdirSync(dirPath, { recursive: true });
             }
 
-            const buffer = Buffer.from(response.data);
+            // 大图只留在内存里，落盘的就是后面各处直接用的处理结果
+            const buffer = await ArtifactImage.processBuffer(Buffer.from(response.data));
             fs.writeFileSync(localArtifactPath, buffer);
             console.log(`Downloaded artifact image to: ${localArtifactPath}`);
 

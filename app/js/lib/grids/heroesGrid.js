@@ -328,7 +328,7 @@ const ARTIFACT_COL_WIDTH = 72;
 const PANEL_REQUIREMENT_COL_ID = 'panelRequirement';
 const PANEL_REQUIREMENT_MIN_WIDTH = 120;
 
-/* 神器名字 -> 图标地址（本地绝对路径，或下载失败时回落的远程地址） */
+/* 神器名字 -> 图标地址（cachedimages 里就是处理好的 64px 图，见 artifactImage.js） */
 const artifactIconPaths = {};
 
 function artifactIconSrc(hero) {

@@ -66,6 +66,13 @@ module.exports = {
         heroesGrid.gridOptions.api.setRowData(heroes)
         heroesGrid.gridOptions.api.redrawRows();
 
+        // 神器图标路径是异步取的（本地没有的会下载），取完再刷新这一列
+        loadArtifactIcons(heroes).then((changed) => {
+            if (changed) {
+                heroesGrid.gridOptions.api.refreshCells({ columns: [ARTIFACT_COL_ID], force: true });
+            }
+        });
+
         if (!selectedNode && !id) {
             return;
         }
@@ -210,23 +217,6 @@ module.exports = {
 /* 英雄表行高（下面的文本单元格用同样的 line-height 来垂直居中） */
 const HERO_ROW_HEIGHT = 32;
 
-/*
- * 神器列内容右对齐（带 [+30] 后缀，右对齐更整齐），表头保持居中。
- * 注意：这里不能用 display:flex —— flex 容器里的文本会变成匿名 flex item，
- * text-overflow:ellipsis 不生效，超长文本会被直接切掉、看不到省略号。
- * 用 block + line-height 做垂直居中，省略号才会正常显示。
- */
-const ARTIFACT_CELL_STYLE = {
-    'height': '100%',
-    'display': 'block',
-    'line-height': `${HERO_ROW_HEIGHT}px`,
-    'text-align': 'right',
-    'padding-right': '6px',
-    'overflow': 'hidden',
-    'white-space': 'nowrap',
-    'text-overflow': 'ellipsis',
-};
-
 /* 其它文本列左对齐 + 省略号（同样用 block 布局，保证超长时显示 ...） */
 const TEXT_CELL_STYLE = {
     'height': '100%',
@@ -323,6 +313,56 @@ function formatArtifactDisplay(hero) {
     return level ? `${name}[+${level}]` : name;
 }
 
+/*
+ * 神器列：只显示神器图标（和英雄头像列一致），名字 + 等级放在悬浮 tooltip 里。
+ *
+ * 数据里只有神器名字，图标要按名字查 artifactdata 的 code，再落到
+ * data/cachedimages/{code}_ico.png；本地没有的由 DataLoader 顺手下载（异步），
+ * 所以路径先缓存起来，下载完成后 refreshCells 刷新一次这一列。
+ * 单元格本身已经是 flex 居中（.ag-cell），这里不用再套 cellStyle。
+ */
+const ARTIFACT_COL_ID = 'artifact';
+const ARTIFACT_ICON_SIZE = 32;
+/* 72 = 32px 图标 + 左右留白，同时保证表头「Artifact」不被省略 */
+const ARTIFACT_COL_WIDTH = 72;
+const PANEL_REQUIREMENT_COL_ID = 'panelRequirement';
+const PANEL_REQUIREMENT_MIN_WIDTH = 120;
+
+/* 神器名字 -> 图标地址（本地绝对路径，或下载失败时回落的远程地址） */
+const artifactIconPaths = {};
+
+function artifactIconSrc(hero) {
+    if (!hero || !hero.artifactName) return Assets.getBlank();
+    return artifactIconPaths[hero.artifactName] || Assets.getBlank();
+}
+
+/* 补齐缺失的神器图标路径；返回是否有新增（有的话调用方要刷新这一列） */
+async function loadArtifactIcons(heroes) {
+    const names = [...new Set(heroes
+        .map((hero) => hero && hero.artifactName)
+        .filter(Boolean))];
+    const pending = names.filter((name) => !artifactIconPaths[name]);
+    if (!pending.length) return false;
+
+    await Promise.all(pending.map(async (name) => {
+        try {
+            const artifactData = HeroData.getArtifactByName(name);
+            if (!artifactData) return;
+
+            const iconPath = await DataLoader.getArtifactImagePath(artifactData);
+            if (iconPath) artifactIconPaths[name] = iconPath;
+        } catch (error) {
+            console.warn('artifact icon failed', name, error.message);
+        }
+    }));
+
+    return true;
+}
+
+function renderArtifactIcon(params) {
+    return `<img src="${artifactIconSrc(params.data)}" width="${ARTIFACT_ICON_SIZE}" height="${ARTIFACT_ICON_SIZE}"></img>`;
+}
+
 /**
  * 面板需求列：按配装器里配的属性过滤生成文本
  * - 上下限都没配（或下限为 0 且无上限）→ 不显示该属性
@@ -393,8 +433,9 @@ function buildGrid(localeText) {
             {headerName: i18next.t('elem'), field: 'attribute', width: 45, sortable: false, cellRenderer: (params) => renderElement(params.value)},
             //{headerName: i18next.t('name'), field: 'name', width: 0, wrapText: true, cellStyle: {'display':'none'}},
             {headerName: i18next.t('name'), field: 'label', width: 155, wrapText: true, sortable: false, cellStyle: {'white-space': 'normal !important', 'line-height': '16px'}, cellRenderer: (params) => renderName(params)},
-            {headerName: i18next.t('Artifact'), width: 140, sortable: false, valueGetter: (params) => formatArtifactDisplay(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: ARTIFACT_CELL_STYLE},
-            {colId: 'panelRequirement', headerName: i18next.t('Panel requirement'), flex: 1, minWidth: 120, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
+            {headerName: i18next.t('Artifact'), colId: ARTIFACT_COL_ID, width: ARTIFACT_COL_WIDTH, sortable: false, cellRenderer: (params) => renderArtifactIcon(params), tooltipValueGetter: (params) => formatArtifactDisplay(params.data)},
+            // 面板需求列：flex 吃掉神器列省下来的宽度（最小值兜底，避免被压没）
+            {colId: PANEL_REQUIREMENT_COL_ID, headerName: i18next.t('Panel requirement'), flex: 1, minWidth: PANEL_REQUIREMENT_MIN_WIDTH, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
             // {headerName: i18next.t('Stars'), field: 'rarity', width: 50},
             // {headerName: i18next.t('Class'), field: 'role', width: 100, cellRenderer: (params) => renderClass(params.value)},
             {headerName: i18next.t('sets'), field: 'equipment', width: 85, sortable: false, cellRenderer: (params) => renderSets(params.value)},

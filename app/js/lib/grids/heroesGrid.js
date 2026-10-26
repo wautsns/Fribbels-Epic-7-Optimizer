@@ -317,7 +317,7 @@ function formatArtifactDisplay(hero) {
  * 神器列：只显示神器图标（和英雄头像列一致），名字 + 等级放在悬浮 tooltip 里。
  *
  * 数据里只有神器名字，图标要按名字查 artifactdata 的 code，再落到
- * data/cachedimages/{code}_ico.png；本地没有的由 DataLoader 顺手下载（异步），
+ * data/cachedimages/artifacts/{code}_ico.png；本地没有的由 DataLoader 顺手下载（异步），
  * 所以路径先缓存起来，下载完成后 refreshCells 刷新一次这一列。
  * 单元格本身已经是 flex 居中（.ag-cell），这里不用再套 cellStyle。
  */
@@ -769,13 +769,11 @@ function renderIcon(name) {
     const iconUrl = data.assets.icon;
     if (!iconUrl) return '<img src="' + Assets.getBlank() + '" width="32" height="32"></img>';
     
-    // Convert GitHub URL to local path
-    // e.g., https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/data/cachedimages/c1144_s.png -> data/cachedimages/c1144_s.png
+    // Convert GitHub URL to local path (hero images live in data/cachedimages/heroes)
+    // e.g., https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/data/cachedimages/c1144_s.png -> cachedimages/heroes/c1144_s.png
     if (iconUrl && iconUrl.includes('raw.githubusercontent.com')) {
-        const path = iconUrl.replace('https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/', '');
-        // Remove 'data/' prefix as getDataPath() already includes 'data' directory
-        const localPath = path.replace('data/', '');
-        return `<img src="${Path.join(Files.getDataPath(), localPath)}" width="32" height="32"></img>`;
+        const fileName = Path.basename(iconUrl.split('?')[0]);
+        return `<img src="${Path.join(Files.getDataPath(), 'cachedimages', 'heroes', fileName)}" width="32" height="32"></img>`;
     }
     const image = '<img src="' + iconUrl + '" width="32" height="32"></img>';
     return image;

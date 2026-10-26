@@ -150,7 +150,7 @@ module.exports = {
             return imageUrl;
         }
 
-        const localPath = Path.join(Files.getDataPath(), 'cachedimages', fileName);
+        const localPath = Path.join(Files.getDataPath(), 'cachedimages', 'heroes', fileName);
 
         if (fs.existsSync(localPath)) {
             return localPath;
@@ -159,11 +159,11 @@ module.exports = {
         return imageUrl;
     },
 
-    // 下载英雄图片到 cachedimages
+    // 下载英雄图片到 cachedimages/heroes
     downloadHeroImage: async (imageUrl, relativeFilePath) => {
         try {
             let fileName = path.basename(relativeFilePath);
-            const localPath = Files.getDataPath() + '/cachedimages/' + fileName;
+            const localPath = Path.join(Files.getDataPath(), 'cachedimages', 'heroes', fileName);
 
             if (fs.existsSync(localPath)) {
                 console.log(`Hero image already exists: ${fileName}`);
@@ -202,7 +202,7 @@ module.exports = {
                         const relativeFilePath = 'data/cachedimages/' + urlParts[1];
 
                         const fileName = path.basename(relativeFilePath);
-                        const localPath = Files.getDataPath() + '/cachedimages/' + fileName;
+                        const localPath = Path.join(Files.getDataPath(), 'cachedimages', 'heroes', fileName);
 
                         if (!fs.existsSync(localPath)) {
                             await module.exports.downloadHeroImage(assets[field], relativeFilePath);
@@ -221,11 +221,11 @@ module.exports = {
     getArtifactImagePath: async (artifactData) => {
         const artifactCode = artifactData && artifactData.code;
         if (Number(artifactData && artifactData.rarity) < 3) {
-            return Path.join(Files.getDataPath(), 'cachedimages/question_circle.png');
+            return Path.join(Files.getDataPath(), 'cachedimages', 'artifacts', 'question_circle.png');
         }
 
         const artifactFileName = `${artifactCode}_ico.png`;
-        const localArtifactPath = Path.join(Files.getDataPath(), `cachedimages/${artifactFileName}`);
+        const localArtifactPath = Path.join(Files.getDataPath(), 'cachedimages', 'artifacts', artifactFileName);
 
         try {
             if (fs.existsSync(localArtifactPath)) {
@@ -243,7 +243,7 @@ module.exports = {
         }
     },
 
-    // 下载神器图片到 cachedimages：下载后处理成统一规格（裁边 + 64px + 轻锐化）再落盘
+    // 下载神器图片到 cachedimages/artifacts：下载后处理成统一规格（裁边 + 64px + 轻锐化）再落盘
     downloadArtifactImage: async (artifactCode) => {
         if (!artifactCode || artifactCode.length <= 2) {
             console.log('Invalid artifact code');
@@ -251,7 +251,7 @@ module.exports = {
         }
 
         const artifactFileName = `${artifactCode}_ico.png`;
-        const localArtifactPath = Files.getDataPath() + '/cachedimages/' + artifactFileName;
+        const localArtifactPath = Path.join(Files.getDataPath(), 'cachedimages', 'artifacts', artifactFileName);
 
         if (fs.existsSync(localArtifactPath)) {
             return localArtifactPath;

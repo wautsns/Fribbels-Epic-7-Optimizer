@@ -1,7 +1,7 @@
 /*
  * 神器图标的统一处理。
  *
- * 原始素材（data/cachedimages/{code}_ico.png）是 300~1200px 的攻略站大图，
+ * 原始素材（data/cachedimages/artifacts/{code}_ico.png）是 300~1200px 的攻略站大图，
  * 而这个应用里神器图标只会以 32px（英雄表）和 45px（配装器预览）两种尺寸出现，
  * 直接把大图交给浏览器「一步缩到位」会把细节拉平（efr30 这类光斑美术特别明显）。
  *

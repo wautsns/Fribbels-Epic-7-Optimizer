@@ -24,6 +24,28 @@ var selectedBuildNode = null;
 
 var currentAggregate = {};
 
+/* 英雄列表的筛选状态（职业 / 属性），用外部过滤器实现 */
+var heroFilterState = {
+    classFilter: null,
+    elementFilter: null,
+};
+
+function matchesHeroFilters(hero) {
+    if (!hero) return true;
+
+    const classFilter = heroFilterState.classFilter;
+    if (classFilter && !String(hero.role || '').toLowerCase().startsWith(classFilter.toLowerCase())) {
+        return false;
+    }
+
+    const elementFilter = heroFilterState.elementFilter;
+    if (elementFilter && !String(hero.attribute || '').toLowerCase().startsWith(elementFilter.toLowerCase())) {
+        return false;
+    }
+
+    return true;
+}
+
 module.exports = {
 
     toggleDarkMode(enabled) {
@@ -59,9 +81,6 @@ module.exports = {
         }
         const selectedNode = heroesGrid.gridOptions.api.getSelectedNodes()[0]
 
-        heroes.forEach(element => {
-          element.label = i18next.t(element.name)
-        });
         currentHeroes = heroes;
         heroesGrid.gridOptions.api.setRowData(heroes)
         heroesGrid.gridOptions.api.redrawRows();
@@ -157,30 +176,14 @@ module.exports = {
     },
 
     refreshFilters: (filters) => {
-        const classFilter = filters.classFilter;
-        const elementFilter = filters.elementFilter;
+        // 职业 / 属性筛选走外部过滤器（图标的列没有文本值，用列过滤器不方便）
+        heroFilterState.classFilter = filters.classFilter || null;
+        heroFilterState.elementFilter = filters.elementFilter || null;
 
-        const classFilterComponent = heroesGrid.gridOptions.api.getFilterInstance('role');
-        if (!classFilter) {
-            classFilterComponent.setModel(null);
-        } else {
-            classFilterComponent.setModel({
-                type: 'startsWith',
-                filter: classFilter
-            });
+        const api = heroesGrid && heroesGrid.gridOptions && heroesGrid.gridOptions.api;
+        if (api) {
+            api.onFilterChanged();
         }
-
-        const elementFilterComponent = heroesGrid.gridOptions.api.getFilterInstance('attribute');
-        if (!elementFilter) {
-            elementFilterComponent.setModel(null);
-        } else {
-            elementFilterComponent.setModel({
-                type: 'startsWith',
-                filter: elementFilter
-            });
-        }
-
-        heroesGrid.gridOptions.api.onFilterChanged();
     },
 
     redrawPreview: async () => {
@@ -314,17 +317,16 @@ function formatArtifactDisplay(hero) {
 }
 
 /*
- * 神器列：只显示神器图标（和英雄头像列一致），名字 + 等级放在悬浮 tooltip 里。
+ * 属性、职业、头像、神器各占一列。
  *
- * 数据里只有神器名字，图标要按名字查 artifactdata 的 code，再落到
+ * 神器数据里只有名字，图标要按名字查 artifactdata 的 code，再落到
  * data/cachedimages/artifacts/{code}_ico.png；本地没有的由 DataLoader 顺手下载（异步），
  * 所以路径先缓存起来，下载完成后 refreshCells 刷新一次这一列。
- * 单元格本身已经是 flex 居中（.ag-cell），这里不用再套 cellStyle。
  */
 const ARTIFACT_COL_ID = 'artifact';
-const ARTIFACT_ICON_SIZE = 32;
-/* 72 = 32px 图标 + 左右留白，同时保证表头「Artifact」不被省略 */
+/* 30px 图标 + 左右留白，同时保证表头「Artifact」不被省略 */
 const ARTIFACT_COL_WIDTH = 72;
+
 const PANEL_REQUIREMENT_COL_ID = 'panelRequirement';
 const PANEL_REQUIREMENT_MIN_WIDTH = 120;
 
@@ -359,8 +361,41 @@ async function loadArtifactIcons(heroes) {
     return true;
 }
 
+/** 英雄头像地址（本地 cachedimages/heroes），取不到就用空白图 */
+function heroIconSrc(name) {
+    const data = HeroData.getHeroExtraInfo(name);
+    const iconUrl = data && data.assets && data.assets.icon;
+    if (!iconUrl) return Assets.getBlank();
+
+    // GitHub 图片转成本地路径，例如
+    // .../data/cachedimages/c1144_s.png -> <data>/cachedimages/heroes/c1144_s.png
+    if (iconUrl.includes('raw.githubusercontent.com')) {
+        const fileName = Path.basename(iconUrl.split('?')[0]);
+        return Path.join(Files.getDataPath(), 'cachedimages', 'heroes', fileName);
+    }
+    return iconUrl;
+}
+
+/** 属性列图标 */
+function renderElement(element) {
+    const file = Assets.getElementAsset(element) || Assets.getBlank();
+    return `<img class="optimizerSetIcon" src="${file}">`;
+}
+
+/** 职业列图标 */
+function renderClass(role) {
+    const file = Assets.getClassAsset(role) || Assets.getBlank();
+    return `<img class="optimizerSetIcon" src="${file}">`;
+}
+
+/** 头像列图标（英雄名放在这一列的悬浮提示里） */
+function renderIcon(params) {
+    return `<img src="${heroIconSrc(params.data.name)}" width="32" height="32">`;
+}
+
+/** 神器列：图标（名字 + 等级由 tooltip 负责） */
 function renderArtifactIcon(params) {
-    return `<img src="${artifactIconSrc(params.data)}" width="${ARTIFACT_ICON_SIZE}" height="${ARTIFACT_ICON_SIZE}"></img>`;
+    return `<img class="heroArtifactIcon" src="${artifactIconSrc(params.data)}">`;
 }
 
 /**
@@ -428,16 +463,13 @@ function buildGrid(localeText) {
                 console.log(params)
                 return params.rowNode.data.name;
             }},
-            {headerName: i18next.t('icon'), sortable: false, field: 'name', width: 60, cellRenderer: (params) => renderIcon(params.value)},
-            {headerName: i18next.t('class'), field: 'role', width: 50, sortable: false, cellRenderer: (params) => renderClass(params.value)},
-            {headerName: i18next.t('elem'), field: 'attribute', width: 45, sortable: false, cellRenderer: (params) => renderElement(params.value)},
-            //{headerName: i18next.t('name'), field: 'name', width: 0, wrapText: true, cellStyle: {'display':'none'}},
-            {headerName: i18next.t('name'), field: 'label', width: 155, wrapText: true, sortable: false, cellStyle: {'white-space': 'normal !important', 'line-height': '16px'}, cellRenderer: (params) => renderName(params)},
-            {headerName: i18next.t('Artifact'), colId: ARTIFACT_COL_ID, width: ARTIFACT_COL_WIDTH, sortable: false, cellRenderer: (params) => renderArtifactIcon(params), tooltipValueGetter: (params) => formatArtifactDisplay(params.data)},
-            // 面板需求列：flex 吃掉神器列省下来的宽度（最小值兜底，避免被压没）
-            {colId: PANEL_REQUIREMENT_COL_ID, headerName: i18next.t('Panel requirement'), flex: 1, minWidth: PANEL_REQUIREMENT_MIN_WIDTH, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
+            // 属性、职业、头像各占一列；头像列的名字放在 tooltip 里
+            {colId: 'attribute', headerName: i18next.t('elem'), field: 'attribute', width: 45, sortable: false, cellRenderer: (params) => renderElement(params.value)},
+            {colId: 'role', headerName: i18next.t('class'), field: 'role', width: 50, sortable: false, cellRenderer: (params) => renderClass(params.value)},
+            {headerName: i18next.t('icon'), field: 'name', width: 60, sortable: false, cellRenderer: (params) => renderIcon(params), tooltipValueGetter: (params) => formatHeroName(params.data)},
+            // 神器单独一列，只显示图标，名字 + 等级在 tooltip 里
+            {colId: ARTIFACT_COL_ID, headerName: i18next.t('Artifact'), width: ARTIFACT_COL_WIDTH, sortable: false, cellRenderer: (params) => renderArtifactIcon(params), tooltipValueGetter: (params) => formatArtifactDisplay(params.data)},
             // {headerName: i18next.t('Stars'), field: 'rarity', width: 50},
-            // {headerName: i18next.t('Class'), field: 'role', width: 100, cellRenderer: (params) => renderClass(params.value)},
             {headerName: i18next.t('sets'), field: 'equipment', width: 85, sortable: false, cellRenderer: (params) => renderSets(params.value)},
             {headerName: i18next.t('atk'), field: 'atk', width: DIGITS_4},
             {headerName: i18next.t('def'), field: 'def', width: DIGITS_4},
@@ -447,6 +479,8 @@ function buildGrid(localeText) {
             {headerName: i18next.t('cd'), field: 'cd', width: DIGITS_3},
             {headerName: i18next.t('eff'), field: 'eff', width: DIGITS_3},
             {headerName: i18next.t('res'), field: 'res', width: DIGITS_3},
+            // 面板需求列：flex 吃掉剩下的宽度（最小值兜底，避免被压没）
+            {colId: PANEL_REQUIREMENT_COL_ID, headerName: i18next.t('Panel requirement'), flex: 1, minWidth: PANEL_REQUIREMENT_MIN_WIDTH, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
             // 以下衍生属性列继续隐藏
             // {headerName: i18next.t('cp'), field: 'cp', width: DIGITS_6},
             // {headerName: i18next.t('hps'), field: 'hpps', width: DIGITS_4},
@@ -482,6 +516,9 @@ function buildGrid(localeText) {
         onRowDragLeave: onRowDragLeave,
         onSortChanged: onSortChanged,
         onFilterChanged: onFilterChanged,
+        // 职业 / 属性筛选：格子里是图片，用外部过滤器按数据字段筛选
+        isExternalFilterPresent: () => !!(heroFilterState.classFilter || heroFilterState.elementFilter),
+        doesExternalFilterPass: (node) => matchesHeroFilters(node.data),
         suppressMoveWhenRowDragging: true,
         onRowDoubleClicked: onRowDoubleClicked,
         suppressCellSelection: true,
@@ -735,65 +772,12 @@ function navigateToNextCell(params) {
 }
 
 
-function renderElement(element) {
-    var file = Assets.getElementAsset(element);
-    return `<img class='optimizerSetIcon' src='${file}'></img>`;
-
-    // return {
-    //     "light": "<img class='optimizerSetIcon' src='https://assets.epicsevendb.com/attribute/cm_icon_promlight.png'></img>",
-    //     "fire": "<img class='optimizerSetIcon' src='https://assets.epicsevendb.com/attribute/cm_icon_profire.png'></img>",
-    //     "ice": "<img class='optimizerSetIcon' src='https://assets.epicsevendb.com/attribute/cm_icon_proice.png'></img>",
-    //     "wind": "<img class='optimizerSetIcon' src='https://assets.epicsevendb.com/attribute/cm_icon_proearth.png'></img>",
-    //     "dark": "<img class='optimizerSetIcon' src='https://assets.epicsevendb.com/attribute/cm_icon_promdark.png'></img>",
-    // }[element];
+/** 英雄显示名（5 星带标记），用于「英雄」概览列的悬浮提示 */
+function formatHeroName(hero) {
+    if (!hero) return '';
+    const name = i18next.t(hero.name);
+    return hero.stars == 5 ? name + " - 5 ★" : name;
 }
-
-
-function renderName(params) {
-    var stars = params.data.stars
-    var name = i18next.t(params.data.name)
-    return stars == 5 ? name + " - 5 ★" : name;
-}
-
-function renderClass(role) {
-    var file = Assets.getClassAsset(role);
-    return `<img class='optimizerSetIcon' src='${file}'></img>`;
-}
-
-
-
-function renderIcon(name) {
-    const data = HeroData.getHeroExtraInfo(name);
-    if (!data || !data.assets) return '<img src="' + Assets.getBlank() + '" width="32" height="32"></img>';
-    
-    const iconUrl = data.assets.icon;
-    if (!iconUrl) return '<img src="' + Assets.getBlank() + '" width="32" height="32"></img>';
-    
-    // Convert GitHub URL to local path (hero images live in data/cachedimages/heroes)
-    // e.g., https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/data/cachedimages/c1144_s.png -> cachedimages/heroes/c1144_s.png
-    if (iconUrl && iconUrl.includes('raw.githubusercontent.com')) {
-        const fileName = Path.basename(iconUrl.split('?')[0]);
-        return `<img src="${Path.join(Files.getDataPath(), 'cachedimages', 'heroes', fileName)}" width="32" height="32"></img>`;
-    }
-    const image = '<img src="' + iconUrl + '" width="32" height="32"></img>';
-    return image;
-}
-
-// function renderClass(value) {
-//     if (value == 'manauser')
-//         return 'Soul Weaver';
-//     if (value == 'mage')
-//         return 'Mage';
-//     if (value == 'ranger')
-//         return 'Ranger';
-//     if (value == 'knight')
-//         return 'Knight';
-//     if (value == 'warrior')
-//         return 'Warrior';
-//     if (value == 'assassin')
-//         return 'Thief';
-//     return value;
-// }
 
 async function onBuildRowSelected(event) {
     console.log("onBuildRowSelected", event);

@@ -157,7 +157,10 @@ module.exports = {
         } catch (error) {
             busy = false;
             setButtonRunning(false);
-            Dialog.htmlError(i18next.t('Please open the Manage Equipment page in game first'));
+            // adb problems (not found / offline) must not be reported as "wrong page"
+            Dialog.htmlError(error.notOnManagePage
+                ? i18next.t('Please open the Manage Equipment page in game first')
+                : i18next.t('In-game equip failed: ') + error.message);
             return;
         }
 
@@ -191,7 +194,7 @@ module.exports = {
 
                     // a page problem on the very first slot means the game is not on the
                     // manage equipment page: stop instead of failing all six slots
-                    if (index === 0 && /管理装备/.test(error.message)) {
+                    if (index === 0 && error.notOnManagePage) {
                         Dialog.htmlError(i18next.t('Please open the Manage Equipment page in game first'));
                         return;
                     }

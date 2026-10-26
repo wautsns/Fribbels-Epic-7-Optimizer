@@ -1,37 +1,166 @@
 // Minimal adb driver for emulator automation (screencap + input).
 // Only used by the GvG/equip automation features; every command is serialized.
 
-const { execFile, spawn } = require('child_process');
+const { execFile, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const ADB_CANDIDATES = [
+    // MuMu
     'C:/Apps/Netease/MuMuPlayer-12.0/shell/adb.exe',
     'C:/Program Files/Netease/MuMuPlayer-12.0/shell/adb.exe',
     'C:/Program Files (x86)/Netease/MuMuPlayer-12.0/shell/adb.exe',
     'D:/Program Files/Netease/MuMuPlayer-12.0/shell/adb.exe',
     'C:/Program Files/Netease/MuMuPlayer-12.0/nx_main/adb.exe',
-    'C:/Program Files (x86)/Nox/bin/adb.exe',
+    // LDPlayer
     'C:/LDPlayer/LDPlayer9/adb.exe',
+    'D:/LDPlayer/LDPlayer9/adb.exe',
+    'C:/LDPlayer/LDPlayer14/adb.exe',
+    'D:/LDPlayer/LDPlayer14/adb.exe',
+    'C:/Program Files/LDPlayer/LDPlayer9/adb.exe',
+    'D:/Program Files/LDPlayer/LDPlayer9/adb.exe',
+    // Nox / BlueStacks / MEmu
+    'C:/Program Files (x86)/Nox/bin/adb.exe',
+    'D:/Program Files (x86)/Nox/bin/adb.exe',
     'C:/Program Files/BlueStacks_nxt/HD-Adb.exe',
+    'C:/Program Files (x86)/Microvirt/MEmu/adb.exe',
 ];
 
-const DEFAULT_PORTS = ['127.0.0.1:16384', '127.0.0.1:7555', 'emulator-5554'];
+// The emulators can be installed anywhere (e.g. D:/apps/leidian/LDPlayer9), so the
+// install folder is read from the registry as well; every installer writes its
+// InstallDir there.
+const EMULATOR_REGISTRY_ROOTS = [
+    'HKLM\\SOFTWARE\\leidian',
+    'HKLM\\SOFTWARE\\Netease',
+    'HKLM\\SOFTWARE\\WOW6432Node\\Netease',
+    'HKCU\\SOFTWARE\\Netease',
+    'HKLM\\SOFTWARE\\Nox',
+    'HKLM\\SOFTWARE\\WOW6432Node\\Nox',
+    'HKLM\\SOFTWARE\\BlueStacks_nxt',
+    'HKLM\\SOFTWARE\\WOW6432Node\\BlueStacks_nxt',
+    'HKLM\\SOFTWARE\\Microvirt',
+    'HKLM\\SOFTWARE\\WOW6432Node\\Microvirt',
+];
+
+// adb sits either in the install root (LDPlayer) or in a sub folder (MuMu, Nox, ...)
+const ADB_RELATIVE_PATHS = [
+    'adb.exe',
+    'shell/adb.exe',
+    'nx_main/adb.exe',
+    'bin/adb.exe',
+    'HD-Adb.exe',
+    'platform-tools/adb.exe',
+];
+
+// LDPlayer 9/14 register their adb on 5555 (second instance 5557); MuMu on 16384,
+// Nox on 7555
+const DEFAULT_PORTS = ['127.0.0.1:16384', '127.0.0.1:7555', '127.0.0.1:5555', '127.0.0.1:5557', 'emulator-5554'];
 
 let adbPath = null;
 let serial = null;
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Errors of this driver end up in the UI, so they go through i18next (the keys live in
+// data/locales/*/translation.json); plain Node runs keep the English key.
+function t(key, options) {
+    return typeof i18next !== 'undefined' ? i18next.t(key, options) : key;
+}
+
+function regInstallDirs() {
+    const dirs = [];
+
+    if (process.platform !== 'win32') {
+        return dirs;
+    }
+
+    for (const root of EMULATOR_REGISTRY_ROOTS) {
+        let output = '';
+
+        try {
+            output = execFileSync('reg', ['query', root, '/s'], {
+                encoding: 'utf8',
+                windowsHide: true,
+                timeout: 5000,
+                maxBuffer: 4 * 1024 * 1024,
+                // a missing key prints a (localized) error on stderr; it is expected here
+                stdio: ['ignore', 'pipe', 'ignore'],
+            });
+        } catch (error) {
+            continue;
+        }
+
+        for (const line of String(output).split(/\r?\n/)) {
+            const match = line.match(/Install(?:Dir|Path|Location)\s+REG_(?:SZ|EXPAND_SZ)\s+(.+)$/i);
+            if (!match) {
+                continue;
+            }
+
+            // the value may still contain %ProgramFiles% style variables
+            const value = match[1].trim().replace(/%([^%]+)%/g, (raw, name) => process.env[name] || raw);
+            if (value) {
+                dirs.push(value);
+            }
+        }
+    }
+
+    return dirs;
+}
+
+function adbInDir(dir) {
+    for (const relative of ADB_RELATIVE_PATHS) {
+        const candidate = path.join(dir, relative);
+        try {
+            if (fs.existsSync(candidate)) {
+                return candidate;
+            }
+        } catch (error) {
+            // unreadable folder, keep looking
+        }
+    }
+
+    return null;
+}
+
+function pathAdb() {
+    const dirs = String(process.env.PATH || '').split(path.delimiter).filter(Boolean);
+
+    for (const dir of dirs) {
+        try {
+            const candidate = path.join(dir, 'adb.exe');
+            if (fs.existsSync(candidate)) {
+                return candidate;
+            }
+        } catch (error) {
+            // ignore malformed PATH entries
+        }
+    }
+
+    return null;
+}
+
+// The registry wins over the hard coded guesses (it reflects this machine's install
+// folders), then the common paths, then whatever adb is on the PATH.
+function adbCandidates() {
+    const registry = [];
+
+    for (const dir of regInstallDirs()) {
+        const found = adbInDir(dir);
+        if (found && !registry.includes(found)) {
+            registry.push(found);
+        }
+    }
+
+    return registry.concat(ADB_CANDIDATES);
+}
+
 function detectAdbPath() {
     if (adbPath) {
         return adbPath;
     }
 
-    const found = ADB_CANDIDATES.find(candidate => fs.existsSync(candidate));
-    if (found) {
-        adbPath = found;
-    }
+    const found = adbCandidates().find(candidate => fs.existsSync(candidate));
+    adbPath = found || pathAdb();
 
     return adbPath;
 }
@@ -50,7 +179,7 @@ function getSerial() {
 
 function requireAdb() {
     if (!detectAdbPath()) {
-        throw new Error('adb not found, set the adb path first');
+        throw new Error(t('adb is not available. Set the emulator adb path in the Settings tab'));
     }
     return adbPath;
 }
@@ -70,7 +199,7 @@ function execAdb(args, timeout = 15000) {
 
 function withSerial(args) {
     if (!serial) {
-        throw new Error('No emulator device selected');
+        throw new Error(t('No emulator device selected'));
     }
     return ['-s', serial, ...args];
 }
@@ -90,7 +219,7 @@ function capture() {
 
         const timer = setTimeout(() => {
             child.kill();
-            reject(new Error('screencap timed out'));
+            reject(new Error(t('Screen capture timed out')));
         }, 15000);
 
         child.on('error', error => {
@@ -101,7 +230,7 @@ function capture() {
         child.on('close', code => {
             clearTimeout(timer);
             if (code !== 0) {
-                reject(new Error(stderr || `screencap exited with ${code}`));
+                reject(new Error(stderr || t('Screen capture failed (exit code {{code}})', { code })));
                 return;
             }
             resolve(Buffer.concat(chunks));
@@ -137,13 +266,23 @@ async function connect(preferred = DEFAULT_PORTS) {
         if (port.startsWith('emulator-')) {
             continue;
         }
-        await execAdb(['connect', port]).catch(() => null);
+        // a port that is not served at all fails fast; a served-but-silent adbd takes
+        // the whole timeout, so keep it short and let the caller report the real reason
+        await execAdb(['connect', port], 4000).catch(() => null);
     }
 
     const after = await listDevices();
     const connected = after.filter(device => device.state === 'device');
     if (connected.length === 0) {
-        throw new Error('No adb device available. Start the emulator first.');
+        // listed but never handshakes: the emulator runs but its adbd does not answer
+        const stuck = after.filter(device => device.state === 'offline');
+        if (stuck.length > 0) {
+            throw new Error(t('Emulator adb connection is offline ({{device}}): adbd is not responding. '
+                + 'Restart the emulator, or check that ADB debugging is enabled in the emulator settings.',
+                { device: stuck[0].id }));
+        }
+
+        throw new Error(t('No emulator device detected. Start the emulator first.'));
     }
 
     const preferredDevice = connected.find(device => preferred.includes(device.id));
@@ -155,7 +294,7 @@ async function deviceSize() {
     const output = await execAdb(withSerial(['shell', 'wm', 'size']));
     const match = output.match(/(\d+)x(\d+)/);
     if (!match) {
-        throw new Error('Unable to read device resolution');
+        throw new Error(t('Unable to read the device resolution'));
     }
     return { width: Number(match[1]), height: Number(match[2]) };
 }
@@ -192,6 +331,8 @@ async function currentFocus() {
 module.exports = {
     ADB_CANDIDATES,
     DEFAULT_PORTS,
+    adbCandidates,
+    regInstallDirs,
 
     detectAdbPath,
     setAdbPath,

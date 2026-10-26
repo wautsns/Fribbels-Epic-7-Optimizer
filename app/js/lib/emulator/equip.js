@@ -78,10 +78,25 @@ function configureAdb() {
 
     const path = adb.detectAdbPath();
     if (!path) {
-        throw new Error('未找到 adb，请在设置页填写模拟器 adb 路径');
+        throw new Error(t('Emulator adb not found: checked the usual install folders, the registry and PATH. '
+            + 'Set the emulator adb path in the Settings tab.'));
     }
 
+    console.log('[emulator] adb:', path);
     return path;
+}
+
+// User facing errors are translated from the keys in data/locales/*/translation.json
+function t(key, options) {
+    return typeof i18next !== 'undefined' ? i18next.t(key, options) : key;
+}
+
+// Errors that mean "the game is not on the manage equipment page" (as opposed to an
+// adb/driver problem) carry this flag, so the caller can show the right hint.
+function pageError(message) {
+    const error = new Error(message);
+    error.notOnManagePage = true;
+    return error;
 }
 
 // Used before a run starts: make sure the game is on the Manage Equipment page with the
@@ -93,7 +108,7 @@ async function ensureManagePage() {
 
     const frame = await screen.capture();
     if (!readSelectedSlot(frame)) {
-        throw new Error('当前不在「管理装备」界面（请先打开英雄的装备管理页）');
+        throw pageError(t('Not on the Manage Equipment page (open the equipment page of a hero first)'));
     }
 }
 
@@ -101,7 +116,7 @@ async function assertManagePage() {
     const frame = await screen.capture();
     const match = await screen.matchTemplate(frame, 'page_manage.png', 40, 8, 6);
     if (match.score > 28) {
-        throw new Error('当前不在「管理装备」界面（请先打开英雄的装备管理页）');
+        throw pageError(t('Not on the Manage Equipment page (open the equipment page of a hero first)'));
     }
     return frame;
 }
@@ -133,7 +148,7 @@ async function openSortMenu() {
         }
     }
 
-    throw new Error('无法打开排序菜单，请确认游戏仍停留在「管理装备」页面');
+    throw new Error(t('Could not open the sort menu. Make sure the game is still on the Manage Equipment page'));
 }
 
 async function closeSortMenu(frame) {
@@ -162,7 +177,7 @@ async function setSortAcquisitionAscending() {
 
         if (state.direction !== 'up') {
             await closeSortMenu(frame);
-            throw new Error('无法把排序切换到「获得（升序）」，请手动设置后重试');
+            throw new Error(t('Could not switch the sort to Acquisition (Ascending). Set it manually and retry'));
         }
     }
 
@@ -189,7 +204,7 @@ function readSelectedSlot(frame) {
 async function selectSlot(slot) {
     const point = LAYOUT.slots[slot];
     if (!point) {
-        throw new Error('未知部位: ' + slot);
+        throw new Error(t('Unknown gear slot: {{slot}}', { slot }));
     }
 
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -204,8 +219,8 @@ async function selectSlot(slot) {
         }
     }
 
-    const slotName = typeof i18next !== 'undefined' ? i18next.t(slot) : slot;
-    throw new Error('无法切换到部位「' + slotName + '」，请确认游戏停留在「管理装备」页面');
+    const slotName = t(slot);
+    throw pageError(t('Could not switch to the {{slot}} slot. Make sure the game is still on the Manage Equipment page', { slot: slotName }));
 }
 
 // ---- cancellation ----
@@ -245,7 +260,9 @@ async function waitForPanel(before, wantOpen, timeout = 4000) {
         }
     }
 
-    throw new Error(wantOpen ? '筛选面板没有弹出，请检查模拟器状态' : '筛选面板没有关闭，请检查模拟器状态');
+    throw new Error(t(wantOpen
+        ? 'The filter panel did not open. Check the emulator'
+        : 'The filter panel did not close. Check the emulator'));
 }
 
 // Waits until the panel is fully drawn: the open delta is large and two consecutive
@@ -270,7 +287,7 @@ async function openPanelStable(before, timeout = 5000) {
         previous = frame;
     }
 
-    throw new Error('筛选面板没有弹出，请检查模拟器状态');
+    throw new Error(t('The filter panel did not open. Check the emulator'));
 }
 
 // The selected row in an open filter panel is drawn with a white background; the
@@ -313,7 +330,7 @@ async function ensureChip(chip, target) {
     const wantedKey = target || 'all';
 
     if (!chipPoint || !LAYOUT.options[wantedKey]) {
-        throw new Error('未知筛选条件: ' + chip + '/' + target);
+        throw new Error(t('Unknown filter: {{chip}}/{{value}}', { chip, value: target }));
     }
 
     throwIfCancelled();
@@ -333,7 +350,7 @@ async function ensureChip(chip, target) {
     }
 
     if (!openFrame) {
-        throw new Error('筛选面板没有弹出，请检查模拟器状态');
+        throw new Error(t('The filter panel did not open. Check the emulator'));
     }
 
     const current = readSelectedOption(openFrame);
@@ -391,7 +408,7 @@ async function ensureChip(chip, target) {
 
 async function setFilter(chip, statType) {
     if (!LAYOUT.filters[chip] || !(statType ? LAYOUT.options[statType] : LAYOUT.options.all)) {
-        throw new Error('未知筛选条件: ' + chip + '/' + statType);
+        throw new Error(t('Unknown filter: {{chip}}/{{value}}', { chip, value: statType }));
     }
 
     return ensureChip(chip, statType);
@@ -592,7 +609,7 @@ async function assertListNotEmpty(frame) {
 
     // language neutral: an empty list has no item tiles
     if (findCandidates(frame).length === 0) {
-        throw new Error('当前筛选条件下列表为空：装备可能在仓库、被其他英雄穿戴且开启了「隐藏配戴装备」，或部位不对');
+        throw new Error(t('The filtered list is empty: the item may be in storage, worn by another hero with equipped gear hidden, or the slot is wrong'));
     }
 }
 
@@ -874,7 +891,7 @@ function measureScroll(before, after) {
 // options.allItems lets us jump straight to the item's row/column instead of scanning.
 async function selectItem(item, options = {}) {
     if (!item || !item.slot) {
-        throw new Error('缺少装备信息');
+        throw new Error(t('Missing item information'));
     }
 
     configureAdb();
@@ -913,7 +930,7 @@ async function selectItem(item, options = {}) {
     await assertListNotEmpty(frame);
 
     if (!options.allItems || !item.id) {
-        throw new Error('缺少装备索引，无法定位');
+        throw new Error(t('Missing item index, cannot locate the item'));
     }
 
     // Descending only: the chips define the sort keys and a fresh selection is always
@@ -963,8 +980,7 @@ async function selectItem(item, options = {}) {
 
     const row = Math.floor(info.rank / LAYOUT.grid.cols) + 1;
     const column = (info.rank % LAYOUT.grid.cols) + 1;
-    throw new Error('未找到目标装备（第 ' + row + ' 行第 ' + column
-        + ' 列附近未命中）。若游戏内装备已重铸或刚变更，请先在导入页重新扫描装备数据');
+    throw new Error(t('Item not found around row {{row}} column {{column}}. If the in-game item was reforged or just changed, rescan your items on the Import tab first', { row, column }));
 }
 
 module.exports = {

@@ -71,8 +71,8 @@ module.exports = {
             content: '<p>'+i18next.t("Select substat filters to filter results by. Left column is min (inclusive) and right column is max (inclusive).")+'</p>'
                 +'<p>'+i18next.t("Before Top X% filtering, gear is compared only with gear in the same slot and set. An item is removed only when another item is no worse on every compared stat and better on at least one.")+'</p>'
                 +'<p>'+i18next.t("Flat Attack, Defense, and Health are converted to equivalent percentages using the selected hero's base stats before comparison.")+'</p>'
-                +'<p>'+i18next.t("For a stat without a maximum, higher values are preferred. With a maximum and a minimum explicitly set to 0, lower values are preferred. With a maximum and no minimum or a positive minimum, the values must match for dominance.")+'</p>'
-                +'<p>'+i18next.t("For dominance filtering, a minimum of 0 with no maximum means the stat is ignored. A minimum of 0 with a maximum means lower values are preferred.")+'</p>'
+                +'<p>'+i18next.t("Without a maximum: an empty minimum prefers higher values (lower for stats marked as dislike), a minimum of 0 ignores the stat, and a positive minimum prefers higher values (exactly equal values for stats marked as dislike).")+'</p>'
+                +'<p>'+i18next.t("With a maximum: values must match exactly for dominance, except for stats marked as dislike with an empty or 0 minimum, which prefer lower values.")+'</p>'
                 +'<p>'+i18next.t("ItemGS is the per-item filter for gear score, for example, used to find builds that only use items with > 70 GS.")+'</p>'});
 
         tippy('#filterSkillsTooltip', {
@@ -203,9 +203,9 @@ module.exports = {
 '<p>'+i18next.t("Edit Selected Item - Change an items stats, levels, or equip it onto someone.")+'</p>'
 +'<p>'+i18next.t("Reforge Item - Only works on +15 level 85 gears, predicts the item's reforged stats and generates the edited version.")+'</p>'
 +'<p>'+i18next.t("Add New Item - Create a new item and fill in its stats.")+'</p>'
-+'<p>'+i18next.t("Duplicate Item - Create a copy of the selected item and lets you change its stats.")+'</p>'
 +'<p>'+i18next.t("Remove Items - Unequips and then deletes the items. Multiple selection enabled.")+'</p>'
 +'<p>'+i18next.t("Unequip Items - Unequips the items from their units. Multiple selection enabled.")+'</p>'
++'<p>'+i18next.t("Unequip All Items - Unequips every equipped item from all units.")+'</p>'
 +'<p>'+i18next.t("Lock/Unlock Items - Locks/Unlocks the items that you want to be excluded from searches.")+'</p>'
 
         });

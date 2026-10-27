@@ -153,6 +153,16 @@ module.exports = {
         return parseInt(value);
     },
 
+    // 保留的最大配装结果数：1 ~ 100,000，推荐 100（非法值/空值回落到推荐值）
+    clampMaxResults: (value) => {
+        const parsed = parseInt(value);
+        if (Number.isNaN(parsed)) {
+            return 100;
+        }
+
+        return Math.max(Math.min(parsed, 100_000), 1);
+    },
+
     loadSettings: async () => {
         try {
             Saves.createFolder();
@@ -209,7 +219,7 @@ module.exports = {
         }
 
         if (settings.settingMaxResults) {
-            settings.settingMaxResults = Math.max(Math.min(parseInt(settings.settingMaxResults), 100_000), 100);
+            settings.settingMaxResults = module.exports.clampMaxResults(settings.settingMaxResults);
             document.getElementById('settingMaxResults').value = settings.settingMaxResults.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         } else {
             document.getElementById('settingMaxResults').value = "100";
@@ -309,7 +319,7 @@ module.exports = {
             settingDefaultLockedItems: document.getElementById('settingDefaultLockedItems').checked,
             settingDefaultEquippedItems: document.getElementById('settingDefaultEquippedItems').checked,
             settingDefaultKeepCurrent: document.getElementById('settingDefaultKeepCurrent').checked,
-            settingMaxResults: parseInt(module.exports.parseNumberValue('settingMaxResults') || 100),
+            settingMaxResults: module.exports.clampMaxResults(module.exports.parseNumberValue('settingMaxResults')),
             settingMaxRamGb: parseInt(module.exports.parseNumberValue('settingMaxRamGb') || 6),
             settingPenDefense: parseInt(module.exports.parseNumberValue('settingPenDefense') || 1_500),
             settingLocatorWidth: parseInt(module.exports.parseNumberValue('settingLocatorWidth') || 5),

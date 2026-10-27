@@ -78,14 +78,14 @@ module.exports = {
         document.getElementById('addGear').addEventListener("click", () => {
             addGear();
         });
-        document.getElementById('duplicateGear').addEventListener("click", () => {
-            duplicateGear();
-        });
         document.getElementById('removeGear').addEventListener("click", () => {
             removeGear();
         });
         document.getElementById('unequipGear').addEventListener("click", () => {
             unequipGear();
+        });
+        document.getElementById('unequipAllGear').addEventListener("click", () => {
+            unequipAllGear();
         });
         document.getElementById('lockGear').addEventListener("click", () => {
             lockGear();
@@ -170,26 +170,6 @@ async function addGear() {
     Saves.autoSave();
 }
 
-async function duplicateGear() {
-    const items = ItemsGrid.getSelectedGear();
-    if (!items || items.length != 1) {
-        Notifier.warn("Select one item to duplicate.")
-        return;
-    }
-
-    const item = items[0]
-
-    const editedItem = await Dialog.editGearDialog(item, false, false);
-    console.warn("EDITITEMS", editedItem);
-
-    await Api.editItems([editedItem]);
-
-    Notifier.quick("Added item");
-    await ItemsGrid.editedItem();
-    module.exports.redraw(editedItem);
-    Saves.autoSave();
-}
-
 async function removeGear() {
     const items = ItemsGrid.getSelectedGear();
 
@@ -207,6 +187,32 @@ async function unequipGear() {
     await Api.unequipItems(items.map(x => x.id));
 
     Notifier.quick(`${i18next.t("Unequipped ")}` + items.length + `${i18next.t(" item(s).")}`)
+
+    module.exports.redraw();
+    Saves.autoSave();
+}
+
+/*
+ * 脱下全部装备：把所有 equippedById 非空的装备一次性脱下。
+ * 后端 /heroes/unequipItems 支持批量 id，所以只发一次请求。
+ */
+async function unequipAllGear() {
+    const response = await Api.getAllItems();
+    const equippedItems = (response.items || []).filter(item => item.equippedById);
+
+    if (equippedItems.length === 0) {
+        Notifier.warn(i18next.t("No items are currently equipped"));
+        return;
+    }
+
+    const confirmed = await Dialog.confirmation(i18next.t("Unequip all {{count}} equipped item(s)?", { count: equippedItems.length }));
+    if (!confirmed) {
+        return;
+    }
+
+    await Api.unequipItems(equippedItems.map(item => item.id));
+
+    Notifier.quick(`${i18next.t("Unequipped ")}` + equippedItems.length + `${i18next.t(" item(s).")}`)
 
     module.exports.redraw();
     Saves.autoSave();

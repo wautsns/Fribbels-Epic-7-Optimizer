@@ -624,7 +624,9 @@ module.exports = {
         return new Promise(async (resolve, reject) => {
             const result = await Swal.fire({
                 title: title,
-                icon: 'question',
+                // No icon: sweetalert2's 'question' icon is a plain "?" glyph that relies on its
+                // injected stylesheet for the circle and font size, and degrades to a bare
+                // character when that styling is not applied.
                 text: text,
                 focusConfirm: false,
                 showCancelButton: true,

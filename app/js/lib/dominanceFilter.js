@@ -4,64 +4,64 @@ const STAT_DEFINITIONS = [
     {
         key: 'Attack',
         minKey: 'inputAtkMinLimit',
-        maxKey: 'inputAtkMaxLimit',
         minConfiguredKey: 'inputAtkMinConfigured',
         maxConfiguredKey: 'inputAtkMaxConfigured',
         percentKey: 'AttackPercent',
         baseKey: 'atk',
+        priorityField: 'atk',
     },
     {
         key: 'Health',
         minKey: 'inputHpMinLimit',
-        maxKey: 'inputHpMaxLimit',
         minConfiguredKey: 'inputHpMinConfigured',
         maxConfiguredKey: 'inputHpMaxConfigured',
         percentKey: 'HealthPercent',
         baseKey: 'hp',
+        priorityField: 'hp',
     },
     {
         key: 'Defense',
         minKey: 'inputDefMinLimit',
-        maxKey: 'inputDefMaxLimit',
         minConfiguredKey: 'inputDefMinConfigured',
         maxConfiguredKey: 'inputDefMaxConfigured',
         percentKey: 'DefensePercent',
         baseKey: 'def',
+        priorityField: 'def',
     },
     {
         key: 'Speed',
         minKey: 'inputSpdMinLimit',
-        maxKey: 'inputSpdMaxLimit',
         minConfiguredKey: 'inputSpdMinConfigured',
         maxConfiguredKey: 'inputSpdMaxConfigured',
+        priorityField: 'spd',
     },
     {
         key: 'CriticalHitChancePercent',
         minKey: 'inputCrMinLimit',
-        maxKey: 'inputCrMaxLimit',
         minConfiguredKey: 'inputCrMinConfigured',
         maxConfiguredKey: 'inputCrMaxConfigured',
+        priorityField: 'cr',
     },
     {
         key: 'CriticalHitDamagePercent',
         minKey: 'inputCdMinLimit',
-        maxKey: 'inputCdMaxLimit',
         minConfiguredKey: 'inputCdMinConfigured',
         maxConfiguredKey: 'inputCdMaxConfigured',
+        priorityField: 'cd',
     },
     {
         key: 'EffectivenessPercent',
         minKey: 'inputEffMinLimit',
-        maxKey: 'inputEffMaxLimit',
         minConfiguredKey: 'inputEffMinConfigured',
         maxConfiguredKey: 'inputEffMaxConfigured',
+        priorityField: 'eff',
     },
     {
         key: 'EffectResistancePercent',
         minKey: 'inputResMinLimit',
-        maxKey: 'inputResMaxLimit',
         minConfiguredKey: 'inputResMinConfigured',
         maxConfiguredKey: 'inputResMaxConfigured',
+        priorityField: 'res',
     },
 ];
 
@@ -72,13 +72,23 @@ module.exports = {
         }
 
         const groups = groupByGearAndSet(items);
+        const modes = getComparisonModes(params);
         const passed = [];
+        // Comparable stats only depend on the item plus the chosen hero's base stats, so they are
+        // converted once per item instead of once per compared pair.
+        const statsCache = new Map();
+        const getStats = item => {
+            if (!statsCache.has(item)) {
+                statsCache.set(item, getComparableStats(item, baseStats, reforge));
+            }
+            return statsCache.get(item);
+        };
 
         for (const group of Object.values(groups)) {
             const undominated = group.filter((candidate, candidateIndex) => {
                 return !group.some((other, otherIndex) => {
                     return otherIndex != candidateIndex
-                        && dominates(other, candidate, params, baseStats, reforge);
+                        && dominates(other, candidate, modes, getStats);
                 });
             });
 
@@ -86,12 +96,12 @@ module.exports = {
                 const equivalentIndex = passed.findIndex(item => {
                     return item.gear == candidate.gear
                         && item.set == candidate.set
-                        && equivalent(item, candidate, params, baseStats, reforge);
+                        && equivalent(item, candidate, modes, getStats);
                 });
 
                 if (equivalentIndex == -1) {
                     passed.push(candidate);
-                } else if (compareTieBreakers(candidate, passed[equivalentIndex], baseStats, reforge) > 0) {
+                } else if (compareTieBreakers(candidate, passed[equivalentIndex], getStats) > 0) {
                     passed[equivalentIndex] = candidate;
                 }
             }
@@ -100,24 +110,26 @@ module.exports = {
         return passed;
     },
 
-    getComparableStats: (item, baseStats, reforge) => {
-        const stats = reforge ? item.reforgedStats : item.augmentedStats;
-        if (!stats) {
+    getComparableStats: getComparableStats,
+};
+
+function getComparableStats(item, baseStats, reforge) {
+    const stats = reforge ? item.reforgedStats : item.augmentedStats;
+    if (!stats) {
+        return null;
+    }
+
+    const comparableStats = {};
+    for (const definition of STAT_DEFINITIONS) {
+        const statValue = getComparableStatValue(stats, definition, baseStats);
+        if (statValue == null) {
             return null;
         }
+        comparableStats[definition.key] = statValue;
+    }
 
-        const comparableStats = {};
-        for (const definition of STAT_DEFINITIONS) {
-            const statValue = getComparableStatValue(stats, definition, baseStats);
-            if (statValue == null) {
-                return null;
-            }
-            comparableStats[definition.key] = statValue;
-        }
-
-        return comparableStats;
-    },
-};
+    return comparableStats;
+}
 
 function groupByGearAndSet(items) {
     return items.reduce((groups, item) => {
@@ -130,21 +142,17 @@ function groupByGearAndSet(items) {
     }, {});
 }
 
-function dominates(first, second, params, baseStats, reforge) {
-    const firstStats = module.exports.getComparableStats(first, baseStats, reforge);
-    const secondStats = module.exports.getComparableStats(second, baseStats, reforge);
+function dominates(first, second, modes, getStats) {
+    const firstStats = getStats(first);
+    const secondStats = getStats(second);
     if (!firstStats || !secondStats) {
         return false;
     }
 
     let strictlyBetter = false;
-    for (const definition of STAT_DEFINITIONS) {
-        const mode = getComparisonMode(params, definition);
-        const comparison = compareValues(
-            firstStats[definition.key],
-            secondStats[definition.key],
-            mode,
-        );
+    for (let i = 0; i < STAT_DEFINITIONS.length; i++) {
+        const key = STAT_DEFINITIONS[i].key;
+        const comparison = compareValues(firstStats[key], secondStats[key], modes[i]);
 
         if (comparison < 0) {
             return false;
@@ -157,28 +165,27 @@ function dominates(first, second, params, baseStats, reforge) {
     return strictlyBetter;
 }
 
-function equivalent(first, second, params, baseStats, reforge) {
-    const firstStats = module.exports.getComparableStats(first, baseStats, reforge);
-    const secondStats = module.exports.getComparableStats(second, baseStats, reforge);
+function equivalent(first, second, modes, getStats) {
+    const firstStats = getStats(first);
+    const secondStats = getStats(second);
     if (!firstStats || !secondStats) {
         return false;
     }
 
-    return STAT_DEFINITIONS.every(definition => {
-        const mode = getComparisonMode(params, definition);
-        return compareValues(firstStats[definition.key], secondStats[definition.key], mode) == 0;
+    return STAT_DEFINITIONS.every((definition, index) => {
+        return compareValues(firstStats[definition.key], secondStats[definition.key], modes[index]) == 0;
     });
 }
 
-function compareTieBreakers(first, second, baseStats, reforge) {
+function compareTieBreakers(first, second, getStats) {
     const firstPriority = getFiniteNumber(first.score);
     const secondPriority = getFiniteNumber(second.score);
     if (firstPriority != secondPriority) {
         return firstPriority > secondPriority ? 1 : -1;
     }
 
-    const firstRolls = getUnweightedScore(first, baseStats, reforge);
-    const secondRolls = getUnweightedScore(second, baseStats, reforge);
+    const firstRolls = getUnweightedScore(getStats(first));
+    const secondRolls = getUnweightedScore(getStats(second));
     if (firstRolls != secondRolls) {
         return firstRolls > secondRolls ? 1 : -1;
     }
@@ -186,8 +193,7 @@ function compareTieBreakers(first, second, baseStats, reforge) {
     return compareIds(first.id, second.id);
 }
 
-function getUnweightedScore(item, baseStats, reforge) {
-    const stats = module.exports.getComparableStats(item, baseStats, reforge);
+function getUnweightedScore(stats) {
     if (!stats) {
         return Number.NEGATIVE_INFINITY;
     }
@@ -229,34 +235,44 @@ function getFiniteNumber(value) {
         : Number.NEGATIVE_INFINITY;
 }
 
-function getComparisonMode(params, definition) {
-    const maxValue = params[definition.maxKey];
-    const minValue = params[definition.minKey];
-    const maxConfigured = getConfiguredValue(
-        params,
-        definition.maxConfiguredKey,
-        maxValue,
-        2147483647,
-    );
-    const minConfigured = getConfiguredValue(
-        params,
-        definition.minConfiguredKey,
-        minValue,
-        0,
-    );
-
-    if (!maxConfigured) {
-        return minConfigured && minValue === 0 ? 'ignored' : 'higher';
-    }
-
-    return minConfigured && minValue === 0 ? 'lower' : 'equal';
+function getComparisonModes(params) {
+    return STAT_DEFINITIONS.map(definition => getComparisonMode(params, definition));
 }
 
-function getConfiguredValue(params, configuredKey, value, defaultValue) {
-    if (params[configuredKey] != null) {
-        return params[configuredKey];
+function getComparisonMode(params, definition) {
+    const hasMax = Boolean(params[definition.maxConfiguredKey]);
+    const positiveMin = Boolean(params[definition.minConfiguredKey])
+        && getFiniteNumberOrZero(params[definition.minKey]) > 0;
+    const zeroMin = Boolean(params[definition.minConfiguredKey]) && !positiveMin;
+    const disliked = isDislikedInResultPriority(params, definition);
+
+    // Without a maximum:
+    //   minimum empty   -> result priority decides: higher, or lower when the stat is disliked
+    //   minimum = 0     -> ignored
+    //   minimum > 0     -> higher, or exactly equal when the stat is disliked
+    if (!hasMax) {
+        if (zeroMin) {
+            return 'ignored';
+        }
+        if (!disliked) {
+            return 'higher';
+        }
+        return positiveMin ? 'equal' : 'lower';
     }
-    return value != null && value != defaultValue;
+
+    // With a maximum:
+    //   minimum > 0     -> exactly equal
+    //   minimum empty/0 -> exactly equal, or lower when the stat is disliked
+    return positiveMin || !disliked ? 'equal' : 'lower';
+}
+
+function isDislikedInResultPriority(params, definition) {
+    return Array.isArray(params.resultDislike)
+        && params.resultDislike.includes(definition.priorityField);
+}
+
+function getFiniteNumberOrZero(value) {
+    return typeof value == 'number' && Number.isFinite(value) ? value : 0;
 }
 
 function compareValues(firstValue, secondValue, mode) {

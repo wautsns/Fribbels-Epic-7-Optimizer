@@ -486,7 +486,7 @@ function formatResultPriority(hero) {
  *   - 只有结果优先级 → 不出现分隔符
  *   - 两段都有 → 面板需求 | 结果优先级
  */
-const PANEL_REQUIREMENT_SEPARATOR = ' ·· ';
+const PANEL_REQUIREMENT_SEPARATOR = ' · ';
 
 function formatPanelRequirement(hero) {
     return [formatStatRequirements(hero), formatResultPriority(hero)]

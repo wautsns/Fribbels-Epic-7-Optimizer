@@ -230,11 +230,30 @@ function getHeroImage(item) {
 
     // Convert GitHub URL to local path (hero images live in data/cachedimages/heroes)
     // e.g., https://raw.githubusercontent.com/fribbels/Fribbels-Epic-7-Optimizer/main/data/cachedimages/c1144_s.png -> data/cachedimages/heroes/c1144_s.png
+    // 头像落盘时就是处理好的 64px 图；96px 副本由 getHeroImageSrcSet() 补进 srcset
     if (iconUrl && iconUrl.includes('raw.githubusercontent.com')) {
         const fileName = Path.basename(iconUrl.split('?')[0]);
         return Path.join(Files.getDataPath(), 'cachedimages', 'heroes', fileName);
     }
     return iconUrl;
+}
+
+/*
+ * 装备卡里的英雄头像：显示尺寸 48px（style.css: .itemDisplayEquippedHero）。
+ * 64px 主图 + 96px 高分屏副本，100% 屏取 64（缩 1.33 倍）、200% 屏取 96（正好 1:1）。
+ */
+function getHeroImageAttributes(item) {
+    const basePath = getHeroImage(item);
+    const highPath = DataLoader.getHighResImagePath(basePath);
+
+    if (!highPath) {
+        return `src="${basePath}"`;
+    }
+
+    // srcset 里的路径统一用正斜杠，避免反斜杠在 URL 解析里出意外
+    const toUrl = (filePath) => String(filePath).replace(/\\/g, '/');
+
+    return `src="${basePath}" srcset="${toUrl(basePath)} 64w, ${toUrl(highPath)} 96w" sizes="48px"`;
 }
 
 module.exports = {
@@ -384,7 +403,7 @@ module.exports = {
         const gearImage = Assets.getGearAsset(item.gear);
         const setImage = Assets.getSetAsset(item.set);
 
-        const heroImage = getHeroImage(item);
+        const heroImage = getHeroImageAttributes(item);
 
         const materialImage = getMaterialImage(item);
 
@@ -400,7 +419,7 @@ module.exports = {
     </div>
   </div>
   <img src="${materialImage}" class="itemDisplayMaterial"></img>
-  <img src="${heroImage}" class="itemDisplayEquippedHero"></img>
+  <img ${heroImage} class="itemDisplayEquippedHero"></img>
 </div>
 <div class="itemDisplayMainStat">
   <div class="itemDisplayMainType">${i18next.t(main.type)}</div>

@@ -1,6 +1,7 @@
 const tinygradient = require('tinygradient');
 const colorPicker = require('../colorPicker');
 const LimitConfiguration = require('../limitConfiguration');
+const ResultPriority = require('../resultPriority');
 
 var lightGradient = {gradient:tinygradient([
     {color: '#F5A191', pos: 0}, // red
@@ -217,8 +218,17 @@ module.exports = {
 }
 
 
-/* 英雄表行高（下面的文本单元格用同样的 line-height 来垂直居中） */
-const HERO_ROW_HEIGHT = 32;
+/*
+ * 英雄表行高：要装得下 32px 的头像 / 属性 / 职业 / 神器图标。
+ * 单元格上下各 1px 透明边框，所以 36 的行高留 2px 余量，图片不会被压扁。
+ * 下面的文本单元格用同样的 line-height 来垂直居中。
+ */
+const HERO_ROW_HEIGHT = 36;
+
+/* 头像 / 属性 / 职业 / 神器：图标统一 32px（实际尺寸在 style.css 的 .heroGridIcon），列宽也统一 */
+const HERO_ICON_SIZE = 32;
+/* 32px 图标 + 单元格左右 padding 11px×2 + 边框 2px */
+const HERO_ICON_COL_WIDTH = HERO_ICON_SIZE + 24;
 
 /* 其它文本列左对齐 + 省略号（同样用 block 布局，保证超长时显示 ...） */
 const TEXT_CELL_STYLE = {
@@ -324,8 +334,6 @@ function formatArtifactDisplay(hero) {
  * 所以路径先缓存起来，下载完成后 refreshCells 刷新一次这一列。
  */
 const ARTIFACT_COL_ID = 'artifact';
-/* 30px 图标 + 左右留白，同时保证表头「Artifact」不被省略 */
-const ARTIFACT_COL_WIDTH = 72;
 
 const PANEL_REQUIREMENT_COL_ID = 'panelRequirement';
 const PANEL_REQUIREMENT_MIN_WIDTH = 120;
@@ -361,7 +369,7 @@ async function loadArtifactIcons(heroes) {
     return true;
 }
 
-/** 英雄头像地址（本地 cachedimages/heroes），取不到就用空白图 */
+/** 英雄头像地址（本地 cachedimages/heroes，落盘的就是处理好的 64px 图） */
 function heroIconSrc(name) {
     const data = HeroData.getHeroExtraInfo(name);
     const iconUrl = data && data.assets && data.assets.icon;
@@ -376,26 +384,42 @@ function heroIconSrc(name) {
     return iconUrl;
 }
 
+/*
+ * 图标列的 srcset：主图 64px，高分屏副本 96px（存在才加）。
+ * 浏览器按 sizes × 屏幕缩放挑：100% 屏用 64，200%~300% 屏用 96。
+ * srcset 里的路径统一用正斜杠，避免反斜杠在 URL 解析里出意外（src 保持原样）。
+ */
+function iconSrcAttributes(basePath, sizes) {
+    const high = DataLoader.getHighResImagePath(basePath);
+    if (!high) {
+        return `src="${basePath}"`;
+    }
+
+    const toUrl = (filePath) => String(filePath).replace(/\\/g, '/');
+
+    return `src="${basePath}" srcset="${toUrl(basePath)} 64w, ${toUrl(high)} 96w" sizes="${sizes}"`;
+}
+
 /** 属性列图标 */
 function renderElement(element) {
     const file = Assets.getElementAsset(element) || Assets.getBlank();
-    return `<img class="optimizerSetIcon" src="${file}">`;
+    return `<img class="heroGridIcon" src="${file}">`;
 }
 
 /** 职业列图标 */
 function renderClass(role) {
     const file = Assets.getClassAsset(role) || Assets.getBlank();
-    return `<img class="optimizerSetIcon" src="${file}">`;
+    return `<img class="heroGridIcon" src="${file}">`;
 }
 
 /** 头像列图标（英雄名放在这一列的悬浮提示里） */
 function renderIcon(params) {
-    return `<img src="${heroIconSrc(params.data.name)}" width="32" height="32">`;
+    return `<img class="heroGridIcon" ${iconSrcAttributes(heroIconSrc(params.data.name), '32px')}>`;
 }
 
 /** 神器列：图标（名字 + 等级由 tooltip 负责） */
 function renderArtifactIcon(params) {
-    return `<img class="heroArtifactIcon" src="${artifactIconSrc(params.data)}">`;
+    return `<img class="heroGridIcon" ${iconSrcAttributes(artifactIconSrc(params.data), '32px')}>`;
 }
 
 /**
@@ -438,6 +462,38 @@ function formatStatRequirements(hero) {
         .join(' ');
 }
 
+/**
+ * 结果优先级：按配装器里「结果优先级」的顺序输出，偏好用 ∧、偏恶用 ∨
+ * 例如：速度∧ 生命∨
+ */
+function formatResultPriority(hero) {
+    const request = hero && hero.optimizationRequest;
+    if (!request) return '';
+
+    const order = Array.isArray(request.resultPriority) ? request.resultPriority : [];
+    const disliked = Array.isArray(request.resultDislike) ? request.resultDislike : [];
+
+    return order
+        .filter(field => ResultPriority.FIELD_NAMES[field])
+        .map(field => i18next.t(ResultPriority.FIELD_NAMES[field]) + (disliked.includes(field) ? '∨' : '∧'))
+        .join(' ');
+}
+
+/*
+ * 面板需求列：属性要求 + 结果优先级，两段之间用分隔符隔开。
+ * 用 filter(Boolean) 先去掉空段，所以：
+ *   - 只有面板需求 → 不出现分隔符
+ *   - 只有结果优先级 → 不出现分隔符
+ *   - 两段都有 → 面板需求 | 结果优先级
+ */
+const PANEL_REQUIREMENT_SEPARATOR = ' ·· ';
+
+function formatPanelRequirement(hero) {
+    return [formatStatRequirements(hero), formatResultPriority(hero)]
+        .filter(Boolean)
+        .join(PANEL_REQUIREMENT_SEPARATOR);
+}
+
 function buildGrid(localeText) {
     const DIGITS_2 = 40;
     const DIGITS_3 = 40;
@@ -464,11 +520,11 @@ function buildGrid(localeText) {
                 return params.rowNode.data.name;
             }},
             // 属性、职业、头像各占一列；头像列的名字放在 tooltip 里
-            {colId: 'attribute', headerName: i18next.t('elem'), field: 'attribute', width: 45, sortable: false, cellRenderer: (params) => renderElement(params.value)},
-            {colId: 'role', headerName: i18next.t('class'), field: 'role', width: 50, sortable: false, cellRenderer: (params) => renderClass(params.value)},
-            {headerName: i18next.t('icon'), field: 'name', width: 60, sortable: false, cellRenderer: (params) => renderIcon(params), tooltipValueGetter: (params) => formatHeroName(params.data)},
+            {colId: 'attribute', headerName: i18next.t('elem'), field: 'attribute', width: HERO_ICON_COL_WIDTH, sortable: false, cellRenderer: (params) => renderElement(params.value)},
+            {colId: 'role', headerName: i18next.t('class'), field: 'role', width: HERO_ICON_COL_WIDTH, sortable: false, cellRenderer: (params) => renderClass(params.value)},
+            {headerName: i18next.t('icon'), field: 'name', width: HERO_ICON_COL_WIDTH, sortable: false, cellRenderer: (params) => renderIcon(params), tooltipValueGetter: (params) => formatHeroName(params.data)},
             // 神器单独一列，只显示图标，名字 + 等级在 tooltip 里
-            {colId: ARTIFACT_COL_ID, headerName: i18next.t('Artifact'), width: ARTIFACT_COL_WIDTH, sortable: false, cellRenderer: (params) => renderArtifactIcon(params), tooltipValueGetter: (params) => formatArtifactDisplay(params.data)},
+            {colId: ARTIFACT_COL_ID, headerName: i18next.t('Artifact'), width: HERO_ICON_COL_WIDTH, sortable: false, cellRenderer: (params) => renderArtifactIcon(params), tooltipValueGetter: (params) => formatArtifactDisplay(params.data)},
             // {headerName: i18next.t('Stars'), field: 'rarity', width: 50},
             {headerName: i18next.t('sets'), field: 'equipment', width: 85, sortable: false, cellRenderer: (params) => renderSets(params.value)},
             {headerName: i18next.t('atk'), field: 'atk', width: DIGITS_4},
@@ -479,8 +535,8 @@ function buildGrid(localeText) {
             {headerName: i18next.t('cd'), field: 'cd', width: DIGITS_3},
             {headerName: i18next.t('eff'), field: 'eff', width: DIGITS_3},
             {headerName: i18next.t('res'), field: 'res', width: DIGITS_3},
-            // 面板需求列：flex 吃掉剩下的宽度（最小值兜底，避免被压没）
-            {colId: PANEL_REQUIREMENT_COL_ID, headerName: i18next.t('Panel requirement'), flex: 1, minWidth: PANEL_REQUIREMENT_MIN_WIDTH, sortable: false, valueGetter: (params) => formatStatRequirements(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
+            // 面板需求列：属性要求 + 结果优先级；flex 吃掉剩下的宽度（最小值兜底，避免被压没）
+            {colId: PANEL_REQUIREMENT_COL_ID, headerName: i18next.t('Panel requirement & result priority'), flex: 1, minWidth: PANEL_REQUIREMENT_MIN_WIDTH, sortable: false, valueGetter: (params) => formatPanelRequirement(params.data), tooltipValueGetter: truncatedTooltipGetter, cellStyle: TEXT_CELL_STYLE},
             // 以下衍生属性列继续隐藏
             // {headerName: i18next.t('cp'), field: 'cp', width: DIGITS_6},
             // {headerName: i18next.t('hps'), field: 'hpps', width: DIGITS_4},

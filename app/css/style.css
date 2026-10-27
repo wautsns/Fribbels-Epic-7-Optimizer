@@ -413,7 +413,9 @@ input, button {
 
 .itemDisplayEquippedHero {
   /*width: 45px;*/
-  height: 45px;
+  /* 装备卡里的英雄头像：处理版是 64px，48 = 64 × 3/4（4 像素缩成 3 像素的整齐比例），
+     比 45 少缩一点、锐化保留更多；卡片 padding 12px，上下各溢出 9px，不会和主属性行重叠 */
+  height: 48px;
   position: relative;
   top: 50%;
   transform: translateY(-50%);
@@ -679,12 +681,14 @@ input[type=number]::-webkit-outer-spin-button {
   height: 50px;
 }
 
-/* 英雄列表的神器列图标 */
-.heroArtifactIcon {
+/* 英雄列表的图标列：头像 / 属性 / 职业 / 神器统一 32px。
+   object-fit: contain + flex: none 保证不变形、不被 flex 压扁
+   （原图：头像 112px、职业 46px、属性 34px、神器 64px） */
+.heroGridIcon {
   flex: none;
   object-fit: contain;
-  height: 30px;
-  width: 30px;
+  width: 32px;
+  height: 32px;
 }
 
 .displayNone {
@@ -940,7 +944,7 @@ input[type=number]::-webkit-outer-spin-button {
   display: block;
   position: absolute;
   top: 0px;
-  width: 64px;
+  width: 48px;
   left: 0px;
 }
 .inputImprintImage {

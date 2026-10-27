@@ -1160,7 +1160,18 @@ async function redrawHeroImage() {
     if (artifactData) {
         // 使用 dataLoader.js 的方法获取神器图片路径
         const artiUrl = await DataLoader.getArtifactImagePath(artifactData);
-        $('#inputArtifactImage').attr("src", artiUrl);
+        const artiHighUrl = DataLoader.getHighResImagePath(artiUrl);
+        const artifactImage = $('#inputArtifactImage');
+
+        artifactImage.attr("src", artiUrl);
+        // 预览是 64px（style.css: .inputArtifactImage），高分屏用 96px 副本
+        if (artiHighUrl) {
+            artifactImage.attr("srcset", `${artiUrl} 64w, ${artiHighUrl} 96w`);
+            artifactImage.attr("sizes", "64px");
+        } else {
+            artifactImage.removeAttr("srcset");
+            artifactImage.removeAttr("sizes");
+        }
     } else {
         $('#inputArtifactImage').attr("src", Assets.getBlank());
     }

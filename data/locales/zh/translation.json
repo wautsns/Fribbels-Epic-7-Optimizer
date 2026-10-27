@@ -162,6 +162,7 @@
     "Armor": "盔甲",
     "Armors": "盔甲",
     "Panel requirement": "面板需求",
+    "Panel requirement & result priority": "面板需求＆结果优先级",
   "Artifact": "神器",
     "Assign a priority to each substat type from -1 to 3. This will go through every gear, and calculates the # of max rolls of each stat. The # of rolls is then multiplied by the stat priority you chose. It adds up all the stat scores for a gear, and sorts your gear by their highest substat score.": "给每个副属从-1到3指定优先性，并套用到每个装备上。然后计算每项副属roll出最大roll的次数。然后再把roll的次数根据你所给定的属性优先性进行加权。会得到一个副属加权后的分数，再根据你的装备的最高副属分数进行分类",
     "At least 1 stat": "至少一个属性",

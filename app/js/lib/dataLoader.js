@@ -159,11 +159,28 @@ module.exports = {
         return imageUrl;
     },
 
-    // 下载英雄图片到 cachedimages/heroes
+    /*
+     * 高分辨率副本路径：主尺寸旁边多存一份 @96（见 artifactImage.js）。
+     * 只用于 <img srcset>，文件不存在就返回 null（调用方会退回单张图）。
+     */
+    getHighResImagePath: (basePath) => {
+        if (!basePath || /^https?:/i.test(basePath)) return null;
+
+        const highPath = ArtifactImage.highResPath(basePath);
+
+        try {
+            return fs.existsSync(highPath) ? highPath : null;
+        } catch (error) {
+            return null;
+        }
+    },
+
+    // 下载英雄图片到 cachedimages/heroes：头像（_s）下载后直接处理成 64 + 96 两套落盘，原图不保留
     downloadHeroImage: async (imageUrl, relativeFilePath) => {
         try {
             let fileName = path.basename(relativeFilePath);
             const localPath = Path.join(Files.getDataPath(), 'cachedimages', 'heroes', fileName);
+            const isAvatar = fileName.endsWith('_s.png');
 
             if (fs.existsSync(localPath)) {
                 console.log(`Hero image already exists: ${fileName}`);
@@ -178,7 +195,17 @@ module.exports = {
             });
 
             const buffer = Buffer.from(response.data);
-            fs.writeFileSync(localPath, buffer);
+
+            if (isAvatar) {
+                // 头像和神器走同一套处理：裁边 + 缩到 64/96 + 轻锐化，落盘的就是最终要显示的图
+                const variants = await ArtifactImage.processVariants(buffer);
+                fs.writeFileSync(localPath, variants.base);
+                fs.writeFileSync(ArtifactImage.highResPath(localPath), variants.high);
+            } else {
+                // _l 之类的大图（横幅）保持原样
+                fs.writeFileSync(localPath, buffer);
+            }
+
             console.log(`Downloaded hero image to: ${localPath}`);
             return localPath;
         } catch (error) {
@@ -217,11 +244,26 @@ module.exports = {
 
     // ==================== 神器图片下载 ====================
 
-    // 获取神器图片路径（rarity<3 使用占位图，其他情况优先本地，不存在则下载）
+    // 官方没有这张图时用的占位图（rarity<3 或下载不到/源图全透明）
+    artifactPlaceholderPath: () => Path.join(Files.getDataPath(), 'cachedimages', 'artifacts', 'question_circle.png'),
+
+    // 本次运行里已经确认“下载不到”的神器，避免每次选中都去撞一次 403
+    missingArtifactCodes: new Set(),
+
+    /*
+     * 获取神器图片路径。
+     * 优先级：本地已有 -> 下载 -> 占位图（question_circle.png）。
+     * 有些神器官方就没图（比如 ef437：CDN 403，或者返回一张全透明占位图），
+     * 这时不能留一个空白/破图，统一用 question_circle。
+     */
     getArtifactImagePath: async (artifactData) => {
         const artifactCode = artifactData && artifactData.code;
-        if (Number(artifactData && artifactData.rarity) < 3) {
-            return Path.join(Files.getDataPath(), 'cachedimages', 'artifacts', 'question_circle.png');
+        if (!artifactCode || Number(artifactData && artifactData.rarity) < 3) {
+            return module.exports.artifactPlaceholderPath();
+        }
+
+        if (module.exports.missingArtifactCodes.has(artifactCode)) {
+            return module.exports.artifactPlaceholderPath();
         }
 
         const artifactFileName = `${artifactCode}_ico.png`;
@@ -230,20 +272,17 @@ module.exports = {
         try {
             if (fs.existsSync(localArtifactPath)) {
                 return localArtifactPath;
-            } else {
-                const downloadedPath = await module.exports.downloadArtifactImage(artifactCode);
-                if (downloadedPath) {
-                    return downloadedPath;
-                }
-                return `${ARTIFACT_IMAGE_BASE_URL}/${artifactCode}_ico.png`;
             }
+
+            const downloadedPath = await module.exports.downloadArtifactImage(artifactCode);
+            return downloadedPath || module.exports.artifactPlaceholderPath();
         } catch (error) {
             console.warn(`Error getting artifact image path: ${error.message}`);
-            return `${ARTIFACT_IMAGE_BASE_URL}/${artifactCode}_ico.png`;
+            return module.exports.artifactPlaceholderPath();
         }
     },
 
-    // 下载神器图片到 cachedimages/artifacts：下载后处理成统一规格（裁边 + 64px + 轻锐化）再落盘
+    // 下载神器图片到 cachedimages/artifacts：下载后处理成 64 + 96 两套（裁边 + 轻锐化）再落盘
     downloadArtifactImage: async (artifactCode) => {
         if (!artifactCode || artifactCode.length <= 2) {
             console.log('Invalid artifact code');
@@ -272,14 +311,24 @@ module.exports = {
                 fs.mkdirSync(dirPath, { recursive: true });
             }
 
-            // 大图只留在内存里，落盘的就是后面各处直接用的处理结果
-            const buffer = await ArtifactImage.processBuffer(Buffer.from(response.data));
-            fs.writeFileSync(localArtifactPath, buffer);
+            // 大图只留在内存里，落盘的就是后面各处直接用的处理结果（64px 主图 + 96px 高分屏副本）
+            const variants = await ArtifactImage.processVariants(Buffer.from(response.data));
+            if (variants.blank) {
+                // 官方素材里缺图时给的是全透明占位图，落盘没意义，交给调用方回落 question_circle
+                console.log(`Artifact image has no content, using placeholder: ${artifactFileName}`);
+                module.exports.missingArtifactCodes.add(artifactCode);
+                return null;
+            }
+
+            fs.writeFileSync(localArtifactPath, variants.base);
+            fs.writeFileSync(ArtifactImage.highResPath(localArtifactPath), variants.high);
             console.log(`Downloaded artifact image to: ${localArtifactPath}`);
 
             return localArtifactPath;
         } catch (error) {
             console.warn(`Failed to download artifact image: ${error.message}`);
+            // 403 / 404 基本就是官方没这张图，记下来别再反复请求
+            module.exports.missingArtifactCodes.add(artifactCode);
             return null;
         }
     },

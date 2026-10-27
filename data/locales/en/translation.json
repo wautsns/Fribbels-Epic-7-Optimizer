@@ -153,6 +153,7 @@
   "Are you sure you want to remove this hero? This will also remove all of its saved builds.": "Are you sure you want to remove this hero? This will also remove all of its saved builds.",
   "Armor": "Armor",
   "Panel requirement": "Panel requirement",
+  "Panel requirement & result priority": "Panel requirement & result priority",
   "Artifact": "Artifact",
   "Assign a priority to each substat type from -1 to 3. This will go through every gear, and calculates the # of max rolls of each stat. The # of rolls is then multiplied by the stat priority you chose. It adds up all the stat scores for a gear, and sorts your gear by their highest substat score.": "Assign a priority to each substat type from -1 to 3. This will go through every gear, and calculates the # of max rolls of each stat. The # of rolls is then multiplied by the stat priority you chose. It adds up all the stat scores for a gear, and sorts your gear by their highest substat score.",
   "At least 1 stat": "At least 1 stat",

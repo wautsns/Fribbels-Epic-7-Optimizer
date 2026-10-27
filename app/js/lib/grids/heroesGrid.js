@@ -919,7 +919,42 @@ function redrawPreviewHero(heroId) {
             const html = HtmlGenerator.buildItemPanel(gear, "heroesGrid", baseStats)
             document.getElementById(displayId).innerHTML = html;
         }
+
+        // 英雄身上没有任何装备时，自动选中第一条配装，让下方预览直接显示配装内容。
+        // 这里只做“选中”，不会装备（装备仍要用户自己点 Equip Build）。
+        if (!heroHasEquippedGear(hero)) {
+            selectFirstBuildRow();
+        }
     })
+}
+
+/* 英雄是否身上已装备了任意一件（6 个部位全空才算“没有配置装备”） */
+const HERO_EQUIPMENT_SLOTS = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
+
+function heroHasEquippedGear(hero) {
+    const equipmentMap = (hero && hero.equipment) || {};
+
+    return HERO_EQUIPMENT_SLOTS.some(slot => equipmentMap[slot]);
+}
+
+/* 只选中配装表的第一行（触发的是预览，不会写回英雄装备） */
+function selectFirstBuildRow() {
+    const api = buildsGrid && buildsGrid.gridOptions && buildsGrid.gridOptions.api;
+    if (!api) return;
+
+    let firstNode = null;
+    api.forEachNode((node) => {
+        if (!firstNode) {
+            firstNode = node;
+        }
+    });
+
+    if (firstNode) {
+        // setSelected(value, clearSelection)：只留这一行选中
+        firstNode.setSelected(true, true);
+        // 记下来，之后 refreshBuilds() 会按 items 重新选中同一行（和手动选中时一致）
+        selectedBuildNode = firstNode;
+    }
 }
 
 function getField(heroStats, stat) {

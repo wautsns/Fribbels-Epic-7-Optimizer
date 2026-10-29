@@ -56,6 +56,11 @@ global.HeroesGrid = require('./grids/heroesGrid');
 global.OptimizerGrid = require('./grids/optimizerGrid');
 global.ItemsGrid = require('./grids/itemsGrid');
 
+global.GvgPlans = require('./gvg/gvgPlans');
+global.GvgGrid = require('./gvg/gvgGrid');
+global.GvgDialog = require('./gvg/gvgDialog');
+global.GvgTab = require('./gvg/gvgTab');
+
 global.ModificationFilter = require('./modificationFilter');
 global.Subprocess = require('./subprocess');
 global.Selectors = require('./selectors');
@@ -123,6 +128,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         ItemsGrid.initialize();
         HeroesTab.initialize();
         HeroesGrid.initialize();
+
+        // GVG 作业页必须在 Saves.loadAutoSave() 之前初始化，否则恢复出来的作业没有表格可渲染
+        GvgGrid.initialize();
+        GvgTab.initialize();
 
         await Settings.initialize();
         Saves.initialize();

@@ -49,6 +49,16 @@ function matchesHeroFilters(hero) {
 
 module.exports = {
 
+    /*
+     * GVG 作业列表复用的渲染工具（保持头像 / 面板要求与英雄列表完全一致）。
+     * 都是已有内部函数的薄包装，不改变英雄列表自身行为。
+     */
+    heroIconSrc: (name) => heroIconSrc(name),
+
+    iconSrcAttributes: (basePath, sizes) => iconSrcAttributes(basePath, sizes),
+
+    formatPanelRequirementForRequest: (request) => formatPanelRequirement({optimizationRequest: request}),
+
     toggleDarkMode(enabled) {
         if (enabled) {
             gradient = darkGradient;

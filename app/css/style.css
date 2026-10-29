@@ -32,6 +32,7 @@
 }
 
 /* id based instead of positional, so tabs can be reordered without renumbering */
+.tabset > #tab9:checked ~ .tab-panels > #gvg-section,
 .tabset > #tab4:checked ~ .tab-panels > #heroes-section,
 .tabset > #tab1:checked ~ .tab-panels > #optimizer-section,
 .tabset > #tab3:checked ~ .tab-panels > #gear-section,
@@ -2136,4 +2137,309 @@ input:checked + .darkSlider:before {
   flex: 1 1 0;
   margin-right: 0;
   margin-bottom: 0;
+}
+
+/* ===== GVG plans (docs/gvg/design.md 6.1 / 6.2) ===== */
+/* 注意：全站没有全局 box-sizing: border-box（见 :root 附近），
+   所以「width: 100% + padding」会撑出父容器（100% + 16px）→ 横向溢出。
+   这里显式 border-box，并去掉多余的 width: 100%（block 元素本来就占满）。 */
+.gvgSectionContainer {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  overflow: hidden;
+}
+.gvgTitleRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.gvgTitle {
+  font-size: 16px;
+  font-weight: 600;
+}
+.gvgFilterRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.gvgFilterSelect {
+  width: 180px;
+  height: 26px;
+}
+/* 6 行 * 36px 行高 + 32px 表头：列表不占满面板，下方留给其它功能 */
+.gvgTableContainer {
+  height: 252px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+#gvg-plans-table {
+  height: 100%;
+  width: 100%;
+}
+/* 底部按钮与英雄列表下方那排保持一致：沿用 .gearPreviewButton 默认尺寸（23px 高 / 140px 宽） */
+.gvgButtonRow {
+  padding-bottom: 4px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.gvgHeroIcon {
+  object-fit: contain;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+.gvgTagRow {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 4px;
+  overflow: hidden;
+  align-items: center;
+}
+.gvgTag {
+  background: #e4edfb;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.gvgRowActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.gvgRowButton {
+  border: none;
+  background: transparent;
+  padding: 1px;
+  cursor: pointer;
+  line-height: 1;
+}
+.gvgRowButtonIcon {
+  height: 18px;
+  width: 18px;
+}
+.gvgPinButton {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #9aa4b2;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1;
+  color: #333;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.gvgPinButton:hover {
+  border-color: #06c;
+  color: #06c;
+}
+
+/* ===== GVG 编辑 / 详情弹窗 ===== */
+.gvgForm {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 400;
+  color: #333;
+}
+/* 原生控件（站位 / 阵型 / 神器等级 / 文本）用自己的 class，不复用 .editGearStatSelect，
+   免得跟它默认的 width: 235px 打架。 */
+.gvgForm .editGearStatSelect {
+  width: auto;
+}
+/* 站位 / 阵型等原生控件，外观对齐 multiple-select 的 .ms-choice */
+.gvgForm select,
+.gvgForm input[type='number'],
+.gvgForm input[type='text'] {
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid #aab;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #444;
+  font-size: 12px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+/* 站位 / 阵型：宽度按最长的选项自适应（中文 前/下/上/后、自阵/群阵；英文自动放宽） */
+.gvgForm select.gvgNativeSelect {
+  width: max-content;
+  max-width: 100%;
+}
+.gvgForm textarea {
+  border: 1px solid #aab;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #444;
+  padding: 3px 4px;
+  font-size: 12px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+/* 可输入筛选的三个下拉，宽度由外层 .ms-parent（会继承 select 的 class）控制 */
+.gvgForm .ms-parent.gvgHeroSelect {
+  width: 168px;
+}
+/* 带入下拉和英雄下拉同宽；收起时只显示英雄名，所以不需要更宽 */
+.gvgForm .ms-parent.gvgImportSelect {
+  width: 168px;
+}
+/* 带入下拉：展开的列表显示「英雄名 — 需求摘要」，收起后只留英雄名 */
+.gvgForm .ms-parent.gvgImportSelect .ms-choice .gvgEntryReq {
+  display: none;
+}
+.gvgForm .ms-parent.gvgImportSelect .ms-drop ul > li span .gvgEntryReq {
+  /* 不写死灰色：选中/悬停那一行是彩底，用 inherit + 半透明才看得清 */
+  color: inherit;
+  opacity: 0.75;
+  font-size: 11px;
+}
+.gvgForm .ms-parent.gvgArtifactSelect {
+  width: 190px;
+}
+.gvgForm .ms-parent .ms-choice {
+  height: 26px;
+  line-height: 24px;
+  font-size: 12px;
+}
+.gvgFormSection {
+  margin-bottom: 6px;
+}
+.gvgFormSectionTitle {
+  font-weight: 600;
+  color: #1f1f1f;
+  margin: 6px 0 4px;
+}
+.gvgFormRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.gvgFormLabel {
+  flex: 0 0 auto;
+  min-width: 24px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 500;
+  color: #2b2b2b;
+  white-space: nowrap;
+}
+/* 面板要求 & 结果优先级：与英雄列表那一列同样式（纯文本，超长省略 + title 看全文） */
+.gvgRequirementText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  line-height: 20px;
+  color: #444;
+}
+.gvgShortInput {
+  /* 神器等级最多两位数（0~30） */
+  width: 44px;
+  text-align: center;
+}
+/* 注意：升级成 multiple-select 的三个下拉，宽度只能写在 `.ms-parent.xxx` 上（见上面），
+   这里不要再给 .gvgHeroSelect / .gvgImportSelect / .gvgArtifactSelect 设 min/max-width，
+   否则会因为 .ms-parent 继承了 select 的 class 而把包装层撑开。 */
+.gvgTextInput,
+.gvgTextArea {
+  flex: 1 1 auto;
+  width: auto;
+  font-family: inherit;
+  font-size: 12px;
+}
+.gvgTextArea {
+  /* 默认一行，可纵向拉伸 */
+  min-height: 28px;
+  resize: vertical;
+}
+.gvgMemberBlock {
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 4px;
+  padding: 4px 8px 6px;
+  margin-bottom: 6px;
+}
+.gvgMemberHeader {
+  font-weight: 600;
+  font-size: 12px;
+  color: #1f1f1f;
+  margin-bottom: 4px;
+}
+.gvgValidationMessage {
+  min-height: 16px;
+  text-align: center;
+  color: #c0392b;
+  font-size: 12px;
+}
+.gvgDetail {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 400;
+  color: #333;
+}
+.gvgDetailLabel {
+  font-weight: 600;
+  font-size: 12px;
+  color: #1f1f1f;
+  margin-bottom: 2px;
+}
+.gvgDetailDefenseRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.gvgDetailDefenseHero {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.gvgDetailMember {
+  margin-bottom: 4px;
+}
+.gvgDetailMemberHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gvgDetailPosition {
+  font-weight: 600;
+  font-size: 12px;
+  color: #06c;
+}
+.gvgDetailMuted {
+  color: #888;
+  font-size: 12px;
+}
+.gvgDetailRequirement {
+  font-size: 12px;
+  padding: 2px 0 0 38px;
+  word-break: break-word;
+}
+.gvgDetailTextBlock {
+  margin-bottom: 6px;
+}
+.gvgDetailText {
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.gvgDetailTags {
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.gvgDetailFooter {
+  margin-top: 6px;
+  text-align: right;
 }

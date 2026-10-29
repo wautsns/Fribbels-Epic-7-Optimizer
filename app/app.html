@@ -48,8 +48,12 @@ window.jQuery = $;
 </div> -->
 
 <div class="tabset" style="white-space: nowrap;">
+<!-- Tab 0: GVG plans (默认打开的标签页，排在 Heroes 前) -->
+<input type="radio" name="tabset" id="tab9" checked>
+<label for="tab9" class="tabLabel" id="tab9label" data-t>GVG plans</label>
+
 <!-- Tab 1 -->
-<input type="radio" name="tabset" id="tab4" checked>
+<input type="radio" name="tabset" id="tab4">
 <label for="tab4" class="tabLabel" id="tab4label" data-t>Heroes</label>
 
 <!-- Tab 2 -->
@@ -82,6 +86,33 @@ window.jQuery = $;
  -->
   <div id="hoverDiv"></div>
   <div class="tab-panels">
+    <div id="gvg-section" class="tab-panel">
+      <div class="gvgSectionContainer">
+        <div class="gvgTitleRow">
+          <span class="gvgTitle" data-t>GVG plan list</span>
+        </div>
+
+        <div class="gvgFilterRow">
+          <select id="gvg-filter-0" class="gvgFilterSelect"></select>
+          <select id="gvg-filter-1" class="gvgFilterSelect"></select>
+          <select id="gvg-filter-2" class="gvgFilterSelect"></select>
+        </div>
+
+        <div class="gvgTableContainer">
+          <div id="gvg-plans-table" class="ag-theme-balham"></div>
+        </div>
+
+        <div class="gvgButtonRow">
+          <input type="submit" value="Add" class="gearPreviewButton" id="gvg-add" data-t>
+          <input type="submit" value="Paste" class="gearPreviewButton" id="gvg-paste" data-t>
+          <input type="submit" value="Export" class="gearPreviewButton" id="gvg-export" data-t>
+          <input type="submit" value="Import" class="gearPreviewButton" id="gvg-import" data-t>
+          <input type="submit" value="Remove duplicates" class="gearPreviewButton" id="gvg-dedupe" data-t>
+          <input type="submit" value="Clear" class="gearPreviewButton" id="gvg-clear" data-t>
+        </div>
+      </div>
+    </div>
+
     <div id="heroes-section" class="tab-panel">
       <div class="heroesSectionContainer">
         <div class="heroesTabButtonRow">

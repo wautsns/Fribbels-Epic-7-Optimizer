@@ -1,4 +1,5 @@
 const remote = require('@electron/remote');
+const fs = require('fs');
 const dialog = remote.dialog;
 const currentWindow = remote.getCurrentWindow();
 
@@ -29,7 +30,10 @@ module.exports = {
 
             const data = {
                 heroes: getAllHeroesResponse.heroes,
-                items: getAllItemsResponse.items
+                items: getAllItemsResponse.items,
+                // GVG 作业跟存档一起走（docs/gvg/design.md 11.2）：
+                // 必须紧贴 stringify 之前读，否则 await 期间改的作业会被写旧值覆盖
+                gvgPlans: global.GvgPlans ? GvgPlans.getAll() : []
             }
 
             const stringified = JSON.stringify(data);
@@ -97,10 +101,15 @@ module.exports = {
 
             const data = await Files.readFileSync(filenames[0]);
             const parsedData = JSON.parse(data);
+            // 加载是严格快照（缺 gvgPlans 键会清空作业），覆盖前先备份当前存档
+            module.exports.backupAutoSave();
             await module.exports.loadSavedData(parsedData);
             console.log(parsedData);
 
-            $('#loadDataSubmitOutputText').text(`Loaded ${parsedData.heroes.length} heroes and ${parsedData.items.length} items from ${filenames[0]}`)
+            const planNote = Array.isArray(parsedData.gvgPlans)
+                ? `${parsedData.gvgPlans.length} GVG plans`
+                : 'no GVG plan data (local GVG plans were cleared)';
+            $('#loadDataSubmitOutputText').text(`Loaded ${parsedData.heroes.length} heroes, ${parsedData.items.length} items and ${planNote} from ${filenames[0]}`)
             module.exports.autoSave();
 
         })
@@ -177,8 +186,31 @@ module.exports = {
             }
         }
 
+        // GVG 作业：缺 gvgPlans 键 = 覆盖为空（严格快照，docs/gvg/design.md 11.2）
+        if (global.GvgPlans) {
+            const planResult = GvgPlans.setAll(data.gvgPlans);
+            if (planResult.skipped) {
+                console.warn('GVG: skipped invalid GVG plans', planResult.skipped);
+                Notifier.warnRaw(`${i18next.t('Skipped invalid GVG plans')}: ${planResult.skipped}`);
+            }
+        }
+
         OptimizerTab.redrawHeroSelector();
         HeroesTab.redraw();
+        if (global.GvgTab) GvgTab.redraw();
+    },
+
+    /** 把当前 autosave.json 复制成 autosave.bak.json（加载覆盖前的兜底） */
+    backupAutoSave: () => {
+        try {
+            const autoSavePath = Settings.getDefaultPath() + '/autosave.json';
+            if (!fs.existsSync(Files.path(autoSavePath))) return;
+
+            const text = Files.readFileSync(Files.path(autoSavePath));
+            Files.saveFile(Files.path(Settings.getDefaultPath() + '/autosave.bak.json'), text);
+        } catch (error) {
+            console.warn('Failed to back up autosave', error);
+        }
     },
 }
 

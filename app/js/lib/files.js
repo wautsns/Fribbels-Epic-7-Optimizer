@@ -49,11 +49,11 @@ module.exports = {
         }
 
         if (!fs.existsSync(module.exports.path(folder + "/empty-save.json"))) {
-            module.exports.saveFile(folder + "/empty-save.json", '{"heroes":[],"items":[]}');
+            module.exports.saveFile(folder + "/empty-save.json", '{"heroes":[],"items":[],"gvgPlans":[]}');
         }
 
         if (!fs.existsSync(module.exports.path(folder + "/autosave.json"))) {
-            module.exports.saveFile(folder + "/autosave.json", '{"heroes":[],"items":[]}');
+            module.exports.saveFile(folder + "/autosave.json", '{"heroes":[],"items":[],"gvgPlans":[]}');
         }
 
         if (!fs.existsSync(module.exports.path(folder + "/settings.ini"))) {

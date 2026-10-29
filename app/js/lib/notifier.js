@@ -63,4 +63,24 @@ module.exports = {
     warn: (text) => {
         notifier.warning(i18next.t(text));
     },
+
+    /*
+     * Raw 变体：文本已经翻译过（或带运行期数据），不再走 i18next.t。
+     * 用于「已移除 N 条」这类带数字的提示，避免把拼好的句子当成缺失 key 写进 translation.missing.json。
+     */
+    infoRaw: (text) => {
+        notifier.info(text);
+    },
+
+    successRaw: (text) => {
+        notifier.success(text);
+    },
+
+    warnRaw: (text) => {
+        notifier.warning(text);
+    },
+
+    errorRaw: (text) => {
+        notifier.alert(text);
+    },
 }

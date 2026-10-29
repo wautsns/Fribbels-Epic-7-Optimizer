@@ -331,3 +331,54 @@ input[type=checkbox]:checked:after {
   display: block;
   background-color: var(--inactive-color);
 }
+/* ===== GVG plans (dark) ===== */
+.gvgTag {
+  background: #2f3a4a;
+  color: var(--font-color);
+}
+.gvgPinButton {
+  color: var(--font-color);
+  border-color: #6f7a88;
+}
+.gvgRowButtonIcon {
+  filter: invert(0.85);
+}
+.gvgMemberBlock {
+  border-color: rgba(200, 200, 200, 0.3);
+}
+.gvgDetailPosition {
+  color: #6cb0ff;
+}
+.gvgDetailMuted {
+  color: #9aa4b2;
+}
+.gvgValidationMessage {
+  color: #ff8f85;
+}
+
+/* GVG：弹窗里的文字在暗色下用 --font-color / 近白，避免浅色模式的深色文字看不清 */
+.gvgForm,
+.gvgDetail {
+  color: var(--font-color);
+}
+.gvgFormLabel,
+.gvgDetailLabel,
+.gvgFormSectionTitle,
+.gvgMemberHeader {
+  color: #f2f2f2;
+}
+
+/* GVG：原生控件在暗色下跟随全局 input/select 配色（浅色样式里写死了白底） */
+.gvgForm select,
+.gvgForm input[type='number'],
+.gvgForm input[type='text'],
+.gvgForm textarea {
+  background-color: var(--input-color);
+  color: var(--font-color);
+  border: 1px solid transparent;
+}
+
+/* GVG：面板要求摘要的暗色配色 */
+.gvgRequirementText {
+  color: var(--font-color);
+}

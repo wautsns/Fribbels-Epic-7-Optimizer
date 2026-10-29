@@ -23,13 +23,27 @@ function buildTarget(item) {
         ? [sorted[0]].concat(sorted.slice(1).sort((a, b) => a.type.localeCompare(b.type)))
         : sorted;
 
-    // the game shows the reforged stats only when the item was actually reforged, and
-    // the optimizer data can be stale either way, so both value sets are kept
+    // base substat values, same ordering rules (used when reading the panel back)
     const baseSubstats = (item.substats || []).map(sub => ({ type: sub.type, value: sub.value }))
         .sort((a, b) => (b.value - a.value) || a.type.localeCompare(b.type));
 
-    const baseValues = [item.main.value].concat((item.substats || []).map(sub => sub.value));
-    const reforgedValues = [item.main.value].concat(substats.map(sub => sub.value));
+    // The panel shows the values the game has. For a reforged item those are the reforged
+    // substats, for a normal one the base substats, so both sets are kept.
+    //
+    // The main stat is deliberately left out of both sets:
+    //  - it is already pinned before the tile is even looked at (weapon/helmet/armor have a
+    //    fixed main stat, the accessories are filtered by the wanted main type), and the
+    //    four substats identify a tile well enough inside the probed rank window;
+    //  - reforge changes the main stat value (reforge.js: for example 465 -> 525 attack),
+    //    and the panel then shows the reforged one, so including it made every reforged
+    //    piece fail the check and walk over the neighbour tiles.
+    const baseValues = (item.substats || []).map(sub => sub.value);
+    // item.reforgedStats holds the real reforged numbers (itemAugmenter): the augmented
+    // stats used above are the base ones, which is why reforged pieces never matched before.
+    const reforgedValues = (item.substats || []).map(sub => {
+        const reforged = item.reforgedStats ? item.reforgedStats[sub.type] : undefined;
+        return reforged === undefined || reforged === null ? sub.value : reforged;
+    });
 
     return {
         id: item.id,

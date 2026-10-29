@@ -32,7 +32,26 @@ async function loadTemplate(name) {
     return templateCache[name];
 }
 
+// Capture the screen as a Jimp image.
+// Raw screencap first (no PNG encode on the device): measured 287ms vs 400ms for PNG,
+// and it also skips the ~130ms Jimp PNG decode. Falls back to PNG whenever the device
+// returns an unsupported pixel format.
+let rawCaptureSupported = true;
+
 async function capture() {
+    if (rawCaptureSupported) {
+        try {
+            const raw = await adb.captureRaw();
+            if (raw) {
+                return new Jimp({ data: raw.data, width: raw.width, height: raw.height });
+            }
+            console.warn('[emulator] raw screencap unsupported, falling back to png');
+            rawCaptureSupported = false;
+        } catch (error) {
+            console.warn('[emulator] raw screencap failed, falling back to png', error && error.message);
+        }
+    }
+
     const buffer = await adb.capture();
     return Jimp.read(buffer);
 }
@@ -126,6 +145,9 @@ async function matchTemplate(image, name, x, y, radius = 4) {
 // ---- Tesseract.js (bundled wasm engine, no local installation required) ----
 let tessJsWorker = null;
 let tessJsAssets = null;
+// Flipped off when the worker fails; also switchable by the emulator tooling/tests so the
+// Windows OCR path can be exercised on its own.
+let tessJsEnabled = true;
 
 // The worker thread cannot open files inside app.asar, so electron-builder unpacks
 // assets/tesseract next to the archive (app.asar.unpacked). If that folder is missing
@@ -204,6 +226,14 @@ function parsePlainNumbers(text) {
 }
 
 async function tesseractJsNumbers(frame, region, scale = 4) {
+    // Once the bundled worker fails (missing wasm assets, unsupported runtime) there is no
+    // point retrying it on every single tile: the Windows OCR fallback still covers the
+    // panel. A failing worker also reports the error asynchronously, so a guard here keeps
+    // one broken environment from raising the same error over and over.
+    if (!tessJsEnabled) {
+        return null;
+    }
+
     try {
         const worker = await tesseractJsWorkerInstance();
         const scaled = crop(frame, region).scale(scale, Jimp.RESIZE_BICUBIC);
@@ -212,6 +242,10 @@ async function tesseractJsNumbers(frame, region, scale = 4) {
         const numbers = parsePlainNumbers(data.text);
         return numbers.length ? numbers : null;
     } catch (error) {
+        if (tessJsEnabled) {
+            console.warn('[emulator] tesseract.js failed, switching to Windows OCR:', error && error.message);
+        }
+        tessJsEnabled = false;
         return null;
     }
 }
@@ -313,6 +347,8 @@ function extractNumbers(lines) {
 module.exports = {
     appDir,
     resolveScriptPath,
+    setTesseractEnabled: (enabled) => { tessJsEnabled = !!enabled; },
+    isTesseractEnabled: () => tessJsEnabled,
     capture,
     crop,
     luminance,

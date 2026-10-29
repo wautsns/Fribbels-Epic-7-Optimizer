@@ -16,11 +16,12 @@ module.exports = {
     initialize: () => {
         module.exports.redrawFilterOptions();
 
-        // 面板初始是 display:none，ag-grid 在隐藏状态下量不到宽度：切到这个标签页时重画一次
+        // 面板初始是 display:none，ag-grid 与筛选下拉在隐藏状态下都量不到尺寸：
+        // 切到这个标签页时整体重画一次（选项 + 表格）
         const tabRadio = document.getElementById('tab9');
         if (tabRadio) {
             tabRadio.addEventListener('change', () => {
-                if (tabRadio.checked) GvgGrid.refresh();
+                if (tabRadio.checked) module.exports.redraw();
             });
         }
 
@@ -28,10 +29,14 @@ module.exports = {
             const select = document.getElementById(`gvg-filter-${index}`);
             if (!select) continue;
 
-            select.addEventListener('change', () => {
+            // 升级成 multiple-select 之后，插件改值是 jQuery trigger('change')，
+            // 原生 addEventListener 收不到，所以统一走 bindFilterChange
+            bindFilterChange(select, () => {
                 GvgGrid.setFilter(index, select.value);
             });
         }
+
+        upgradeFilterSelects();
 
         bindClick('gvg-add', () => module.exports.addPlan());
         bindClick('gvg-paste', () => module.exports.pastePlan());
@@ -39,6 +44,7 @@ module.exports = {
         bindClick('gvg-import', () => module.exports.importPlans());
         bindClick('gvg-dedupe', () => module.exports.dedupePlans());
         bindClick('gvg-clear', () => module.exports.clearPlans());
+        bindClick('clearGvgFilter', () => module.exports.clearFilters());
     },
 
     /** 数据变了：重画筛选选项 + 表格 */
@@ -58,11 +64,6 @@ module.exports = {
             const selected = select.value;
             select.innerHTML = '';
 
-            const blank = document.createElement('option');
-            blank.value = '';
-            blank.innerText = i18next.t('Any');
-            select.add(blank);
-
             options.forEach((option) => {
                 const element = document.createElement('option');
                 element.value = option.code;
@@ -70,16 +71,28 @@ module.exports = {
                 select.add(element);
             });
 
-            if (
-                selected &&
-                options.some((option) => option.code === selected)
-            ) {
-                select.value = selected;
-                GvgGrid.setFilter(index, selected);
-            } else {
-                select.value = '';
-                GvgGrid.setFilter(index, '');
-            }
+            const keep =
+                selected && options.some((option) => option.code === selected)
+                    ? selected
+                    : '';
+
+            select.value = keep;
+            refreshFilterSelect(select, keep);
+            GvgGrid.setFilter(index, keep);
+        }
+    },
+
+    /* ---------------- 筛选 ---------------- */
+
+    /** 清空 3 个防守筛选：下拉是单选、列表里没有「任意」项，所以需要这个复位动作 */
+    clearFilters: () => {
+        for (let index = 0; index < FILTER_COUNT; index++) {
+            const select = document.getElementById(`gvg-filter-${index}`);
+            if (!select) continue;
+
+            select.value = '';
+            refreshFilterSelect(select, '');
+            GvgGrid.setFilter(index, '');
         }
     },
 
@@ -279,6 +292,59 @@ module.exports = {
 function bindClick(id, handler) {
     const element = document.getElementById(id);
     if (element) element.addEventListener('click', handler);
+}
+
+/**
+ * 3 个防守筛选下拉：与「新增作业 → 从英雄列表带入」用同一个 multiple-select 组件
+ * （单选 + 搜索框）。选项重建之后要把插件视图一起刷新，所以这里封了一组小工具。
+ */
+function upgradeFilterSelects() {
+    if (typeof $ === 'undefined' || !$.fn || !$.fn.multipleSelect) return;
+
+    for (let index = 0; index < FILTER_COUNT; index++) {
+        const element = document.getElementById(`gvg-filter-${index}`);
+        if (!element) continue;
+
+        // 已经升级过的不要再套一次（插件会把原生 select 标成 ms-offscreen）
+        if (element.classList && element.classList.contains('ms-offscreen')) {
+            continue;
+        }
+
+        $(element).multipleSelect({
+            filter: true,
+            filterAcceptOnEnter: true,
+            single: true,
+            maxHeight: 360,
+            width: 168,
+            placeholder: i18next.t('Hero'),
+            // 插件改的是原生 select 的 value，这里补一次筛选
+            onSelect: () => GvgGrid.setFilter(index, element.value),
+            onUnselect: () => GvgGrid.setFilter(index, element.value),
+        });
+    }
+}
+
+/** 升级过的下拉改值走的是 jQuery trigger('change')，原生监听收不到 */
+function bindFilterChange(element, handler) {
+    if (typeof $ !== 'undefined' && $.fn) {
+        $(element).on('change', handler);
+        return;
+    }
+    element.addEventListener('change', handler);
+}
+
+/** 选项重建后同步插件视图，并尽量保留当前选中项 */
+function refreshFilterSelect(element, selected) {
+    if (typeof $ === 'undefined' || !$.fn || !$.fn.multipleSelect) return;
+    // 还没升级过（原生 select 不会是 ms-offscreen），此时直接设 value 就够了
+    if (!element.classList || !element.classList.contains('ms-offscreen')) return;
+
+    try {
+        $(element).multipleSelect('refresh');
+        $(element).multipleSelect('setSelects', selected ? [selected] : []);
+    } catch (error) {
+        console.warn('GVG: unable to refresh filter select', error);
+    }
 }
 
 function reportImportOutcome(outcome) {

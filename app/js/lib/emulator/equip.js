@@ -99,6 +99,118 @@ function pageError(message) {
     return error;
 }
 
+// ---- capture, stall detection and page recovery ----------------------------
+// The emulator freezes for a second or two now and then. While it is frozen, taps are
+// queued by the input system and executed later, on whatever screen happens to be there
+// at that moment - which is how a run "clicks itself out" of the manage equipment page.
+// So: a capture that takes far longer than usual marks a stall, and after a stall nothing
+// taps again until the picture has settled and the page has been re-checked.
+const recentCaptureTimes = [];
+const STALL_FACTOR = 2.5;
+const STALL_LOG_LIMIT = 8;
+
+function median(values) {
+    if (!values.length) return 0;
+    const sorted = values.slice().sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2
+        ? sorted[middle]
+        : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+}
+
+function fullFrameRegion(frame) {
+    return { x: 0, y: 0, w: frame.bitmap.width, h: frame.bitmap.height };
+}
+
+// Same template/threshold as assertManagePage, but usable on an already captured frame.
+async function looksLikeManagePage(frame) {
+    const match = await screen.matchTemplate(frame, 'page_manage.png', 40, 8, 6);
+    return match.score <= 28;
+}
+
+// Plain capture without the stall/settle handling (used by the recovery helpers to avoid
+// recursing into captureFrame).
+function rawCapture() {
+    return captureVisible().then((result) => result.frame);
+}
+
+// Opening the substat filter panel makes the emulator go fully black for a second or two
+// (measured: mean luminance 0.0 for >1.4s). A black frame must never be used for a page
+// check, a panel check or an OCR read - acting on it is what made the run tap into a black
+// screen and end up outside the manage equipment page. So keep polling until the picture
+// is back, and fail loudly if it never comes back.
+const BLACK_FRAME_LUMINANCE = 8;
+
+function isBlackFrame(frame) {
+    return screen.luminance(frame, fullFrameRegion(frame)) < BLACK_FRAME_LUMINANCE;
+}
+
+async function captureVisible(timeout = 6000) {
+    const started = Date.now();
+
+    for (;;) {
+        const captureStarted = Date.now();
+        const frame = await screen.capture();
+        const captureMs = Date.now() - captureStarted;
+
+        if (!isBlackFrame(frame)) {
+            return { frame, captureMs };
+        }
+
+        if (Date.now() - started > timeout) {
+            throw pageError(t('The emulator screen is black. Bring the game to the front and retry'));
+        }
+
+        await sleep(200);
+    }
+}
+
+// Waits until two consecutive captures are nearly identical (the emulator caught up).
+async function waitForSettledScreen(timeout = 5000) {
+    const started = Date.now();
+    let previous = await rawCapture();
+
+    while (Date.now() - started < timeout) {
+        await sleep(140);
+        const frame = await rawCapture();
+        if (screen.regionDelta(previous, frame, fullFrameRegion(frame)) < 3) {
+            return frame;
+        }
+        previous = frame;
+    }
+
+    return previous;
+}
+
+// Recovery for "the page check failed". This never presses back: a back press on the
+// wrong screen can open the game's "quit the game" confirmation, so the run stops with a
+// clear message instead of guessing.
+async function recoverToManagePage() {
+    throw pageError(t('The emulator left the Manage Equipment page. Open that page again and retry'));
+}
+
+// Capture wrapper used by the whole flow: skips black frames, records the capture time and
+// settles + re-checks the page after a stall so the caller never taps into a frozen screen.
+async function captureFrame() {
+    const { frame, captureMs } = await captureVisible();
+
+    const baseline = median(recentCaptureTimes);
+    recentCaptureTimes.push(captureMs);
+    if (recentCaptureTimes.length > STALL_LOG_LIMIT) {
+        recentCaptureTimes.shift();
+    }
+
+    if (baseline && captureMs > baseline * STALL_FACTOR) {
+        console.warn('[emulator] stall detected: capture took', captureMs + 'ms (baseline ' + baseline + 'ms)');
+        const settled = await waitForSettledScreen();
+        if (!(await looksLikeManagePage(settled))) {
+            await recoverToManagePage();
+        }
+    }
+
+    return frame;
+}
+
 // Used before a run starts: make sure the game is on the Manage Equipment page with the
 // slot tabs visible (the title alone also appears on some other screens).
 async function ensureManagePage() {
@@ -106,14 +218,14 @@ async function ensureManagePage() {
     await adb.connect();
     await assertManagePage();
 
-    const frame = await screen.capture();
+    const frame = await captureFrame();
     if (!readSelectedSlot(frame)) {
         throw pageError(t('Not on the Manage Equipment page (open the equipment page of a hero first)'));
     }
 }
 
 async function assertManagePage() {
-    const frame = await screen.capture();
+    const frame = await captureFrame();
     const match = await screen.matchTemplate(frame, 'page_manage.png', 40, 8, 6);
     if (match.score > 28) {
         throw pageError(t('Not on the Manage Equipment page (open the equipment page of a hero first)'));
@@ -135,14 +247,28 @@ async function isSortMenuOpen(frame) {
     return Math.min(up.score, down.score) < 20;
 }
 
-// Opens the sort menu and verifies it actually opened: pressing back() on a closed
-// menu would navigate away from the equipment page.
+// An empty corner of the manage equipment page (bottom-left, below the stats panel).
+// Tapping it closes an open dropdown / sort menu / set dialog and does nothing while
+// nothing is open (measured: frame delta 0.0 for all four cases, and the page stays
+// intact). `back` is never used to close overlays: a back press on the wrong screen can
+// open the game's "quit the game" confirmation.
+const OVERLAY_DISMISS_POINT = [60, 690];
+
+async function dismissOverlay(label) {
+    await adb.tap(...OVERLAY_DISMISS_POINT);
+    await sleep(300);
+    const frame = await captureFrame();
+    console.warn('[emulator] closed the ' + (label || 'filter') + ' overlay by tapping outside it');
+    return frame;
+}
+
+// Opens the sort menu and verifies it actually opened.
 async function openSortMenu() {
     for (let attempt = 0; attempt < 2; attempt++) {
         await adb.tap(...LAYOUT.sortButton);
         await sleep(800);
 
-        const frame = await screen.capture();
+        const frame = await captureFrame();
         if (await isSortMenuOpen(frame)) {
             return frame;
         }
@@ -153,8 +279,7 @@ async function openSortMenu() {
 
 async function closeSortMenu(frame) {
     if (await isSortMenuOpen(frame)) {
-        await adb.back();
-        await sleep(500);
+        await dismissOverlay('sort menu');
     }
 }
 
@@ -211,11 +336,17 @@ async function selectSlot(slot) {
         await adb.tap(...point);
         await sleep(650);
 
-        const frame = await screen.capture();
+        const frame = await captureFrame();
         const selected = readSelectedSlot(frame);
 
         if (selected === slot) {
             return frame;
+        }
+
+        // the tab did not switch: either the tap was swallowed by a stall or it landed on
+        // another screen. Never tap again before the page is confirmed.
+        if (!(await looksLikeManagePage(frame))) {
+            await recoverToManagePage();
         }
     }
 
@@ -252,7 +383,7 @@ async function waitForPanel(before, wantOpen, timeout = 4000) {
 
     while (Date.now() - started < timeout) {
         await sleep(160);
-        const frame = await screen.capture();
+        const frame = await captureFrame();
         const delta = screen.regionDelta(before, frame, PANEL_REGION);
 
         if (wantOpen ? delta > 8 : delta < 4) {
@@ -273,7 +404,7 @@ async function openPanelStable(before, timeout = 5000) {
 
     while (Date.now() - started < timeout) {
         await sleep(180);
-        const frame = await screen.capture();
+        const frame = await captureFrame();
 
         if (screen.regionDelta(before, frame, PANEL_REGION) < 20) {
             previous = null;
@@ -335,42 +466,37 @@ async function ensureChip(chip, target) {
 
     throwIfCancelled();
 
-    let openFrame = null;
-
-    for (let attempt = 0; attempt < 2 && !openFrame; attempt++) {
-        const before = await screen.capture();
-        await adb.tap(...chipPoint);
-
-        try {
-            openFrame = await openPanelStable(before, 2500);
-        } catch (error) {
-            // the tap probably closed a panel that was left open
-            openFrame = null;
-        }
-    }
-
+    let openFrame = await openChipPanel(chipPoint, chip);
     if (!openFrame) {
         throw new Error(t('The filter panel did not open. Check the emulator'));
     }
 
-    const current = readSelectedOption(openFrame);
+    let current = readSelectedOption(openFrame);
 
-    // unknown state: reset to "All" first, then reopen and pick (never tap blind, a tap
-    // on the already selected stat would flip the sort direction)
+    // the panel is open but its highlight is only painted at the end of the animation:
+    // wait for it instead of tapping anything blind
     if (current === undefined) {
-        await adb.tap(...LAYOUT.options.all);
-        await sleep(600);
-        const beforeRetry = await screen.capture();
-        await adb.tap(...chipPoint);
-        const retryFrame = await openPanelStable(beforeRetry);
-        await adb.tap(...LAYOUT.options[wantedKey]);
-        await sleep(550);
-        const settled = await screen.capture();
-        if (screen.regionDelta(retryFrame, settled, PANEL_REGION) < 15) {
-            await adb.back();
-            await sleep(500);
+        const highlighted = await waitForOptionHighlight(openFrame, chip);
+        if (highlighted) {
+            openFrame = highlighted;
+            current = readSelectedOption(highlighted);
         }
-        return 'applied';
+    }
+
+    // still unreadable: close the panel, reopen it once, and give up cleanly if the panel
+    // cannot be read. No option is ever tapped while the selected row is unknown.
+    if (current === undefined) {
+        await dismissOverlay(chip);
+
+        openFrame = await openChipPanel(chipPoint, chip);
+        current = openFrame ? readSelectedOption(openFrame) : undefined;
+
+        if (!openFrame || current === undefined) {
+            if (openFrame) {
+                await dismissOverlay(chip);
+            }
+            throw new Error(t('Could not read the filter panel. Check the emulator'));
+        }
     }
 
     if (current === (target || null)) {
@@ -378,32 +504,95 @@ async function ensureChip(chip, target) {
         // flipped to ascending (a fresh selection is always descending)
         if (target && readDirection(openFrame, wantedKey) === 'asc') {
             await adb.tap(...LAYOUT.options[wantedKey]);
-            await sleep(550);
-            const flipped = await screen.capture();
-            if (screen.regionDelta(openFrame, flipped, PANEL_REGION) < 15) {
-                await adb.back();
-                await sleep(500);
-            }
+            await ensurePanelClosed(openFrame, chip);
             return 'applied';
         }
 
-        await adb.back();
-        await sleep(500);
+        await dismissOverlay(chip);
         return 'skipped';
     }
 
     throwIfCancelled();
     await adb.tap(...LAYOUT.options[wantedKey]);
-    await sleep(550);
-
-    // if the panel is still open the frame looks almost identical to the open one
-    const after = await screen.capture();
-    if (screen.regionDelta(openFrame, after, PANEL_REGION) < 15) {
-        await adb.back();
-        await sleep(500);
-    }
+    await ensurePanelClosed(openFrame, chip);
 
     return 'applied';
+}
+
+// Polls until the open panel actually shows a highlighted row (its animation finishes).
+async function waitForOptionHighlight(openFrame, chip, timeout = 1600) {
+    const started = Date.now();
+    let frame = openFrame;
+
+    while (Date.now() - started < timeout) {
+        await sleep(150);
+        frame = await captureFrame();
+        if (readSelectedOption(frame) !== undefined) {
+            return frame;
+        }
+    }
+
+    console.warn('[emulator] filter panel (' + chip + ') has no readable highlighted row');
+    return null;
+}
+
+// A tap on a chip is the step that suffers most from emulator stalls: the panel can open
+// seconds late, and a tap issued into the stall is delivered afterwards, which is how a
+// second tap ends up closing the panel that just opened. So this waits for the panel,
+// and never taps a second time before the screen has settled again.
+async function openChipPanel(chipPoint, chip) {
+    let before = await captureFrame();
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+        await adb.tap(...chipPoint);
+
+        try {
+            return await openPanelStable(before, 2500);
+        } catch (error) {
+            const settled = await waitForSettledScreen();
+
+            if (!(await looksLikeManagePage(settled))) {
+                await recoverToManagePage();
+                return null;
+            }
+
+            // the picture changed a lot while waiting -> the panel did open, only later
+            if (screen.regionDelta(before, settled, PANEL_REGION) > 20) {
+                console.warn('[emulator] filter panel (' + chip + ') opened late, continuing with the settled frame');
+                return settled;
+            }
+
+            // the panel really is closed: the tap was lost, tap again
+        }
+
+        before = await captureFrame();
+    }
+
+    return null;
+}
+
+// Waits until the option panel is gone again. A tap queued during a stall can keep it
+// open for a while, so this polls the panel region instead of sleeping a fixed delay.
+async function ensurePanelClosed(openFrame, chip, timeout = 2200) {
+    const started = Date.now();
+    let frame = await captureFrame();
+
+    while (Date.now() - started < timeout) {
+        if (screen.regionDelta(openFrame, frame, PANEL_REGION) > 20) {
+            return frame;
+        }
+        frame = await captureFrame();
+    }
+
+    console.warn('[emulator] filter panel (' + chip + ') still open, pressing back');
+    await dismissOverlay(chip);
+
+    frame = await captureFrame();
+    if (!(await looksLikeManagePage(frame))) {
+        await recoverToManagePage();
+    }
+
+    return frame;
 }
 
 async function setFilter(chip, statType) {
@@ -461,7 +650,7 @@ function setDialogVisible(frame) {
 
 async function openSetDialog() {
     for (let attempt = 0; attempt < 3; attempt++) {
-        const frame = await screen.capture();
+        const frame = await captureFrame();
         if (setDialogVisible(frame)) {
             return true;
         }
@@ -470,7 +659,7 @@ async function openSetDialog() {
         await sleep(900);
     }
 
-    return setDialogVisible(await screen.capture());
+    return setDialogVisible(await captureFrame());
 }
 
 // Scans the whole dialog for the set icon; the panel can be scrolled to any offset.
@@ -521,8 +710,7 @@ async function selectSetInFrame(frame, setKey) {
 
     await adb.tap(icon.x, icon.y);
     await sleep(700);
-    await adb.tap(...LAYOUT.filters.set);
-    await sleep(700);
+    await dismissOverlay('set dialog');
     return true;
 }
 
@@ -537,7 +725,7 @@ async function applySetFilter(setKey) {
     await sleep(650);
 
     // 1) the set may already be visible where the list currently is
-    if (await selectSetInFrame(await screen.capture(), setKey)) {
+    if (await selectSetInFrame(await captureFrame(), setKey)) {
         return true;
     }
 
@@ -548,7 +736,7 @@ async function applySetFilter(setKey) {
     }
 
     for (let page = 0; page < 4; page++) {
-        if (await selectSetInFrame(await screen.capture(), setKey)) {
+        if (await selectSetInFrame(await captureFrame(), setKey)) {
             return true;
         }
 
@@ -557,8 +745,7 @@ async function applySetFilter(setKey) {
     }
 
     console.warn('[emulator] set icon not matched, skipping set filter:', setKey);
-    await adb.tap(...LAYOUT.filters.set);
-    await sleep(700);
+    await dismissOverlay('set dialog');
     return false;
 }
 
@@ -681,14 +868,25 @@ function findCandidates(frame) {
     return cells;
 }
 
-// The panel always shows the values the game has; the optimizer data stores the base
-// values, so those are the ones compared. If they do not match the data is stale and a
-// fresh import is needed.
+// The panel shows the values the game has, so both the base and the reforged substat sets
+// are accepted (a reforged piece shows the reforged numbers).
+// The main stat is not part of the check: it is already pinned by the slot (weapon /
+// helmet / armor) or by the accessory main-stat filter, and reforge changes its value, so
+// comparing it only produced false negatives on reforged gear.
 function expectedValueSets(item) {
+    const sets = [];
+
     if (Array.isArray(item.baseValues)) {
-        return [item.baseValues];
+        sets.push(item.baseValues);
     }
-    return [[item.mainValue].concat((item.substats || []).map(stat => stat.value))];
+    if (Array.isArray(item.reforgedValues)) {
+        sets.push(item.reforgedValues);
+    }
+    if (!sets.length) {
+        sets.push((item.substats || []).map(stat => stat.value));
+    }
+
+    return sets;
 }
 
 function matchesAny(numbers, sets) {
@@ -711,10 +909,30 @@ function matchesExpected(numbers, expected) {
     return true;
 }
 
+// The game fades the item panel in after a selection. Capturing in the middle of that
+// fade gives dimmer glyphs and the OCR then silently drops a value (measured: the flat
+// speed substat), which looks like "wrong item" and triggers a walk over the neighbour
+// tiles. So wait until the panel region stops changing instead of sleeping a fixed delay.
+async function waitForPanelSettled(initialFrame, timeout = 1800) {
+    const started = Date.now();
+    let previous = initialFrame || (await captureFrame());
+
+    while (Date.now() - started < timeout) {
+        const frame = await captureFrame();
+        if (screen.regionDelta(previous, frame, LAYOUT.valuePanel) < 2) {
+            return frame;
+        }
+        previous = frame;
+    }
+
+    return previous;
+}
+
 async function verifyCell(cell, item) {
     await adb.tap(cell.x, cell.y);
-    await sleep(650);
-    return readPanel(item);
+    // let the press ripple pass, then OCR a settled panel
+    await sleep(150);
+    return readPanel(item, await waitForPanelSettled(await captureFrame()));
 }
 
 // Taps a tile and verifies it. Handles the case where the tile was already selected
@@ -726,24 +944,37 @@ async function selectAndVerify(cell, item) {
         return result;
     }
 
-    // empty panel: the tap toggled an existing selection off -> tap once more
+    // empty panel: the tap toggled an existing selection off -> tap once more, but only
+    // after confirming the game is still on the manage page (a stalled tap can drop the
+    // run onto another screen)
     if (!result.numbers || result.numbers.length === 0) {
+        if (!(await looksLikeManagePage(await captureFrame()))) {
+            await recoverToManagePage();
+        }
+
         result = await verifyCell(cell, item);
         if (result.ok) {
             return result;
         }
     }
 
-    // wrong item: toggle the pending selection off
+    // wrong item: toggle the pending selection off, but only on the manage page
+    if (!(await looksLikeManagePage(await captureFrame()))) {
+        await recoverToManagePage();
+    }
+
     await adb.tap(cell.x, cell.y);
     await sleep(500);
     return result;
 }
 
 // reads the item panel of the currently selected tile
-async function readPanel(item) {
-    const frame = await screen.capture();
-    const panel = screen.crop(frame, LAYOUT.valuePanel);
+async function readPanel(item, settledFrame) {
+    const frame = settledFrame || (await captureFrame());
+    // Both OCR engines read the value column only: the wider panel region also catches the
+    // "装备分数" row and (measured) often drops the flat substat such as speed, which made
+    // every verification fail into a second, useless OCR round.
+    const values = screen.crop(frame, LAYOUT.valuePanelNumbers);
 
     const expectedSets = expectedValueSets(item);
 
@@ -760,17 +991,22 @@ async function readPanel(item) {
     // The zh engine is the more accurate one for this panel; the en engine is only run
     // when the first pass does not match (it covers percentages the zh pass sometimes
     // drops, at the cost of one extra OCR round).
-    const chineseLines = await screen.ocr(panel, '', 4);
+    const chineseLines = await screen.ocr(values, '', 4);
     const chineseNumbers = screen.extractNumbers(chineseLines);
 
     if (matchesAny(chineseNumbers, expectedSets)) {
-        return { ok: true, numbers: chineseNumbers, lines: chineseLines };
+        return { ok: true, numbers: chineseNumbers, lines: chineseLines, source: 'winocr-zh' };
     }
 
-    const englishLines = await screen.ocr(panel, 'en-US', 4);
+    const englishLines = await screen.ocr(values, 'en-US', 4);
     const numbers = chineseNumbers.concat(screen.extractNumbers(englishLines));
 
-    return { ok: matchesAny(numbers, expectedSets), numbers, lines: chineseLines.concat(englishLines) };
+    return {
+        ok: matchesAny(numbers, expectedSets),
+        numbers,
+        lines: chineseLines.concat(englishLines),
+        source: 'winocr-en',
+    };
 }
 
 // A short/fast swipe triggers a fling and the list stops at an unpredictable offset;
@@ -784,10 +1020,10 @@ async function scrollGrid(distance = 260) {
 // Scrolls the list back to the first row (used before a full fallback scan)
 async function scrollToTop() {
     for (let i = 0; i < 8; i++) {
-        const before = await screen.capture();
+        const before = await captureFrame();
         await adb.swipe(995, 320, 995, 580, 1200);
         await sleep(700);
-        const after = await screen.capture();
+        const after = await captureFrame();
 
         if (measureScroll(after, before).d < 20) {
             return;
@@ -807,7 +1043,7 @@ function resetGridScroll() {
 // the real movement in both directions so the offset stays accurate.
 async function scrollGridBy(distance) {
     throwIfCancelled();
-    const before = await screen.capture();
+    const before = await captureFrame();
     const step = Math.max(60, Math.min(260, Math.abs(distance)));
 
     if (distance >= 0) {
@@ -817,7 +1053,7 @@ async function scrollGridBy(distance) {
     }
 
     await sleep(800);
-    const after = await screen.capture();
+    const after = await captureFrame();
     const up = measureScroll(before, after);
     const down = measureScroll(after, before);
     const moved = up.score <= down.score ? up.d : -down.d;
@@ -926,7 +1162,7 @@ async function selectItem(item, options = {}) {
     // changing a filter resets the list to the top
     gridScroll = 0;
 
-    let frame = await screen.capture();
+    let frame = await captureFrame();
     await assertListNotEmpty(frame);
 
     if (!options.allItems || !item.id) {
@@ -952,6 +1188,12 @@ async function selectItem(item, options = {}) {
             const candidate = probes[probeIndex];
             if (candidate < 0) {
                 continue;
+            }
+
+            // a failed probe can be the result of a stalled tap that landed elsewhere:
+            // confirm the page before probing the next tile
+            if (probeIndex > 0 && !(await looksLikeManagePage(await captureFrame()))) {
+                await recoverToManagePage();
             }
 
             const targetRow = Math.floor(candidate / LAYOUT.grid.cols);

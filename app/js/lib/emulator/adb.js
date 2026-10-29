@@ -204,10 +204,15 @@ function withSerial(args) {
     return ['-s', serial, ...args];
 }
 
-// screencap returns a PNG buffer (exec-out keeps the bytes intact)
-function capture() {
+// ---- screencap -------------------------------------------------------------
+// Two modes: PNG (`screencap -p`, compressed on the device, slow) and raw
+// (`screencap`, no encode). Measured on MuMu 12 @1280x720: PNG 400ms / 862KB,
+// raw 287ms / 3.5MB — the PNG encoder on the device is the expensive part.
+const SCREENSHOT_TIMEOUT = 15000;
+
+function runScreencap(args) {
     return new Promise((resolve, reject) => {
-        const child = spawn(requireAdb(), withSerial(['exec-out', 'screencap', '-p']), {
+        const child = spawn(requireAdb(), withSerial(['exec-out', 'screencap', ...args]), {
             windowsHide: true,
         });
 
@@ -220,7 +225,7 @@ function capture() {
         const timer = setTimeout(() => {
             child.kill();
             reject(new Error(t('Screen capture timed out')));
-        }, 15000);
+        }, SCREENSHOT_TIMEOUT);
 
         child.on('error', error => {
             clearTimeout(timer);
@@ -236,6 +241,43 @@ function capture() {
             resolve(Buffer.concat(chunks));
         });
     });
+}
+
+// screencap returns a PNG buffer (exec-out keeps the bytes intact)
+function capture() {
+    return runScreencap(['-p']);
+}
+
+// Raw framebuffer: a small header followed by width*height RGBA pixels.
+// The header is 12 bytes on older Androids and 16 on newer ones (extra colorspace int),
+// so it is derived from the payload size instead of being hard coded.
+function parseRawScreencap(buffer) {
+    if (!buffer || buffer.length < 16) {
+        return null;
+    }
+
+    const width = buffer.readUInt32LE(0);
+    const height = buffer.readUInt32LE(4);
+    const format = buffer.readUInt32LE(8);
+
+    // 1 = RGBA_8888, 2 = RGBX_8888 -> 4 bytes per pixel; anything else (e.g. RGB_565)
+    // is left to the PNG path
+    if ((format !== 1 && format !== 2) || !width || !height) {
+        return null;
+    }
+
+    const pixels = width * height * 4;
+    const headerSize = buffer.length - pixels;
+    if (headerSize !== 12 && headerSize !== 16) {
+        return null;
+    }
+
+    return { width, height, format, data: buffer.slice(headerSize) };
+}
+
+// Raw capture; returns null when the device does not return a supported format.
+async function captureRaw() {
+    return parseRawScreencap(await runScreencap([]));
 }
 
 async function listDevices() {
@@ -343,6 +385,7 @@ module.exports = {
     listDevices,
     deviceSize,
     capture,
+    captureRaw,
     tap,
     longPress,
     swipe,

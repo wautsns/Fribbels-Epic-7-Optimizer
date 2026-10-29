@@ -2159,14 +2159,45 @@ input:checked + .darkSlider:before {
   font-size: 16px;
   font-weight: 600;
 }
+/* 筛选行：3 个防守筛选下拉
+   用的是「新增作业 → 从英雄列表带入」同一个 multiple-select 组件（单选 + 搜索框），
+   所以外观走 .ms-parent / .ms-choice，不再依赖原生 select 的样式。
+   宽度给 168px，与弹窗里的英雄下拉一致。 */
 .gvgFilterRow {
   display: flex;
+  align-items: center;
   gap: 6px;
   margin-bottom: 2px;
 }
-.gvgFilterSelect {
-  width: 180px;
+.gvgFilterRow .ms-parent.gvgFilterHeroSelect {
+  width: 168px;
+}
+.gvgFilterRow .ms-parent .ms-choice {
   height: 26px;
+  line-height: 24px;
+  font-size: 12px;
+}
+/* 插件不可用时的降级外观（正常情况下 multiple-select 已随页面加载） */
+.gvgFilterSelect {
+  width: 168px;
+  height: 26px;
+}
+/* 清空筛选：下拉是单选、没有「任意」项，用这个把三个筛选一起复位 */
+.gvgFilterClear {
+  height: 26px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 24px;
+  border-radius: 5px;
+  border: 1px solid #cfcfcf;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.gvgFilterClear:hover {
+  opacity: 1;
 }
 /* 6 行 * 36px 行高 + 32px 表头：列表不占满面板，下方留给其它功能 */
 .gvgTableContainer {

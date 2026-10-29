@@ -155,8 +155,11 @@ const actions = columns[3].cellRenderer({data: firstRow});
 check('操作列 6 个按钮', actions.children.length === 6, actions.children.length);
 check('置队按钮带 tooltip 文案', actions.children[4].title === 'Set as first team' && actions.children[5].title === 'Set as second team',
     [actions.children[4].title, actions.children[5].title]);
-check('一队 = 双三角箭头', String(actions.children[4].innerHTML).includes('fa-angle-double-up'), actions.children[4].innerHTML);
-check('二队 = 单三角箭头', String(actions.children[5].innerHTML).includes('fa-angle-up') && !String(actions.children[5].innerHTML).includes('double'), actions.children[5].innerHTML);
+check('一队 = ①', actions.children[4].innerText === '①', actions.children[4].innerText);
+check('二队 = ②', actions.children[5].innerText === '②', actions.children[5].innerText);
+check('删除用 FontAwesome（png 图标是白底不透明白块）',
+    String(actions.children[3].innerHTML).includes('fa-trash') && !String(actions.children[3].innerHTML).includes('<img'),
+    actions.children[3].innerHTML);
 
 console.log('\n[3] 筛选');
 GvgGrid.setFilter(0, 'c1');

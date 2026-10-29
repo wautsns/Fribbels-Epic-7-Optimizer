@@ -2223,20 +2223,35 @@ input:checked + .darkSlider:before {
   height: 18px;
   width: 18px;
 }
+/* FontAwesome 图标按钮（删除等）：透明底、跟随文字颜色，尺寸和 png 图标一致 */
+.gvgRowButton .fas {
+  width: 18px;
+  height: 18px;
+  font-size: 15px;
+  line-height: 18px;
+  display: inline-block;
+  color: #333;
+}
+/* 置队按钮：① / ②，和前面的图标按钮一样大，无边框无底色。
+   ①② 是文字字形，默认偏细且基线偏上，所以加粗 + 用 flex 精确居中。 */
 .gvgPinButton {
-  width: 20px;
-  height: 20px;
-  border: 1px solid #9aa4b2;
-  border-radius: 10px;
-  font-size: 11px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1;
   color: #333;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  vertical-align: middle;
 }
+.gvgRowButton:not(.gvgPinButton):hover .fas,
 .gvgPinButton:hover {
-  border-color: #06c;
   color: #06c;
 }
 

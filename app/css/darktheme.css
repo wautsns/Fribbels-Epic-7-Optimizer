@@ -338,10 +338,16 @@ input[type=checkbox]:checked:after {
 }
 .gvgPinButton {
   color: var(--font-color);
-  border-color: #6f7a88;
 }
 .gvgRowButtonIcon {
   filter: invert(0.85);
+}
+.gvgRowButton .fas {
+  color: var(--font-color);
+}
+.gvgRowButton:not(.gvgPinButton):hover .fas,
+.gvgPinButton:hover {
+  color: #6cb0ff;
 }
 .gvgMemberBlock {
   border-color: rgba(200, 200, 200, 0.3);

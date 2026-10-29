@@ -207,18 +207,15 @@ function renderActions(params) {
     container.appendChild(
         iconButton(Assets.getCopy(), 'Copy', () => GvgTab.copyPlan(id))
     );
+    // 删除用 FontAwesome：app/assets/blackx.png 是白底不透明的，会在行里显示成灰块
     container.appendChild(
-        iconButton(Assets.getX(), 'Delete', () => GvgTab.deletePlan(id))
+        glyphButton('fa-trash', 'Delete', () => GvgTab.deletePlan(id))
     );
     container.appendChild(
-        pinButton('fa-angle-double-up', 'Set as first team', () =>
-            GvgTab.pinFirst(id)
-        )
+        pinButton('①', 'Set as first team', () => GvgTab.pinFirst(id))
     );
     container.appendChild(
-        pinButton('fa-angle-up', 'Set as second team', () =>
-            GvgTab.pinSecond(id)
-        )
+        pinButton('②', 'Set as second team', () => GvgTab.pinSecond(id))
     );
 
     return container;
@@ -236,12 +233,25 @@ function iconButton(iconSrc, titleKey, onClick) {
     return button;
 }
 
-/** 置队按钮：两个向上的三角 = 一队，一个 = 二队（FontAwesome） */
-function pinButton(faIcon, titleKey, onClick) {
+/** FontAwesome 图标按钮（透明背景、跟随文字颜色） */
+function glyphButton(faIcon, titleKey, onClick) {
+    const button = document.createElement('button');
+    button.className = 'gvgRowButton';
+    button.title = i18next.t(titleKey);
+    button.innerHTML = `<i class="fas ${faIcon}"></i>`;
+    button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onClick();
+    });
+    return button;
+}
+
+/** 置队按钮：① = 一队，② = 二队（和普通图标按钮同样大小） */
+function pinButton(label, titleKey, onClick) {
     const button = document.createElement('button');
     button.className = 'gvgRowButton gvgPinButton';
     button.title = i18next.t(titleKey);
-    button.innerHTML = `<i class="fas ${faIcon}"></i>`;
+    button.innerText = label;
     button.addEventListener('click', (event) => {
         event.stopPropagation();
         onClick();

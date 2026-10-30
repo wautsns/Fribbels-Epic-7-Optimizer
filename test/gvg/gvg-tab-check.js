@@ -130,9 +130,12 @@ function seed() {
     ['gvg-add', 'gvg-paste', 'gvg-export', 'gvg-import', 'gvg-dedupe', 'gvg-clear'].forEach((id) => {
         check(id + ' 已绑定点击事件', !!elements[id] && !!elements[id].listeners['click'], Object.keys(elements[id] || {}));
     });
-    check('筛选框注入选项（空选项 + 出现过的防守英雄）', elements['gvg-filter-0'].options.length === 1 + 6,
+    check('clearGvgFilter 已绑定点击事件', !!elements['clearGvgFilter'] && !!elements['clearGvgFilter'].listeners['click']);
+    // 筛选项升级成 single-select 之后没有「任意」项，只有出现过的防守英雄
+    check('筛选框只注入出现过的防守英雄', elements['gvg-filter-0'].options.length === 6,
         elements['gvg-filter-0'].options.length);
-    check('筛选框第一个选项是"任意"', elements['gvg-filter-0'].options[0].value === '');
+    check('筛选框没有空选项（清空走单独的按钮）', elements['gvg-filter-0'].options.every((option) => !!option.value),
+        elements['gvg-filter-0'].options.map((option) => option.value));
 
     console.log('\n[2] 新增 / 详情 / 删除');
     dialogCalls.length = 0;

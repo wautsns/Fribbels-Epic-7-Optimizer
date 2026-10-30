@@ -2,6 +2,9 @@
 // Flow: verify page -> verify/set acquisition-ascending sort -> pick slot ->
 //       apply filters -> select candidates -> verify values -> equip.
 
+const os = require('os');
+const path = require('path');
+
 const adb = require('./adb');
 const screen = require('./screen');
 
@@ -43,7 +46,16 @@ const LAYOUT = {
         EffectivenessPercent: [1010, 468],
         EffectResistancePercent: [1010, 518],
     },
-    grid: { x0: 771, y0: 300, dx: 100, dy: 125, cols: 5, rows: 3, cellW: 94, cellH: 118 },
+    grid: {
+        x0: 771,
+        y0: 300,
+        dx: 100,
+        dy: 125,
+        cols: 5,
+        rows: 3,
+        cellW: 94,
+        cellH: 118,
+    },
     gridTop: 240,
     gridBottom: 620,
     // label areas of the five filter chips, used to read back the applied state
@@ -63,12 +75,24 @@ const LAYOUT = {
 
 const sleep = adb.wait;
 
+// 「点击/滑动 + 等待」合并成一次下发：省掉一次往返（流式通道下约 117ms，一次性模式约 259ms）。
+// 设备侧 sleep 支持小数（实测 sleep 0.650 -> 655ms），语义与宿主侧等待一致。
+async function inputThenWait(action, waitMs) {
+    await adb.batch([action, { wait: waitMs }]);
+}
+
 // adb path comes from the settings tab; empty -> auto-detect (MuMu / LDPlayer / Nox ...)
+// 每次开始一件装备前都会重读设置，这里只在路径真的变化时打日志
+let lastLoggedAdbPath = null;
+
 function configureAdb() {
     let configured = '';
 
     try {
-        const input = typeof document !== 'undefined' ? document.getElementById('settingAdbPath') : null;
+        const input =
+            typeof document !== 'undefined'
+                ? document.getElementById('settingAdbPath')
+                : null;
         configured = input && input.value ? input.value.trim() : '';
     } catch (e) {
         configured = '';
@@ -78,11 +102,19 @@ function configureAdb() {
 
     const path = adb.detectAdbPath();
     if (!path) {
-        throw new Error(t('Emulator adb not found: checked the usual install folders, the registry and PATH. '
-            + 'Set the emulator adb path in the Settings tab.'));
+        throw new Error(
+            t(
+                'Emulator adb not found: checked the usual install folders, the registry and PATH. ' +
+                    'Set the emulator adb path in the Settings tab.'
+            )
+        );
     }
 
-    console.log('[emulator] adb:', path);
+    if (path !== lastLoggedAdbPath) {
+        lastLoggedAdbPath = path;
+        console.log('[emulator] adb:', path);
+    }
+
     return path;
 }
 
@@ -124,7 +156,13 @@ function fullFrameRegion(frame) {
 
 // Same template/threshold as assertManagePage, but usable on an already captured frame.
 async function looksLikeManagePage(frame) {
-    const match = await screen.matchTemplate(frame, 'page_manage.png', 40, 8, 6);
+    const match = await screen.matchTemplate(
+        frame,
+        'page_manage.png',
+        40,
+        8,
+        6
+    );
     return match.score <= 28;
 }
 
@@ -142,7 +180,9 @@ function rawCapture() {
 const BLACK_FRAME_LUMINANCE = 8;
 
 function isBlackFrame(frame) {
-    return screen.luminance(frame, fullFrameRegion(frame)) < BLACK_FRAME_LUMINANCE;
+    return (
+        screen.luminance(frame, fullFrameRegion(frame)) < BLACK_FRAME_LUMINANCE
+    );
 }
 
 async function captureVisible(timeout = 6000) {
@@ -158,7 +198,11 @@ async function captureVisible(timeout = 6000) {
         }
 
         if (Date.now() - started > timeout) {
-            throw pageError(t('The emulator screen is black. Bring the game to the front and retry'));
+            throw pageError(
+                t(
+                    'The emulator screen is black. Bring the game to the front and retry'
+                )
+            );
         }
 
         await sleep(200);
@@ -182,11 +226,28 @@ async function waitForSettledScreen(timeout = 5000) {
     return previous;
 }
 
+// 出问题时把当前画面存一份到临时目录，方便事后对照（只在失败路径调用）
+async function dumpFrame(frame, label) {
+    if (!frame || typeof frame.writeAsync !== 'function') {
+        return null;
+    }
+
+    const target = path.join(os.tmpdir(), `e7-${label}-${Date.now()}.png`);
+    await frame.writeAsync(target);
+    // eslint-disable-next-line no-console
+    console.warn('[emulator] frame saved for diagnosis:', target);
+
+    return target;
+}
+
 // Recovery for "the page check failed". This never presses back: a back press on the
 // wrong screen can open the game's "quit the game" confirmation, so the run stops with a
 // clear message instead of guessing.
-async function recoverToManagePage() {
-    throw pageError(t('The emulator left the Manage Equipment page. Open that page again and retry'));
+async function recoverToManagePage() {    throw pageError(
+        t(
+            'The emulator left the Manage Equipment page. Open that page again and retry'
+        )
+    );
 }
 
 // Capture wrapper used by the whole flow: skips black frames, records the capture time and
@@ -201,7 +262,10 @@ async function captureFrame() {
     }
 
     if (baseline && captureMs > baseline * STALL_FACTOR) {
-        console.warn('[emulator] stall detected: capture took', captureMs + 'ms (baseline ' + baseline + 'ms)');
+        console.warn(
+            '[emulator] stall detected: capture took',
+            `${captureMs}ms (baseline ${baseline}ms)`
+        );
         const settled = await waitForSettledScreen();
         if (!(await looksLikeManagePage(settled))) {
             await recoverToManagePage();
@@ -214,36 +278,79 @@ async function captureFrame() {
 // Used before a run starts: make sure the game is on the Manage Equipment page with the
 // slot tabs visible (the title alone also appears on some other screens).
 async function ensureManagePage() {
+    // 每次运行时把「已报告的 adb 路径」清空，这样一轮只会打一行
+    lastLoggedAdbPath = null;
     configureAdb();
     await adb.connect();
     await assertManagePage();
 
-    const frame = await captureFrame();
-    if (!readSelectedSlot(frame)) {
-        throw pageError(t('Not on the Manage Equipment page (open the equipment page of a hero first)'));
+    // 刚打开的装备页标题已经在了，但列表还在转（这时候点任何按钮都会被吞掉），
+    // 先等画面稳定再往下走
+    const settled = await waitForSettledScreen(1500);
+
+    if (!readSelectedSlot(settled)) {
+        throw pageError(
+            t(
+                'Not on the Manage Equipment page (open the equipment page of a hero first)'
+            )
+        );
     }
 }
 
 async function assertManagePage() {
     const frame = await captureFrame();
-    const match = await screen.matchTemplate(frame, 'page_manage.png', 40, 8, 6);
+    const match = await screen.matchTemplate(
+        frame,
+        'page_manage.png',
+        40,
+        8,
+        6
+    );
     if (match.score > 28) {
-        throw pageError(t('Not on the Manage Equipment page (open the equipment page of a hero first)'));
+        throw pageError(
+            t(
+                'Not on the Manage Equipment page (open the equipment page of a hero first)'
+            )
+        );
     }
     return frame;
 }
 
 async function readSortState(frame) {
     const selected = screen.luminance(frame, LAYOUT.sortRowProbe) > 150;
-    const up = await screen.matchTemplate(frame, 'sort_up.png', LAYOUT.sortArrowRegion.x, LAYOUT.sortArrowRegion.y, 3);
-    const down = await screen.matchTemplate(frame, 'sort_down.png', LAYOUT.sortArrowRegion.x, LAYOUT.sortArrowRegion.y, 3);
+    const up = await screen.matchTemplate(
+        frame,
+        'sort_up.png',
+        LAYOUT.sortArrowRegion.x,
+        LAYOUT.sortArrowRegion.y,
+        3
+    );
+    const down = await screen.matchTemplate(
+        frame,
+        'sort_down.png',
+        LAYOUT.sortArrowRegion.x,
+        LAYOUT.sortArrowRegion.y,
+        3
+    );
     const direction = up.score < down.score ? 'up' : 'down';
     return { selected, direction, upScore: up.score, downScore: down.score };
 }
 
 async function isSortMenuOpen(frame) {
-    const up = await screen.matchTemplate(frame, 'sort_up.png', LAYOUT.sortArrowRegion.x, LAYOUT.sortArrowRegion.y, 3);
-    const down = await screen.matchTemplate(frame, 'sort_down.png', LAYOUT.sortArrowRegion.x, LAYOUT.sortArrowRegion.y, 3);
+    const up = await screen.matchTemplate(
+        frame,
+        'sort_up.png',
+        LAYOUT.sortArrowRegion.x,
+        LAYOUT.sortArrowRegion.y,
+        3
+    );
+    const down = await screen.matchTemplate(
+        frame,
+        'sort_down.png',
+        LAYOUT.sortArrowRegion.x,
+        LAYOUT.sortArrowRegion.y,
+        3
+    );
     return Math.min(up.score, down.score) < 20;
 }
 
@@ -255,26 +362,64 @@ async function isSortMenuOpen(frame) {
 const OVERLAY_DISMISS_POINT = [60, 690];
 
 async function dismissOverlay(label) {
-    await adb.tap(...OVERLAY_DISMISS_POINT);
-    await sleep(300);
+    await inputThenWait({ tap: OVERLAY_DISMISS_POINT }, 300);
     const frame = await captureFrame();
-    console.warn('[emulator] closed the ' + (label || 'filter') + ' overlay by tapping outside it');
+    // 正常收尾动作（关排序菜单 / 筛选浮层），不是异常：用 log 而不是 warn
+    // eslint-disable-next-line no-console
+    console.log(
+        `[emulator] closed the ${
+            label || 'filter'
+        } overlay by tapping outside it`
+    );
     return frame;
 }
 
 // Opens the sort menu and verifies it actually opened.
 async function openSortMenu() {
-    for (let attempt = 0; attempt < 2; attempt++) {
-        await adb.tap(...LAYOUT.sortButton);
-        await sleep(800);
+    let frame = await captureFrame();
 
-        const frame = await captureFrame();
-        if (await isSortMenuOpen(frame)) {
-            return frame;
+    // 菜单可能已经开着（排序设置完还没关），先看一眼再决定要不要点：
+    // 对着已经打开的菜单再点一次排序按钮会把它关掉
+    if (await isSortMenuOpen(frame)) {
+        return frame;
+    }
+
+    // 列表还在加载 / 重排时点击会被吞掉，所以每次点之前先等画面稳定，
+    // 并且给三次机会（2s 轮询 + 稳定等待，最坏约 7s）
+    for (let attempt = 0; attempt < 3; attempt++) {
+        await waitForSettledScreen(1200).catch(() => null);
+        await inputThenWait({ tap: LAYOUT.sortButton }, 250);
+
+        const deadline = Date.now() + 2000;
+
+        for (;;) {
+            frame = await captureFrame();
+
+            if (await isSortMenuOpen(frame)) {
+                return frame;
+            }
+
+            if (Date.now() > deadline) {
+                break;
+            }
+
+            await adb.wait(120);
         }
     }
 
-    throw new Error(t('Could not open the sort menu. Make sure the game is still on the Manage Equipment page'));
+    const up = await screen.matchTemplate(frame, 'sort_up.png', LAYOUT.sortArrowRegion.x, LAYOUT.sortArrowRegion.y, 3);
+    const down = await screen.matchTemplate(frame, 'sort_down.png', LAYOUT.sortArrowRegion.x, LAYOUT.sortArrowRegion.y, 3);
+    console.warn('[emulator] sort menu did not open, arrow scores:', {
+        up: Math.round(up.score * 10) / 10,
+        down: Math.round(down.score * 10) / 10,
+    });
+    await dumpFrame(frame, 'sort-not-open').catch(() => null);
+
+    throw new Error(
+        t(
+            'Could not open the sort menu. Make sure the game is still on the Manage Equipment page'
+        )
+    );
 }
 
 async function closeSortMenu(frame) {
@@ -283,26 +428,50 @@ async function closeSortMenu(frame) {
     }
 }
 
+// 排序菜单里的某个控件被点一下之后，轮询到状态真的变成期望值为止（最多 timeout）。
+// 固定等 800ms 时，偶尔被吞掉的一次点击会被当成「排序改不动」而整轮报错。
+async function tapSortControl(point, predicate, timeout = 2000) {
+    await inputThenWait({ tap: point }, 250);
+
+    const deadline = Date.now() + timeout;
+    let frame = await openSortMenu();
+    let state = await readSortState(frame);
+
+    while (!predicate(state) && Date.now() < deadline) {
+        await adb.wait(120);
+        const next = await captureFrame();
+
+        if (await isSortMenuOpen(next)) {
+            frame = next;
+        } else {
+            // 点击把菜单关掉了（点到了菜单外），重新打开再读
+            frame = await openSortMenu();
+        }
+
+        state = await readSortState(frame);
+    }
+
+    return { frame, state };
+}
+
 async function setSortAcquisitionAscending() {
     let frame = await openSortMenu();
     let state = await readSortState(frame);
 
     if (!state.selected) {
-        await adb.tap(...LAYOUT.sortAcquisitionRow);
-        await sleep(800);
-        frame = await openSortMenu();
-        state = await readSortState(frame);
+        ({ frame, state } = await tapSortControl(LAYOUT.sortAcquisitionRow, (s) => s.selected));
     }
 
     if (state.direction !== 'up') {
-        await adb.tap(...LAYOUT.sortArrow);
-        await sleep(800);
-        frame = await openSortMenu();
-        state = await readSortState(frame);
+        ({ frame, state } = await tapSortControl(LAYOUT.sortArrow, (s) => s.direction === 'up'));
 
         if (state.direction !== 'up') {
             await closeSortMenu(frame);
-            throw new Error(t('Could not switch the sort to Acquisition (Ascending). Set it manually and retry'));
+            throw new Error(
+                t(
+                    'Could not switch the sort to Acquisition (Ascending). Set it manually and retry'
+                )
+            );
         }
     }
 
@@ -312,12 +481,22 @@ async function setSortAcquisitionAscending() {
 const SLOT_ORDER = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
 
 // The selected slot tab has a light highlight strip under the icon
+function slotStripLuminance(frame, slot) {
+    const x = LAYOUT.slots[slot][0];
+
+    return screen.luminance(frame, {
+        x: x - 26,
+        y: 118,
+        w: 52,
+        h: 14,
+    });
+}
+
 function readSelectedSlot(frame) {
     let best = { slot: null, value: -1 };
 
     for (const slot of SLOT_ORDER) {
-        const x = LAYOUT.slots[slot][0];
-        const value = screen.luminance(frame, { x: x - 26, y: 118, w: 52, h: 14 });
+        const value = slotStripLuminance(frame, slot);
         if (value > best.value) {
             best = { slot, value };
         }
@@ -332,15 +511,30 @@ async function selectSlot(slot) {
         throw new Error(t('Unknown gear slot: {{slot}}', { slot }));
     }
 
+    // the tap also resets the grid scroll, so it is issued even when the slot already looks
+    // selected (two items of the same slot must still start from the top of the list)
+    let frame = await captureFrame();
+
     for (let attempt = 0; attempt < 2; attempt++) {
-        await adb.tap(...point);
-        await sleep(650);
+        await inputThenWait({ tap: point }, 250);
 
-        const frame = await captureFrame();
-        const selected = readSelectedSlot(frame);
+        // The tab does occasionally take a moment longer than the animation (list re-layout
+        // while the grid is still scrolling), so poll instead of judging from one frame:
+        // a fixed 650ms wait used to fail here every now and then.
+        const deadline = Date.now() + 2000;
 
-        if (selected === slot) {
-            return frame;
+        for (;;) {
+            frame = await captureFrame();
+
+            if (readSelectedSlot(frame) === slot) {
+                return frame;
+            }
+
+            if (Date.now() > deadline) {
+                break;
+            }
+
+            await adb.wait(120);
         }
 
         // the tab did not switch: either the tap was swallowed by a stall or it landed on
@@ -350,8 +544,18 @@ async function selectSlot(slot) {
         }
     }
 
+    const readings = SLOT_ORDER.map(
+        (name) => `${name}=${Math.round(slotStripLuminance(frame, name))}`
+    ).join(' ');
+    console.warn('[emulator] slot tab did not switch, highlight strip:', readings);
+
     const slotName = t(slot);
-    throw pageError(t('Could not switch to the {{slot}} slot. Make sure the game is still on the Manage Equipment page', { slot: slotName }));
+    throw pageError(
+        t(
+            'Could not switch to the {{slot}} slot. Make sure the game is still on the Manage Equipment page',
+            { slot: slotName }
+        )
+    );
 }
 
 // ---- cancellation ----
@@ -367,7 +571,11 @@ function clearCancel() {
 
 function throwIfCancelled() {
     if (cancelRequested) {
-        const error = new Error(typeof i18next !== 'undefined' ? i18next.t('Operation cancelled') : 'Operation cancelled');
+        const error = new Error(
+            typeof i18next !== 'undefined'
+                ? i18next.t('Operation cancelled')
+                : 'Operation cancelled'
+        );
         error.cancelled = true;
         throw error;
     }
@@ -391,9 +599,13 @@ async function waitForPanel(before, wantOpen, timeout = 4000) {
         }
     }
 
-    throw new Error(t(wantOpen
-        ? 'The filter panel did not open. Check the emulator'
-        : 'The filter panel did not close. Check the emulator'));
+    throw new Error(
+        t(
+            wantOpen
+                ? 'The filter panel did not open. Check the emulator'
+                : 'The filter panel did not close. Check the emulator'
+        )
+    );
 }
 
 // Waits until the panel is fully drawn: the open delta is large and two consecutive
@@ -429,7 +641,12 @@ function readSelectedOption(frame) {
     for (const key of Object.keys(LAYOUT.options)) {
         const point = LAYOUT.options[key];
         const sampleX = point[0] < 900 ? 855 : 1122;
-        const value = screen.luminance(frame, { x: sampleX - 10, y: point[1] - 5, w: 20, h: 10 });
+        const value = screen.luminance(frame, {
+            x: sampleX - 10,
+            y: point[1] - 5,
+            w: 20,
+            h: 10,
+        });
 
         if (value > best.value) {
             best = { key, value };
@@ -449,8 +666,18 @@ function readDirection(frame, optionKey) {
     const point = LAYOUT.options[optionKey];
     // the toggle sits at the right edge of the row, which differs per column
     const leftX = point[0] < 900 ? 872 : 1166;
-    const left = screen.luminance(frame, { x: leftX, y: point[1] - 11, w: 22, h: 22 });
-    const right = screen.luminance(frame, { x: leftX + 30, y: point[1] - 11, w: 22, h: 22 });
+    const left = screen.luminance(frame, {
+        x: leftX,
+        y: point[1] - 11,
+        w: 22,
+        h: 22,
+    });
+    const right = screen.luminance(frame, {
+        x: leftX + 30,
+        y: point[1] - 11,
+        w: 22,
+        h: 22,
+    });
     return right > left ? 'desc' : 'asc';
 }
 
@@ -461,7 +688,9 @@ async function ensureChip(chip, target) {
     const wantedKey = target || 'all';
 
     if (!chipPoint || !LAYOUT.options[wantedKey]) {
-        throw new Error(t('Unknown filter: {{chip}}/{{value}}', { chip, value: target }));
+        throw new Error(
+            t('Unknown filter: {{chip}}/{{value}}', { chip, value: target })
+        );
     }
 
     throwIfCancelled();
@@ -495,7 +724,9 @@ async function ensureChip(chip, target) {
             if (openFrame) {
                 await dismissOverlay(chip);
             }
-            throw new Error(t('Could not read the filter panel. Check the emulator'));
+            throw new Error(
+                t('Could not read the filter panel. Check the emulator')
+            );
         }
     }
 
@@ -532,7 +763,9 @@ async function waitForOptionHighlight(openFrame, chip, timeout = 1600) {
         }
     }
 
-    console.warn('[emulator] filter panel (' + chip + ') has no readable highlighted row');
+    console.warn(
+        `[emulator] filter panel (${chip}) has no readable highlighted row`
+    );
     return null;
 }
 
@@ -558,7 +791,11 @@ async function openChipPanel(chipPoint, chip) {
 
             // the picture changed a lot while waiting -> the panel did open, only later
             if (screen.regionDelta(before, settled, PANEL_REGION) > 20) {
-                console.warn('[emulator] filter panel (' + chip + ') opened late, continuing with the settled frame');
+                // 已经等到画面稳定且面板确实打开了，属于可接受的慢响应，不是异常
+                // eslint-disable-next-line no-console
+                console.log(
+                    `[emulator] filter panel (${chip}) opened late, continuing with the settled frame`
+                );
                 return settled;
             }
 
@@ -584,7 +821,7 @@ async function ensurePanelClosed(openFrame, chip, timeout = 2200) {
         frame = await captureFrame();
     }
 
-    console.warn('[emulator] filter panel (' + chip + ') still open, pressing back');
+    console.warn(`[emulator] filter panel (${chip}) still open, pressing back`);
     await dismissOverlay(chip);
 
     frame = await captureFrame();
@@ -596,8 +833,13 @@ async function ensurePanelClosed(openFrame, chip, timeout = 2200) {
 }
 
 async function setFilter(chip, statType) {
-    if (!LAYOUT.filters[chip] || !(statType ? LAYOUT.options[statType] : LAYOUT.options.all)) {
-        throw new Error(t('Unknown filter: {{chip}}/{{value}}', { chip, value: statType }));
+    if (
+        !LAYOUT.filters[chip] ||
+        !(statType ? LAYOUT.options[statType] : LAYOUT.options.all)
+    ) {
+        throw new Error(
+            t('Unknown filter: {{chip}}/{{value}}', { chip, value: statType })
+        );
     }
 
     return ensureChip(chip, statType);
@@ -610,8 +852,15 @@ async function readChipLabels(frame) {
     const labels = {};
 
     for (const key of Object.keys(LAYOUT.chipRegions)) {
-        const lines = await screen.ocr(screen.crop(frame, LAYOUT.chipRegions[key]), '', 3);
-        labels[key] = lines.map(line => line.text).join(' ').trim();
+        const lines = await screen.ocr(
+            screen.crop(frame, LAYOUT.chipRegions[key]),
+            '',
+            3
+        );
+        labels[key] = lines
+            .map((line) => line.text)
+            .join(' ')
+            .trim();
     }
 
     return labels;
@@ -655,8 +904,7 @@ async function openSetDialog() {
             return true;
         }
 
-        await adb.tap(...LAYOUT.filters.set);
-        await sleep(900);
+        await inputThenWait({ tap: LAYOUT.filters.set }, 900);
     }
 
     return setDialogVisible(await captureFrame());
@@ -665,13 +913,19 @@ async function openSetDialog() {
 // Scans the whole dialog for the set icon; the panel can be scrolled to any offset.
 // Templates match their own icon at ~0-3 (mean absolute difference on 32x32 crops).
 async function findSetIcon(frame, setKey) {
-    const template = 'set-' + setKey + '.png';
+    const template = `set-${setKey}.png`;
     let best = { score: Infinity, x: 0, y: 0 };
 
     // templates are 28x28 crops of the icon itself (no row background)
     for (let y = 150; y <= 650; y += 2) {
         for (const colX of [165, 466]) {
-            const match = await screen.matchTemplate(frame, template, colX - 14, y - 14, 3);
+            const match = await screen.matchTemplate(
+                frame,
+                template,
+                colX - 14,
+                y - 14,
+                3
+            );
             if (match.score < best.score) {
                 best = { score: match.score, x: match.x + 14, y: match.y + 14 };
             }
@@ -684,7 +938,9 @@ async function findSetIcon(frame, setKey) {
 async function templateExists(setKey) {
     const path = require('path');
     const fs = require('fs');
-    return fs.existsSync(path.join(screen.appDir(), 'assets', 'emulator', 'set-' + setKey + '.png'));
+    return fs.existsSync(
+        path.join(screen.appDir(), 'assets', 'emulator', `set-${setKey}.png`)
+    );
 }
 
 // Tries to select the set in the currently visible part of the dialog
@@ -708,8 +964,7 @@ async function selectSetInFrame(frame, setKey) {
         return false;
     }
 
-    await adb.tap(icon.x, icon.y);
-    await sleep(700);
+    await inputThenWait({ tap: [icon.x, icon.y] }, 700);
     await dismissOverlay('set dialog');
     return true;
 }
@@ -721,8 +976,7 @@ async function applySetFilter(setKey) {
     }
 
     // checkbox panel: reset to "All" first so only the wanted set stays ticked
-    await adb.tap(...SET_ALL_POINT);
-    await sleep(650);
+    await inputThenWait({ tap: SET_ALL_POINT }, 650);
 
     // 1) the set may already be visible where the list currently is
     if (await selectSetInFrame(await captureFrame(), setKey)) {
@@ -731,8 +985,7 @@ async function applySetFilter(setKey) {
 
     // 2) otherwise go back to the top and page through the list
     for (let i = 0; i < 4; i++) {
-        await adb.swipe(380, 380, 380, 620, 600);
-        await sleep(260);
+        await inputThenWait({ swipe: [380, 380, 380, 620, 600] }, 260);
     }
 
     for (let page = 0; page < 4; page++) {
@@ -740,11 +993,13 @@ async function applySetFilter(setKey) {
             return true;
         }
 
-        await adb.swipe(380, 600, 380, 380, 800);
-        await sleep(650);
+        await inputThenWait({ swipe: [380, 600, 380, 380, 800] }, 650);
     }
 
-    console.warn('[emulator] set icon not matched, skipping set filter:', setKey);
+    console.warn(
+        '[emulator] set icon not matched, skipping set filter:',
+        setKey
+    );
     await dismissOverlay('set dialog');
     return false;
 }
@@ -755,7 +1010,9 @@ function wantedFilters(item) {
     const wanted = { main: fixedMain ? null : item.mainType };
 
     for (let index = 0; index < 4; index++) {
-        wanted['sub' + (index + 1)] = substats[index] ? substats[index].type : null;
+        wanted[`sub${index + 1}`] = substats[index]
+            ? substats[index].type
+            : null;
     }
 
     return wanted;
@@ -778,10 +1035,14 @@ async function applyItemFilters(item, force = false) {
         (status === 'applied' ? applied : skipped).push(key);
     }
 
-    console.log('[emulator] filters changed:', applied.join(',') || '-',
-        '| already correct:', skipped.join(',') || '-');
+    console.log(
+        '[emulator] filters changed:',
+        applied.join(',') || '-',
+        '| already correct:',
+        skipped.join(',') || '-'
+    );
 
-    filterCache = Object.assign({}, filterCache || {}, wanted);
+    filterCache = { ...(filterCache || {}), ...wanted };
     return wanted;
 }
 
@@ -796,40 +1057,57 @@ async function assertListNotEmpty(frame) {
 
     // language neutral: an empty list has no item tiles
     if (findCandidates(frame).length === 0) {
-        throw new Error(t('The filtered list is empty: the item may be in storage, worn by another hero with equipped gear hidden, or the slot is wrong'));
+        throw new Error(
+            t(
+                'The filtered list is empty: the item may be in storage, worn by another hero with equipped gear hidden, or the slot is wrong'
+            )
+        );
     }
 }
 
 // Rank of the target inside the filtered list: sort by the active substat chips in
 // order (descending), ties by acquisition, mirroring the in-game list order.
-function computeRank(target, allItems, filters, descending = true, useBase = false) {
+function computeRank(
+    target,
+    allItems,
+    filters,
+    descending = true,
+    useBase = false
+) {
     if (!allItems || !target.id || !filters) {
         return -1;
     }
 
     const active = ['sub1', 'sub2', 'sub3', 'sub4']
-        .map(key => filters[key])
+        .map((key) => filters[key])
         .filter(Boolean);
 
-    const has = (item, type) => (item.substats || []).some(stat => stat.type === type);
+    const has = (item, type) =>
+        (item.substats || []).some((stat) => stat.type === type);
     const valueOf = (item, type) => {
-        const stat = (item.substats || []).find(entry => entry.type === type);
+        const stat = (item.substats || []).find((entry) => entry.type === type);
         if (!stat) {
             return -1;
         }
-        if (!useBase && item.augmentedStats && item.augmentedStats[type] !== undefined) {
+        if (
+            !useBase &&
+            item.augmentedStats &&
+            item.augmentedStats[type] !== undefined
+        ) {
             return item.augmentedStats[type];
         }
         return stat.value;
     };
 
-    const candidates = allItems.filter(item =>
-        item.gear === target.slot &&
-        !item.storage &&
-        item.main &&
-        (!filters.main || item.main.type === filters.main) &&
-        (!filters.set || item.set === filters.set) &&
-        active.every(type => has(item, type)));
+    const candidates = allItems.filter(
+        (item) =>
+            item.gear === target.slot &&
+            !item.storage &&
+            item.main &&
+            (!filters.main || item.main.type === filters.main) &&
+            (!filters.set || item.set === filters.set) &&
+            active.every((type) => has(item, type))
+    );
 
     candidates.sort((a, b) => {
         for (const type of active) {
@@ -841,13 +1119,15 @@ function computeRank(target, allItems, filters, descending = true, useBase = fal
         return Number(a.ingameId) - Number(b.ingameId);
     });
 
-    const index = candidates.findIndex(item => String(item.id) === String(target.id));
+    const index = candidates.findIndex(
+        (item) => String(item.id) === String(target.id)
+    );
     const total = candidates.length;
 
     return {
         index,
         total,
-        rank: index < 0 ? -1 : (descending ? index : total - 1 - index),
+        rank: index < 0 ? -1 : descending ? index : total - 1 - index,
     };
 }
 
@@ -858,7 +1138,12 @@ function findCandidates(frame) {
         for (let col = 0; col < LAYOUT.grid.cols; col++) {
             const x = LAYOUT.grid.x0 + col * LAYOUT.grid.dx;
             const y = LAYOUT.grid.y0 + row * LAYOUT.grid.dy;
-            const iconBrightness = screen.luminance(frame, { x: x - 32, y: y - 42, w: 64, h: 54 });
+            const iconBrightness = screen.luminance(frame, {
+                x: x - 32,
+                y: y - 42,
+                w: 64,
+                h: 54,
+            });
             if (iconBrightness > 32) {
                 cells.push({ x, y, iconBrightness });
             }
@@ -883,23 +1168,25 @@ function expectedValueSets(item) {
         sets.push(item.reforgedValues);
     }
     if (!sets.length) {
-        sets.push((item.substats || []).map(stat => stat.value));
+        sets.push((item.substats || []).map((stat) => stat.value));
     }
 
     return sets;
 }
 
 function matchesAny(numbers, sets) {
-    return sets.some(set => matchesExpected(numbers, set));
+    return sets.some((set) => matchesExpected(numbers, set));
 }
 
 function matchesExpected(numbers, expected) {
-    const pool = numbers.map(entry => entry.value);
+    const pool = numbers.map((entry) => entry.value);
     const remaining = pool.slice();
 
     for (const value of expected) {
         const rounded = Math.round(value * 10) / 10;
-        const index = remaining.findIndex(candidate => Math.abs(candidate - rounded) <= 0.51);
+        const index = remaining.findIndex(
+            (candidate) => Math.abs(candidate - rounded) <= 0.51
+        );
         if (index === -1) {
             return false;
         }
@@ -963,8 +1250,7 @@ async function selectAndVerify(cell, item) {
         await recoverToManagePage();
     }
 
-    await adb.tap(cell.x, cell.y);
-    await sleep(500);
+    await inputThenWait({ tap: [cell.x, cell.y] }, 500);
     return result;
 }
 
@@ -980,9 +1266,12 @@ async function readPanel(item, settledFrame) {
 
     // Tesseract.js (bundled wasm) with a digit whitelist reads this panel far more
     // reliably than the Windows engine; the Windows OCR stays as the fallback.
-    const tessJs = await screen.tesseractJsNumbers(frame, LAYOUT.valuePanelNumbers);
+    const tessJs = await screen.tesseractJsNumbers(
+        frame,
+        LAYOUT.valuePanelNumbers
+    );
     if (tessJs && tessJs.length >= 5) {
-        const numbers = tessJs.map(value => ({ value }));
+        const numbers = tessJs.map((value) => ({ value }));
         if (matchesAny(numbers, expectedSets)) {
             return { ok: true, numbers, source: 'tesseract-js' };
         }
@@ -995,7 +1284,12 @@ async function readPanel(item, settledFrame) {
     const chineseNumbers = screen.extractNumbers(chineseLines);
 
     if (matchesAny(chineseNumbers, expectedSets)) {
-        return { ok: true, numbers: chineseNumbers, lines: chineseLines, source: 'winocr-zh' };
+        return {
+            ok: true,
+            numbers: chineseNumbers,
+            lines: chineseLines,
+            source: 'winocr-zh',
+        };
     }
 
     const englishLines = await screen.ocr(values, 'en-US', 4);
@@ -1013,16 +1307,17 @@ async function readPanel(item, settledFrame) {
 // a slow drag moves ~1:1 with the finger (measured ~255px for a 260px drag).
 async function scrollGrid(distance = 260) {
     const from = 560;
-    await adb.swipe(995, from, 995, from - distance, 1200);
-    await sleep(900);
+    await inputThenWait(
+        { swipe: [995, from, 995, from - distance, 1200] },
+        900
+    );
 }
 
 // Scrolls the list back to the first row (used before a full fallback scan)
 async function scrollToTop() {
     for (let i = 0; i < 8; i++) {
         const before = await captureFrame();
-        await adb.swipe(995, 320, 995, 580, 1200);
-        await sleep(700);
+        await inputThenWait({ swipe: [995, 320, 995, 580, 1200] }, 700);
         const after = await captureFrame();
 
         if (measureScroll(after, before).d < 20) {
@@ -1095,10 +1390,15 @@ async function scrollToItemRow(targetRow) {
 // The swipe distance is not reliable, so measure how far the list actually scrolled
 // by matching the grid content against the previous frame (content moves up by d).
 function measureScroll(before, after) {
-    const region = { x: 900, y: LAYOUT.gridTop, w: 120, h: LAYOUT.gridBottom - LAYOUT.gridTop };
+    const region = {
+        x: 900,
+        y: LAYOUT.gridTop,
+        w: 120,
+        h: LAYOUT.gridBottom - LAYOUT.gridTop,
+    };
     const a = screen.crop(before, region).bitmap;
     const b = screen.crop(after, region).bitmap;
-    const width = a.width;
+    const { width } = a;
     let best = { d: 0, score: Infinity };
 
     for (let d = 0; d <= 300; d++) {
@@ -1152,7 +1452,7 @@ async function selectItem(item, options = {}) {
 
     if (item.set && (!filterCache || filterCache.set !== item.set)) {
         setApplied = await applySetFilter(item.set);
-        filterCache = Object.assign({}, filterCache || {}, { set: item.set, setApplied });
+        filterCache = { ...(filterCache || {}), set: item.set, setApplied };
     } else if (filterCache) {
         setApplied = !!filterCache.setApplied;
     }
@@ -1162,7 +1462,7 @@ async function selectItem(item, options = {}) {
     // changing a filter resets the list to the top
     gridScroll = 0;
 
-    let frame = await captureFrame();
+    const frame = await captureFrame();
     await assertListNotEmpty(frame);
 
     if (!options.allItems || !item.id) {
@@ -1178,7 +1478,8 @@ async function selectItem(item, options = {}) {
     if (info.rank >= 0) {
         for (const delta of [0, -1, 1, -2, 2, -3, 3, -4, 4]) {
             const candidate = info.rank + delta;
-            if (candidate >= 0 && !probes.includes(candidate)) probes.push(candidate);
+            if (candidate >= 0 && !probes.includes(candidate))
+                probes.push(candidate);
         }
     }
 
@@ -1192,7 +1493,10 @@ async function selectItem(item, options = {}) {
 
             // a failed probe can be the result of a stalled tap that landed elsewhere:
             // confirm the page before probing the next tile
-            if (probeIndex > 0 && !(await looksLikeManagePage(await captureFrame()))) {
+            if (
+                probeIndex > 0 &&
+                !(await looksLikeManagePage(await captureFrame()))
+            ) {
                 await recoverToManagePage();
             }
 
@@ -1203,7 +1507,9 @@ async function selectItem(item, options = {}) {
             }
 
             const cell = {
-                x: LAYOUT.grid.x0 + (candidate % LAYOUT.grid.cols) * LAYOUT.grid.dx,
+                x:
+                    LAYOUT.grid.x0 +
+                    (candidate % LAYOUT.grid.cols) * LAYOUT.grid.dx,
                 y: position.y,
             };
 
@@ -1213,16 +1519,32 @@ async function selectItem(item, options = {}) {
             }
 
             // the tile cannot be selected at all -> very likely already worn
-            if (probeIndex === 0 && (!result.numbers || result.numbers.length === 0)) {
-                console.warn('[emulator] tile not selectable, treating as already equipped:', item.slot);
-                return { ok: true, cell, rank: candidate, alreadyEquipped: true };
+            if (
+                probeIndex === 0 &&
+                (!result.numbers || result.numbers.length === 0)
+            ) {
+                console.warn(
+                    '[emulator] tile not selectable, treating as already equipped:',
+                    item.slot
+                );
+                return {
+                    ok: true,
+                    cell,
+                    rank: candidate,
+                    alreadyEquipped: true,
+                };
             }
         }
     }
 
     const row = Math.floor(info.rank / LAYOUT.grid.cols) + 1;
     const column = (info.rank % LAYOUT.grid.cols) + 1;
-    throw new Error(t('Item not found around row {{row}} column {{column}}. If the in-game item was reforged or just changed, rescan your items on the Import tab first', { row, column }));
+    throw new Error(
+        t(
+            'Item not found around row {{row}} column {{column}}. If the in-game item was reforged or just changed, rescan your items on the Import tab first',
+            { row, column }
+        )
+    );
 }
 
 module.exports = {

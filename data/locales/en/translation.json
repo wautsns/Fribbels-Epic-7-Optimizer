@@ -1237,5 +1237,12 @@
   "If this lineup requires specific defense positions, type them here": "If this lineup requires specific defense positions, type them here",
   "Leave empty if there is no intel requirement": "Leave empty if there is no intel requirement",
   "Import from hero list": "Import from hero list",
-  "Hero entry": "Hero entry"
+  "Hero entry": "Hero entry",
+  "Connecting to the emulator capture stream timed out": "Connecting to the emulator capture stream timed out",
+  "The emulator capture stream is not running": "The emulator capture stream is not running",
+  "The emulator command timed out": "The emulator command timed out",
+  "This emulator does not support the streaming capture backend": "This emulator does not support the streaming capture backend",
+  "An emulator command is already in progress": "An emulator command is already in progress",
+  "A screen capture is already in progress": "A screen capture is already in progress",
+  "Raw screen capture is not supported by this device": "Raw screen capture is not supported by this device"
 }

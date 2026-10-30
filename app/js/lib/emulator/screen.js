@@ -12,6 +12,10 @@ const adb = require('./adb');
 const templateCache = {};
 let ocrQueue = Promise.resolve();
 let tempIndex = 0;
+// 同一台机器可能连续几十次识别失败（例如没装 Windows OCR 语言包），只完整报一次，
+// 之后每 25 次汇总一行，避免同一个错误刷满控制台。
+let ocrFailureCount = 0;
+let ocrFailureReported = false;
 
 function appDir() {
     if (typeof window !== 'undefined' && window.location && window.location.pathname) {
@@ -142,82 +146,19 @@ async function matchTemplate(image, name, x, y, radius = 4) {
     return best;
 }
 
-// ---- Tesseract.js (bundled wasm engine, no local installation required) ----
-let tessJsWorker = null;
-let tessJsAssets = null;
-// Flipped off when the worker fails; also switchable by the emulator tooling/tests so the
+// ---- Tesseract.js (bundled wasm engine, runs in the main process) ----
+// worker threads only exist in the Electron main process, and there the module also sees a
+// plain Node environment (no document), so the engine lives in tesseractOcr.js and the
+// renderer just ships a cropped PNG over IPC.
+const TESSERACT_OCR_CHANNEL = 'e7-tesseract-ocr';
+
+// Flipped off when OCR fails; also switchable by the emulator tooling/tests so the
 // Windows OCR path can be exercised on its own.
 let tessJsEnabled = true;
 
-// The worker thread cannot open files inside app.asar, so electron-builder unpacks
-// assets/tesseract next to the archive (app.asar.unpacked). If that folder is missing
-// (e.g. an unpacked asar), the files are copied to a temp folder once.
-function tesseractJsAssets() {
-    if (tessJsAssets) {
-        return tessJsAssets;
-    }
-
-    const source = path.join(appDir(), 'assets', 'tesseract');
-
-    // running from source: the folder is a normal directory
-    if (!source.includes('app.asar')) {
-        tessJsAssets = source;
-        return source;
-    }
-
-    const unpacked = source.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
-    if (fs.existsSync(unpacked)) {
-        tessJsAssets = unpacked;
-        return unpacked;
-    }
-
-    const base = path.join(os.tmpdir(), 'e7-tesseract-' + process.pid);
-
-    if (!fs.existsSync(base)) {
-        fs.mkdirSync(base, { recursive: true });
-    }
-
-    for (const name of fs.readdirSync(source)) {
-        const target = path.join(base, name);
-        if (!fs.existsSync(target)) {
-            fs.writeFileSync(target, fs.readFileSync(path.join(source, name)));
-        }
-    }
-
-    tessJsAssets = base;
-    return base;
-}
-
-async function tesseractJsWorkerInstance() {
-    if (tessJsWorker) {
-        return tessJsWorker;
-    }
-
-    const base = tesseractJsAssets();
-    // eval('require') keeps webpack from bundling tesseract.js into the renderer bundle
-    const requireRuntime = eval('require');
-    const { createWorker } = requireRuntime('tesseract.js');
-
-    // the cache must be writable (the packaged assets folder may be read only)
-    const cachePath = path.join(os.tmpdir(), 'e7-tesseract-cache');
-    if (!fs.existsSync(cachePath)) {
-        fs.mkdirSync(cachePath, { recursive: true });
-    }
-
-    tessJsWorker = await createWorker('eng', 1, {
-        corePath: path.join(base, 'tesseract-core-lstm.wasm.js'),
-        langPath: base,
-        cachePath,
-        gzip: true,
-        logger: () => {},
-    });
-
-    await tessJsWorker.setParameters({
-        tessedit_char_whitelist: '0123456789%.,',
-        tessedit_pageseg_mode: '6',
-    });
-
-    return tessJsWorker;
+function tesseractOcr(pngBuffer) {
+    const { ipcRenderer } = eval('require')('electron'); // eslint-disable-line no-eval
+    return ipcRenderer.invoke(TESSERACT_OCR_CHANNEL, pngBuffer);
 }
 
 function parsePlainNumbers(text) {
@@ -226,29 +167,28 @@ function parsePlainNumbers(text) {
 }
 
 async function tesseractJsNumbers(frame, region, scale = 4) {
-    // Once the bundled worker fails (missing wasm assets, unsupported runtime) there is no
-    // point retrying it on every single tile: the Windows OCR fallback still covers the
-    // panel. A failing worker also reports the error asynchronously, so a guard here keeps
-    // one broken environment from raising the same error over and over.
+    // Once OCR fails (missing wasm assets, unsupported runtime) there is no point retrying
+    // it on every single tile: the Windows OCR fallback still covers the panel, and a guard
+    // here keeps one broken environment from raising the same error over and over.
     if (!tessJsEnabled) {
         return null;
     }
 
     try {
-        const worker = await tesseractJsWorkerInstance();
         const scaled = crop(frame, region).scale(scale, Jimp.RESIZE_BICUBIC);
         const buffer = await scaled.getBufferAsync(Jimp.MIME_PNG);
-        const { data } = await worker.recognize(buffer);
-        const numbers = parsePlainNumbers(data.text);
+        const text = await tesseractOcr(buffer);
+        const numbers = parsePlainNumbers(text);
         return numbers.length ? numbers : null;
     } catch (error) {
         if (tessJsEnabled) {
-            console.warn('[emulator] tesseract.js failed, switching to Windows OCR:', error && error.message);
+            console.warn('[emulator] tesseract.js unavailable, falling back to Windows OCR:', (error && (error.message || String(error))) || 'unknown error');
         }
         tessJsEnabled = false;
         return null;
     }
 }
+
 
 // OCR through Windows.Media.Ocr (powershell); language '' -> system profile (zh-Hans)
 function ocr(image, lang = '', scale = 3) {
@@ -292,7 +232,7 @@ function runOcrOnce(image, lang, scale) {
             execFile('powershell.exe', args, { maxBuffer: 4 * 1024 * 1024, windowsHide: true }, (error, stdout, stderr) => {
                 fs.unlink(tempPath, () => null);
                 if (error) {
-                    console.warn('GvG/emulator OCR failed', error.message, stderr);
+                    reportOcrFailure(error, stderr);
                     reject(new Error(typeof i18next !== 'undefined'
                         ? i18next.t('Screen recognition failed, please retry')
                         : 'Screen recognition failed, please retry'));
@@ -302,6 +242,20 @@ function runOcrOnce(image, lang, scale) {
             });
         });
     });
+}
+
+function reportOcrFailure(error, stderr) {
+    ocrFailureCount += 1;
+
+    if (ocrFailureReported) {
+        if (ocrFailureCount % 25 === 0) {
+            console.warn(`[emulator] OCR still failing (${ocrFailureCount} failures so far)`);
+        }
+        return;
+    }
+
+    ocrFailureReported = true;
+    console.warn('[emulator] OCR failed, screen readings will be unavailable:', error.message, stderr);
 }
 
 function parseOcr(stdout, scale) {

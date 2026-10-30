@@ -16,6 +16,7 @@ import { app, BrowserWindow, ipcMain, Menu, MenuItem, screen } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 const remoteMain = require("@electron/remote/main");
+const tesseractOcr = require('./js/lib/emulator/tesseractOcr');
 // import MenuBuilder from './menu';
 
 const isMac = process.platform === 'darwin'
@@ -343,6 +344,10 @@ ipcMain.on('check', async (event) => {
 ipcMain.on('restart_app', () => {
   autoUpdater.quitAndInstall();
 });
+
+// 模拟器自动化的数字识别：tesseract.js 需要 worker 线程，只有主进程能满足，
+// 渲染进程把裁剪好的 PNG 发过来，这里返回识别出的纯文本。
+ipcMain.handle(tesseractOcr.CHANNEL, (_event, png) => tesseractOcr.recognise(png));
 
 autoUpdater.on('update-available', (data) => {
   mainWindow.webContents.send('update_available');

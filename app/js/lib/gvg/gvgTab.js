@@ -342,7 +342,8 @@ function upgradeFilterSelects() {
             filterAcceptOnEnter: true,
             single: true,
             maxHeight: 360,
-            width: 168,
+            // 跟英雄列表上方的英雄下拉（#addHeroesSelector = .gearPreviewButton 的 140px）一样宽
+            width: 140,
             placeholder: i18next.t('Hero'),
             // 插件改的是原生 select 的 value，这里补一次筛选
             onSelect: () => GvgGrid.setFilter(index, element.value),

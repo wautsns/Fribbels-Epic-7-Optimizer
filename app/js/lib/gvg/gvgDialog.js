@@ -693,13 +693,19 @@ function bindChange(element, handler) {
  * 需要输入筛选的下拉：英雄（6 个 + 防守 3）、从英雄列表带入（3 个）、神器（3 个）。
  * 用的是英雄列表页同一个 multiple-select 插件（单选 + 搜索框），
  * 站位 / 星级 / 阵型保持原生 select（用 CSS 对齐外观）。
+ * 收起状态统一 140px（和英雄列表上方 / GVG 筛选行一致）；展开的列表单独给宽度
+ * （dropWidth），否则长名字会被截断。神器下拉不做图标，只显示名字。
  */
 const SEARCHABLE_SELECTS = [
-    { pattern: 'gvgDefense%d', placeholder: 'Hero', options: { width: 168 } },
+    {
+        pattern: 'gvgDefense%d',
+        placeholder: 'Hero',
+        options: { width: 140, dropWidth: 230 },
+    },
     {
         pattern: 'gvgOffense%dHero',
         placeholder: 'Hero',
-        options: { width: 168 },
+        options: { width: 140, dropWidth: 230 },
     },
     {
         pattern: 'gvgImport%d',
@@ -707,7 +713,7 @@ const SEARCHABLE_SELECTS = [
         // 收起时只显示英雄名（需求那段由 CSS 隐藏），展开的列表要够宽才放得下需求摘要。
         // width 必须显式给：插件 initView() 会把「下拉列表最宽的那条 + 20」写成 .ms-parent 的内联宽度。
         options: {
-            width: 168,
+            width: 140,
             textTemplate: entryTextTemplate,
             dropWidth: 460,
             displayTitle: false,
@@ -716,7 +722,8 @@ const SEARCHABLE_SELECTS = [
     {
         pattern: 'gvgOffense%dArtifact',
         placeholder: 'Artifact',
-        options: { width: 190 },
+        // 神器名最长 33 个字符（如 Unleashed Axe of Heavenly Mandate），列表要 260 才放得下
+        options: { width: 140, dropWidth: 260 },
     },
 ];
 
@@ -969,3 +976,4 @@ function escapeHtml(text) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 }
+

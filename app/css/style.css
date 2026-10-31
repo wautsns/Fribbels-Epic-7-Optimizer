@@ -2304,7 +2304,7 @@ input:checked + .darkSlider:before {
 /* 筛选行：3 个防守筛选下拉
    用的是「新增作业 → 从英雄列表带入」同一个 multiple-select 组件（单选 + 搜索框），
    所以外观走 .ms-parent / .ms-choice，不再依赖原生 select 的样式。
-   宽度给 168px，与弹窗里的英雄下拉一致。 */
+   宽度跟英雄列表上方的英雄下拉（#addHeroesSelector，继承 .gearPreviewButton 的 140px）一致。 */
 .gvgFilterRow {
   display: flex;
   align-items: center;
@@ -2312,7 +2312,7 @@ input:checked + .darkSlider:before {
   margin-bottom: 2px;
 }
 .gvgFilterRow .ms-parent.gvgFilterHeroSelect {
-  width: 168px;
+  width: 140px;
 }
 .gvgFilterRow .ms-parent .ms-choice {
   height: 26px;
@@ -2321,7 +2321,7 @@ input:checked + .darkSlider:before {
 }
 /* 插件不可用时的降级外观（正常情况下 multiple-select 已随页面加载） */
 .gvgFilterSelect {
-  width: 168px;
+  width: 140px;
   height: 26px;
 }
 /* 清空筛选：下拉是单选、没有「任意」项，用这个把三个筛选一起复位。
@@ -2356,9 +2356,14 @@ input[type=submit].gvgFilterClear {
   margin-right: 2px;
   vertical-align: middle;
 }
-/* 「清除一二队标记」和「清空」之间隔 16px：前面的按钮自带 margin-right:10px，这里再补 6px */
-.gvgClearTeamsButton {
-  margin-left: 6px;
+/* 「清除一队二队标记」放在作业表格右上角、贴着右侧边框 */
+.gvgTableHeaderRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+.gvgTableHeaderRow .gvgClearTeamsButton {
+  margin: 0;
 }
 .gvgTagRow {
   display: flex;
@@ -2475,13 +2480,14 @@ input[type=submit].gvgFilterClear {
   font-family: inherit;
   box-sizing: border-box;
 }
-/* 可输入筛选的三个下拉，宽度由外层 .ms-parent（会继承 select 的 class）控制 */
+/* 可输入筛选的三个下拉，宽度由外层 .ms-parent（会继承 select 的 class）控制
+   英雄类统一 140px：和英雄列表上方的英雄下拉、GVG 筛选行保持一致 */
 .gvgForm .ms-parent.gvgHeroSelect {
-  width: 168px;
+  width: 140px;
 }
 /* 带入下拉和英雄下拉同宽；收起时只显示英雄名，所以不需要更宽 */
 .gvgForm .ms-parent.gvgImportSelect {
-  width: 168px;
+  width: 140px;
 }
 /* 带入下拉：展开的列表显示「英雄名 — 需求摘要」，收起后只留英雄名 */
 .gvgForm .ms-parent.gvgImportSelect .ms-choice .gvgEntryReq {
@@ -2493,8 +2499,9 @@ input[type=submit].gvgFilterClear {
   opacity: 0.75;
   font-size: 11px;
 }
+/* 神器下拉和英雄下拉同宽（140px）；收起时只显示名字，展开的列表宽度由插件 dropWidth 控制 */
 .gvgForm .ms-parent.gvgArtifactSelect {
-  width: 190px;
+  width: 140px;
 }
 .gvgForm .ms-parent .ms-choice {
   height: 26px;

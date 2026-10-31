@@ -39,7 +39,8 @@ function matchesHeroFilters(hero) {
     if (!hero) return true;
 
     const teamHeroIds = heroFilterState.teamHeroIds;
-    if (teamHeroIds && !teamHeroIds.has(hero.id)) {
+    // hero.id 是 uuid 字符串（新建的）或数字（导入的），统一按字符串比
+    if (teamHeroIds && !teamHeroIds.has(String(hero.id))) {
         return false;
     }
 
@@ -56,13 +57,37 @@ function matchesHeroFilters(hero) {
     return true;
 }
 
-/* 英雄列表左上角的提示：一队 / 二队筛选生效时显示「只看这 N 个角色」 */
+/*
+ * 英雄列表左上角的提示：一队 / 二队筛选生效时显示「只看这 N 个角色」，
+ * 同时把「英雄下拉 + 添加英雄」藏起来 —— 筛选状态下加进来的角色马上会被筛掉，
+ * 留着只会让人以为按钮坏了。
+ */
 function updateTeamFilterNote() {
     const note = document.getElementById('heroesTeamFilterNote');
+    const ids = heroFilterState.teamHeroIds;
+    const active = !!(ids && ids.size);
+
+    const addHeroesSelector = document.getElementById('addHeroesSelector');
+    const addHeroesSubmit = document.getElementById('addHeroesSubmit');
+
+    /*
+     * 英雄下拉被 multiple-select 插件升级过：原生 select 变成 ms-offscreen（视觉隐藏），
+     * 真正显示的是插件插在它后面的 .ms-parent 包装层 —— 只藏 select 是没效果的。
+     * 每次现取，避免插件重新初始化后引用过期。
+     */
+    const wrapper = addHeroesSelector && addHeroesSelector.nextElementSibling;
+    const addHeroesWrapper =
+        wrapper && wrapper.classList && wrapper.classList.contains('ms-parent')
+            ? wrapper
+            : null;
+
+    [addHeroesSelector, addHeroesWrapper, addHeroesSubmit].forEach((element) => {
+        if (element) element.style.display = active ? 'none' : '';
+    });
+
     if (!note) return;
 
-    const ids = heroFilterState.teamHeroIds;
-    if (!ids || !ids.size) {
+    if (!active) {
         note.style.display = 'none';
         note.innerText = '';
         return;
@@ -245,10 +270,11 @@ module.exports = {
     /**
      * GVG 一队 / 二队筛选：传 hero id 数组表示"只显示这些角色条目"，传 null 表示不筛。
      * 只改外部过滤器状态，不动 rowData（数据还是全量，取消筛选立刻恢复）。
+     * hero.id 是 uuid 字符串（新建角色）/ 数字（旧数据），统一按字符串存。
      */
     setTeamFilter: (heroIds) => {
         heroFilterState.teamHeroIds = heroIds && heroIds.length
-            ? new Set(heroIds.map((id) => Number(id)))
+            ? new Set(heroIds.map((id) => String(id)))
             : null;
 
         const api = heroesGrid && heroesGrid.gridOptions && heroesGrid.gridOptions.api;

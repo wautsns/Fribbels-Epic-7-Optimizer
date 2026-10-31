@@ -9,6 +9,19 @@ const SLOT_ORDER = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
 let busy = false;
 let stopping = false;
 
+// 运行状态变化时通知界面（builds 功能列要在这里把机器人图标换成转圈图标）
+let busyListener = null;
+
+function setBusy(value) {
+    if (busy === value) {
+        return;
+    }
+    busy = value;
+    if (busyListener) {
+        busyListener(busy);
+    }
+}
+
 function buildTarget(item) {
     // chip 1 = the highest value (the list sorts by chip 1 first, so the target stays near
     // the first page); the other three keep a stable alphabetical order so consecutive
@@ -141,6 +154,22 @@ async function resolveItems(entries) {
 module.exports = {
     buildTarget,
 
+    // 一键换装按钮已移除，取消入口改到 builds 功能列的机器人图标上
+    isBusy: () => busy,
+
+    onBusyChange: (listener) => {
+        busyListener = listener;
+    },
+
+    cancel: () => {
+        if (!busy || stopping) {
+            return;
+        }
+        stopping = true;
+        setButtonStopping();
+        equip.requestCancel();
+    },
+
     initialize: () => {
         const button = document.getElementById('emulatorSelectHero');
         if (button) {
@@ -184,7 +213,7 @@ module.exports = {
             return;
         }
 
-        busy = true;
+        setBusy(true);
         stopping = false;
         let currentSlot = '';
         let cancelled = false;
@@ -195,7 +224,7 @@ module.exports = {
         try {
             await equip.ensureManagePage();
         } catch (error) {
-            busy = false;
+            setBusy(false);
             setButtonRunning(false);
             // adb problems (not found / offline) must not be reported as "wrong page"
             Dialog.htmlError(
@@ -316,7 +345,7 @@ module.exports = {
                 console.log('[emulator] stream stats', JSON.stringify(stats));
             await adb.stopStream().catch(() => {});
 
-            busy = false;
+            setBusy(false);
             stopping = false;
             setButtonRunning(false);
         }
@@ -328,7 +357,7 @@ module.exports = {
             return;
         }
 
-        busy = true;
+        setBusy(true);
         try {
             const item = await resolveItem(entry);
             if (!item) {
@@ -346,7 +375,7 @@ module.exports = {
                 i18next.t('In-game equip failed: ') + error.message
             );
         } finally {
-            busy = false;
+            setBusy(false);
         }
     },
 };

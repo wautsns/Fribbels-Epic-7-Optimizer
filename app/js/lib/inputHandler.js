@@ -39,6 +39,7 @@ global.Reforge = require('./reforge');
 global.Utils = require('./utils');
 global.DarkMode = require('./darkmode');
 global.GridRenderer = require('./renderer/gridRenderer');
+global.GearScoreTable = require('./gearScoreTable');
 global.Updater = require('./updater');
 global.StatPreview = require('./statPreview');
 global.Artifact = require('./artifact');
@@ -58,6 +59,7 @@ global.ItemsGrid = require('./grids/itemsGrid');
 
 global.GvgPlans = require('./gvg/gvgPlans');
 global.GvgGrid = require('./gvg/gvgGrid');
+global.GvgTeamGrid = require('./gvg/gvgTeamGrid');
 global.GvgDialog = require('./gvg/gvgDialog');
 global.GvgTab = require('./gvg/gvgTab');
 

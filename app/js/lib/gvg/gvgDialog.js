@@ -61,7 +61,15 @@ module.exports = {
         const members = plan.offense.members
             .map((member, index) => {
                 const artifact = member.artifact
-                    ? `${escapeHtml(i18next.t(member.artifact.name))}${
+                    ? `${escapeHtml(
+                          i18next.t(
+                              member.artifact.name ||
+                                  GvgPlans.artifactNameForCode(
+                                      member.artifact.code
+                                  ) ||
+                                  member.artifact.code
+                          )
+                      )}${
                           member.artifact.minLevel
                               ? ` +${member.artifact.minLevel}`
                               : ''
@@ -95,6 +103,9 @@ module.exports = {
                                     ? 'Team imprint'
                                     : 'Self imprint'
                             )
+                        )}</span>
+                        <span class="gvgDetailMuted">${escapeHtml(
+                            eeLabel(member.ee, member.heroCode)
                         )}</span>
                     </div>
                     <div class="gvgDetailRequirement">${requirement}</div>
@@ -210,7 +221,11 @@ function buildEditHtml(draft, entries) {
 
     const memberBlocks = draft.offense.members
         .map((member, index) => {
-            const artifactName = member.artifact ? member.artifact.name : '';
+            const artifactName = member.artifact
+                ? member.artifact.name ||
+                  GvgPlans.artifactNameForCode(member.artifact.code) ||
+                  ''
+                : '';
             const artifactLevel = member.artifact
                 ? member.artifact.minLevel
                 : 0;
@@ -248,6 +263,12 @@ function buildEditHtml(draft, entries) {
                     }>${i18next.t('Team imprint')}</option>
                 </select>
                 <span class="gvgFormLabel" data-t>${i18next.t(
+                    'Exclusive equipment'
+                )}</span>
+                <select id="gvgOffense${index}Ee" class="gvgNativeSelect gvgShortSelect">
+                    ${buildEeOptionHtml(member.heroCode, member.ee)}
+                </select>
+                <span class="gvgFormLabel" data-t>${i18next.t(
                     'Artifact'
                 )}</span>
                 <select id="gvgOffense${index}Artifact" class="editGearStatSelect gvgArtifactSelect">
@@ -256,10 +277,14 @@ function buildEditHtml(draft, entries) {
                     }>${i18next.t('None')}</option>
                     ${artifactOptions
                         .map(
-                            (name) =>
-                                `<option value="${escapeHtml(name)}" ${
-                                    artifactName === name ? 'selected' : ''
-                                }>${escapeHtml(i18next.t(name))}</option>`
+                            (option) =>
+                                `<option value="${escapeHtml(option.name)}" ${
+                                    artifactName === option.name
+                                        ? 'selected'
+                                        : ''
+                                }>${escapeHtml(
+                                    i18next.t(option.name)
+                                )}</option>`
                         )
                         .join('')}
                 </select>
@@ -398,17 +423,111 @@ function entryTextTemplate($option) {
         : name;
 }
 
+/** 神器下拉的选项：作业里存 code（+ 名字消歧），这里给出 [{ code, name }]（按显示名排序） */
 function getArtifactOptions() {
+    const options = GvgPlans.getArtifactOptions();
+
+    return options.sort((a, b) =>
+        i18next.t(a.name).localeCompare(i18next.t(b.name))
+    );
+}
+
+/* ------------------------------------------------------------------ *
+ * 专属装备（exclusive equipment）
+ *
+ * 只配"有没有 / 哪个变体"，不配数值：
+ *   - 光暗属性且 **5★** 的角色（attribute = light / dark 且 rarity = 5）→ 有 / 无
+ *   - 其余角色（三色，以及光暗的 3★ / 4★）→ 任意 / Ⅰ / Ⅱ / Ⅲ / 无
+ * 选项与默认值都来自 herodata 的 ex_equip：有数据才认为这个角色有专属。
+ * ------------------------------------------------------------------ */
+
+const LIGHT_DARK_ATTRIBUTES = ['light', 'dark'];
+const EE_SYMBOLS = { 1: 'Ⅰ', 2: 'Ⅱ', 3: 'Ⅲ' };
+
+function heroInfoForCode(code) {
+    const name = GvgPlans.heroNameForCode(code);
+    if (!name) return null;
+
     try {
-        const artifactData = HeroData.getAllArtifactData();
-        return Object.values(artifactData)
-            .map((artifact) => artifact && artifact.name)
-            .filter(Boolean)
-            .sort((a, b) => i18next.t(a).localeCompare(i18next.t(b)));
+        const info = HeroData.getHeroExtraInfo(name);
+        return info ? { name, info } : null;
     } catch (error) {
-        console.warn('GVG: artifact data unavailable', error);
-        return [];
+        console.warn(
+            'GVG: herodata unavailable while reading the exclusive equipment',
+            error
+        );
+        return null;
     }
+}
+
+function heroHasExclusive(code) {
+    const entry = heroInfoForCode(code);
+    return !!(
+        entry &&
+        Array.isArray(entry.info.ex_equip) &&
+        entry.info.ex_equip.length > 0
+    );
+}
+
+/** 只有"光暗 + 5★"是 有 / 无；其余（三色，以及光暗的 3★ / 4★）都是 任意 / Ⅰ / Ⅱ / Ⅲ */
+function usesEeVariants(code) {
+    const entry = heroInfoForCode(code);
+    if (!entry) return true;
+
+    const isLightDark5Star =
+        LIGHT_DARK_ATTRIBUTES.includes(entry.info.attribute) &&
+        Number(entry.info.rarity) === 5;
+
+    return !isLightDark5Star;
+}
+
+/** 该角色可选的专属值：光暗 5★ 只有"有/无"，其余多一个"任意"（Ⅰ/Ⅱ/Ⅲ 都行） */
+function eeOptionKeys(code) {
+    return usesEeVariants(code)
+        ? ['none', 'any', '1', '2', '3']
+        : ['none', 'any'];
+}
+
+/** 默认值：确实有专属 → 有变体的选"Ⅰ"、光暗 5★ 选"有"；没有专属 → "无" */
+function defaultEeKey(code) {
+    if (!heroHasExclusive(code)) return 'none';
+    return usesEeVariants(code) ? '1' : 'any';
+}
+
+/** 'any' 在两种分支下含义不同：光暗 5★ 是"有"，其余是"任意（哪个变体都行）" */
+function eeLabel(value, code) {
+    if (value === 'any') {
+        if (code != null && usesEeVariants(code)) return i18next.t('Any');
+        return i18next.t('Has');
+    }
+    if (EE_SYMBOLS[value]) return EE_SYMBOLS[value];
+    return i18next.t('None');
+}
+
+function buildEeOptionHtml(code, currentValue) {
+    const options = eeOptionKeys(code);
+    const value = options.includes(currentValue)
+        ? currentValue
+        : defaultEeKey(code);
+
+    return options
+        .map(
+            (key) =>
+                `<option value="${key}" ${
+                    value === key ? 'selected' : ''
+                }>${escapeHtml(eeLabel(key, code))}</option>`
+        )
+        .join('');
+}
+
+/** 换英雄 / 带入条目 / 还原时重建专属下拉（选项集合随角色变化） */
+function refreshEeSelect(index, code, value) {
+    const select = document.getElementById(`gvgOffense${index}Ee`);
+    if (!select) return;
+
+    const options = eeOptionKeys(code);
+    const wanted = options.includes(value) ? value : defaultEeKey(code);
+    select.innerHTML = buildEeOptionHtml(code, wanted);
 }
 
 /**
@@ -451,6 +570,8 @@ function restoreMemberFromSnapshot(index, snapshot, requirements) {
     const imprintSelect = document.getElementById(`gvgOffense${index}Imprint`);
     if (imprintSelect) imprintSelect.value = snapshot.imprint || 'self';
 
+    refreshEeSelect(index, snapshot.heroCode, snapshot.ee);
+
     requirements[index] = snapshot.requirement;
     updateRequirementPreview(index, requirements[index]);
 }
@@ -462,6 +583,7 @@ function captureMemberSnapshot(index, requirements) {
         artifact: valueOf(`gvgOffense${index}Artifact`),
         artifactLevel: valueOf(`gvgOffense${index}ArtifactLevel`),
         imprint: valueOf(`gvgOffense${index}Imprint`),
+        ee: valueOf(`gvgOffense${index}Ee`),
         requirement: requirements[index],
     };
 }
@@ -514,12 +636,14 @@ function wireEditDialog(entries, requirements) {
             });
         }
 
-        // 换了英雄，之前带入的需求就不再对应了 → 清空，等重新带入
+        // 换了英雄，之前带入的需求就不再对应了 → 清空，等重新带入；
+        // 专属下拉的选项集合和默认值也跟着新角色走
         const heroSelect = document.getElementById(`gvgOffense${index}Hero`);
         if (heroSelect) {
             bindChange(heroSelect, () => {
                 requirements[index] = null;
                 updateRequirementPreview(index, null);
+                refreshEeSelect(index, heroSelect.value);
                 validate();
             });
         }
@@ -534,15 +658,20 @@ function wireEditDialog(entries, requirements) {
     });
 
     [0, 1, 2].forEach((index) => {
-        ['Hero', 'Position', 'Imprint', 'Artifact', 'ArtifactLevel'].forEach(
-            (suffix) => {
-                const element = document.getElementById(
-                    `gvgOffense${index}${suffix}`
-                );
-                // 英雄下拉有自己的监听（换英雄要清需求），这里跳过避免重复校验
-                if (element && suffix !== 'Hero') bindChange(element, validate);
-            }
-        );
+        [
+            'Hero',
+            'Position',
+            'Imprint',
+            'Ee',
+            'Artifact',
+            'ArtifactLevel',
+        ].forEach((suffix) => {
+            const element = document.getElementById(
+                `gvgOffense${index}${suffix}`
+            );
+            // 英雄下拉有自己的监听（换英雄要清需求），这里跳过避免重复校验
+            if (element && suffix !== 'Hero') bindChange(element, validate);
+        });
     });
 
     validate();
@@ -684,6 +813,9 @@ function applyHeroEntry(index, entry, requirements) {
     const imprintSelect = document.getElementById(`gvgOffense${index}Imprint`);
     if (imprintSelect) imprintSelect.value = 'self';
 
+    // 专属按"这个角色应该有的默认值"重置（带入条目只带英雄/神器/需求）
+    refreshEeSelect(index, heroCode);
+
     requirements[index] = hero.optimizationRequest
         ? JSON.parse(JSON.stringify(hero.optimizationRequest))
         : null;
@@ -709,6 +841,10 @@ function readPlanFromDialog(draft, requirements) {
             position: valueOf(`gvgOffense${index}Position`),
             artifact: artifactName
                 ? {
+                      // 主键存 code；名字留着消歧（同一 code 可能对应两个神器）
+                      code:
+                          GvgPlans.artifactCodeForName(artifactName) ||
+                          artifactName,
                       name: artifactName,
                       minLevel: level,
                   }
@@ -717,6 +853,7 @@ function readPlanFromDialog(draft, requirements) {
                 valueOf(`gvgOffense${index}Imprint`) === 'team'
                     ? 'team'
                     : 'self',
+            ee: valueOf(`gvgOffense${index}Ee`) || 'none',
             requirement: requirements[index] || null,
         };
     });

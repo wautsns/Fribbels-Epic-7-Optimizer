@@ -44,13 +44,20 @@ module.exports = {
         bindClick('gvg-import', () => module.exports.importPlans());
         bindClick('gvg-dedupe', () => module.exports.dedupePlans());
         bindClick('gvg-clear', () => module.exports.clearPlans());
+        bindClick('gvg-clear-teams', () => module.exports.clearTeams());
         bindClick('clearGvgFilter', () => module.exports.clearFilters());
     },
 
-    /** 数据变了：重画筛选选项 + 表格 */
+    /** 数据变了：重画筛选选项 + 表格 + 同步英雄列表的一队/二队筛选 */
     redraw: () => {
         module.exports.redrawFilterOptions();
         GvgGrid.refresh();
+
+        const teamGrid =
+            typeof GvgTeamGrid !== 'undefined' ? GvgTeamGrid : null;
+        if (teamGrid && typeof teamGrid.syncHeroFilter === 'function') {
+            teamGrid.syncHeroFilter();
+        }
     },
 
     /** 筛选框只列「作业里出现过的防守英雄」（design.md 6.3），选中值尽量保留 */
@@ -125,9 +132,17 @@ module.exports = {
         GvgPlans.remove(id);
     },
 
-    pinFirst: (id) => GvgPlans.pinFirst(id),
+    /* ---------------- 置为一队 / 二队 ---------------- */
 
-    pinSecond: (id) => GvgPlans.pinSecond(id),
+    pinFirst: async (id) => {
+        if (!GvgPlans.pinFirst(id)) return;
+        await confirmTeamEntries();
+    },
+
+    pinSecond: async (id) => {
+        if (!GvgPlans.pinSecond(id)) return;
+        await confirmTeamEntries();
+    },
 
     /* ---------------- 底部按钮 ---------------- */
 
@@ -283,6 +298,18 @@ module.exports = {
 
         GvgPlans.clear();
     },
+
+    /**
+     * 清除一队 / 二队标记：清完 commit 会重画列表，蓝底的 1 / 2 徽章自然回到常规色，
+     * 英雄列表的「只显示一队二队角色」筛选也跟着解除。
+     */
+    clearTeams: async () => {
+        const teams = GvgPlans.getTeams();
+        if (!teams.first && !teams.second) return;
+
+        GvgPlans.clearTeams();
+        Notifier.successRaw(i18next.t('Team markers cleared'));
+    },
 };
 
 /* ------------------------------------------------------------------ *
@@ -345,6 +372,42 @@ function refreshFilterSelect(element, selected) {
     } catch (error) {
         console.warn('GVG: unable to refresh filter select', error);
     }
+}
+
+/**
+ * 置为一队 / 二队之后：检查这队的成员是否都还有对应的角色条目。
+ * 缺的先列出来问一次，用户确认才新建 —— 不静默往英雄列表里加东西。
+ */
+async function confirmTeamEntries() {
+    if (typeof GvgTeamGrid === 'undefined' || !GvgTeamGrid) return;
+
+    const missing = await GvgTeamGrid.findMissingEntries();
+    if (!missing.length) return;
+
+    const names = missing.map((entry) => i18next.t(entry.heroName));
+    const html = `
+        <div style="text-align:left;font-size:14px">
+            <div>${i18next.t('These heroes need a new hero entry')}:</div>
+            <ul style="margin:8px 0 0 18px;padding:0">
+                ${names.map((name) => `<li>${escapeHtml(name)}</li>`).join('')}
+            </ul>
+        </div>`;
+
+    const confirmed = await Dialog.htmlConfirmation(
+        html,
+        i18next.t('Create hero entries')
+    );
+    if (!confirmed) return;
+
+    await GvgTeamGrid.createMissingEntries(missing);
+}
+
+function escapeHtml(text) {
+    return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 function reportImportOutcome(outcome) {

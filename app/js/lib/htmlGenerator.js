@@ -99,8 +99,8 @@ function rateBaseScore(stats, baseStats) {
     const hpScore = (stats.HealthPercent  + (stats.Health / baseStats.hp * 100));
     const defScore = (stats.DefensePercent + (stats.Defense / baseStats.def * 100));
     const spdScore = (stats.Speed) * 2;
-    const crScore = (stats.CriticalHitChancePercent) * 8/5;
-    const cdScore = (stats.CriticalHitDamagePercent) * 8/7;
+    const crScore = (stats.CriticalHitChancePercent) * 1.5;
+    const cdScore = (stats.CriticalHitDamagePercent) * 1.125;
     const effScore = (stats.EffectivenessPercent);
     const resScore = (stats.EffectResistancePercent);
     const score = atkScore + hpScore + defScore + spdScore + crScore + cdScore + effScore + resScore;
@@ -125,8 +125,9 @@ function wssToText(item) {
         baseStats.hp = baseStats.bonusStats.overrideHp || baseStats.hp;
         baseStats.def = baseStats.bonusStats.overrideDef || baseStats.def;
 
-        const score = Math.round(rateBaseScore(item.augmentedStats, baseStats))
-        const reforgedScore = Math.round(rateBaseScore(item.reforgedStats, baseStats))
+        // 括号里那个"按英雄基础属性换算"的分数也统一 2 位小数
+        const score = rateBaseScore(item.augmentedStats, baseStats).toFixed(2)
+        const reforgedScore = rateBaseScore(item.reforgedStats, baseStats).toFixed(2)
 
         if (Reforge.isReforgeable(item)) {
             if (isItemModded(item) && item.substats.filter(x => x.originalType).length > 0) {
@@ -368,6 +369,22 @@ module.exports = {
         }
     },
 
+    // builds 列表「功能列」：未装备的配装显示「穿上」（fa-tshirt），已装备的显示「脱下」（fa-undo-alt），
+    // 中间是「一键换装」（走模拟器；运行中变成转圈图标，再点即中断），最后是删除
+    buildBuildActionsCell(isEquipped, isRunning) {
+        const equipIcon = isEquipped
+            ? `<i class="fas fa-undo-alt buildGlyph buildUnequipIcon" title="${i18next.t('Unequip Items')}"></i>`
+            : `<i class="fas fa-tshirt buildGlyph buildEquipIcon" title="${i18next.t('Equip Build')}"></i>`;
+
+        const oneClickIcon = isRunning
+            ? `<i class="fas fa-spinner fa-spin buildGlyph buildOneClickEquipIcon buildRunningIcon" title="${i18next.t('Cancel operation')}"></i>`
+            : `<i class="fas fa-robot buildGlyph buildOneClickEquipIcon" title="${i18next.t('One-Click Equip')}"></i>`;
+
+        return equipIcon
+            + oneClickIcon
+            + `<i class="fas fa-trash buildGlyph buildDeleteIcon" title="${i18next.t('Remove Build')}"></i>`;
+    },
+
     buildItemPanel(item, checkboxPrefix, baseStats, mods) {
         if (!item) {
             return `
@@ -409,7 +426,7 @@ module.exports = {
 
         var html = `
 <div class="itemDisplayHeader">
-  <img src="${gearImage}" class="gearTypeImg" ${styleForImage(item.rank)}></img>
+  <img src="${gearImage}" class="gearTypeImg" ${styleForImage(item.rank)} ondblclick='EnhancingTab.redrawEnhanceGuideFromRemoteId("${item.id}")' title="${i18next.t("Double click to open the enhance guide")}"></img>
   <div class="itemDisplayHeaderData">
     <div class="itemDisplayHeaderDataTop">
       <div class="itemDisplayLevel" ${styleEnhance(item.enhance)}>+${item.enhance}</div>
@@ -462,14 +479,13 @@ module.exports = {
 </div>
 <div class="itemDisplayFooter">
   <div class="itemDisplayFooterIconContainer">
-      ${checkboxPrefix == "itemsGrid" || checkboxPrefix == "enhanceTab" ? "" : `<input type="checkbox" class="itemPreviewCheckbox" id="${checkboxPrefix + item.gear}" checked>`}
+      ${checkboxPrefix == "itemsGrid" || checkboxPrefix == "enhanceTab" || checkboxPrefix == "heroesGrid" ? "" : `<input type="checkbox" class="itemPreviewCheckbox" id="${checkboxPrefix + item.gear}" checked>`}
       <div class="itemDisplayFooterSet">
         <img src="${setImage}" class="itemDisplaySetImg"></img>
       </div>
   </div>
   <div class="itemDisplayFooterIconContainer">
       ${storageOrLocator(item, checkboxPrefix)}
-      ${checkboxPrefix == "optimizerGrid" ? "" : magnify(item, checkboxPrefix)}
       ${editItemDisplay(item, checkboxPrefix)}
       ${editLockDisplay(item, checkboxPrefix)}
   </div>
@@ -539,10 +555,6 @@ const huntImageBySet = {
     FervorSet: "./assets/reforgeOtherworld.png",
 }
 
-
-function magnify(item, checkboxPrefix) {
-    return `<img src="${Assets.getMagnify()}" class="itemDisplayEditImg" onclick='EnhancingTab.redrawEnhanceGuideFromRemoteId("${item.id}")'></img>`
-}
 
 function locate(item, checkboxPrefix) {
     return `<img src="${Assets.getLocate()}" class="itemDisplayEditImg locateTooltip${checkboxPrefix}" data-itemId="${item.ingameId}" onclick='Locator.locate("${item.ingameId}", "locateTooltip${checkboxPrefix}")'></img>`

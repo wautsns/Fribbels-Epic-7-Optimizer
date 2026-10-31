@@ -53,12 +53,22 @@ module.exports = {
                 if (element._tippy) {
                     tippyInstance = element._tippy
                 } else {
+                    // 提示框按「整张装备卡」定位，而不是按卡片底部的小准星：
+                    // 这样它弹在卡片上方（不挡住副属性数值），
+                    // 且每张卡片居中一格，窄卡也不会压到邻居
+                    const card = element.closest('.gear-preview-row');
+                    const reference = card
+                        ? () => card.getBoundingClientRect()
+                        : null;
+
                     tippyInstance = tippy(element, {
                         allowHTML: true,
                         trigger: 'focus',
-                        placement: 'right',
+                        placement: 'top',
+                        distance: 6,
                         content: content,
                         arrow: false,
+                        getReferenceClientRect: reference,
 
                         onHidden(instance) {
                             instance.destroy()

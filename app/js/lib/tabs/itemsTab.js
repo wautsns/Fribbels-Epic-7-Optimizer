@@ -81,17 +81,8 @@ module.exports = {
         document.getElementById('removeGear').addEventListener("click", () => {
             removeGear();
         });
-        document.getElementById('unequipGear').addEventListener("click", () => {
-            unequipGear();
-        });
         document.getElementById('unequipAllGear').addEventListener("click", () => {
             unequipAllGear();
-        });
-        document.getElementById('lockGear').addEventListener("click", () => {
-            lockGear();
-        });
-        document.getElementById('unlockGear').addEventListener("click", () => {
-            unlockGear();
         });
 
         document.getElementById('tab3label').addEventListener("click", () => {
@@ -181,17 +172,6 @@ async function removeGear() {
     Saves.autoSave();
 }
 
-async function unequipGear() {
-    const items = ItemsGrid.getSelectedGear();
-
-    await Api.unequipItems(items.map(x => x.id));
-
-    Notifier.quick(`${i18next.t("Unequipped ")}` + items.length + `${i18next.t(" item(s).")}`)
-
-    module.exports.redraw();
-    Saves.autoSave();
-}
-
 /*
  * 脱下全部装备：把所有 equippedById 非空的装备一次性脱下。
  * 后端 /heroes/unequipItems 支持批量 id，所以只发一次请求。
@@ -213,28 +193,6 @@ async function unequipAllGear() {
     await Api.unequipItems(equippedItems.map(item => item.id));
 
     Notifier.quick(`${i18next.t("Unequipped ")}` + equippedItems.length + `${i18next.t(" item(s).")}`)
-
-    module.exports.redraw();
-    Saves.autoSave();
-}
-
-async function lockGear() {
-    const items = ItemsGrid.getSelectedGear();
-
-    await Api.lockItems(items.map(x => x.id));
-
-    Notifier.quick(`${i18next.t("Locked ")}` + items.length + `${i18next.t(" item(s).")}`)
-
-    module.exports.redraw();
-    Saves.autoSave();
-}
-
-async function unlockGear() {
-    const items = ItemsGrid.getSelectedGear();
-
-    await Api.unlockItems(items.map(x => x.id));
-    const hintString = `${i18next.t("Unlocked ")}` + items.length + `${i18next.t(" item(s).")}`; console.log("unlock item hint string", hintString);
-    Notifier.quick(`${i18next.t("Unlocked ")}` + items.length + `${i18next.t(" item(s).")}`)
 
     module.exports.redraw();
     Saves.autoSave();

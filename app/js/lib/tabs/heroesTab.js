@@ -5,6 +5,17 @@ var useReforgedStats = true;
 module.exports = {
     getSelectedGear,
 
+    // 以下按「行」操作，右键菜单和 builds 功能列都直接传行数据，不依赖当前选中状态
+    editHeroInfo,
+    editSubstatMods,
+    setHeroRank,
+    removeHero,
+    equipBuild,
+    unequipBuild,
+    removeBuild,
+    showHeroContextMenu,
+    closeHeroContextMenu,
+
     initialize: () => {
         setupEventListeners();
         const selector = document.getElementById('addHeroesSelector')
@@ -23,23 +34,6 @@ module.exports = {
             selector.add(option);
         }
 
-        document.getElementById('heroPreviewSelectAll').addEventListener("click", () => {
-            $('#heroesGridWeapon').prop('checked', true);
-            $('#heroesGridHelmet').prop('checked', true);
-            $('#heroesGridArmor').prop('checked', true);
-            $('#heroesGridNecklace').prop('checked', true);
-            $('#heroesGridRing').prop('checked', true);
-            $('#heroesGridBoots').prop('checked', true);
-        });
-        document.getElementById('heroPreviewDeselectAll').addEventListener("click", () => {
-            $('#heroesGridWeapon').prop('checked', false);
-            $('#heroesGridHelmet').prop('checked', false);
-            $('#heroesGridArmor').prop('checked', false);
-            $('#heroesGridNecklace').prop('checked', false);
-            $('#heroesGridRing').prop('checked', false);
-            $('#heroesGridBoots').prop('checked', false);
-        });
-
         document.getElementById('addHeroesSubmit').addEventListener("click", async () => {
             console.log("addHeroesSubmit");
             const id = selector.value;
@@ -54,213 +48,6 @@ module.exports = {
             clearPreview();
             HeroesGrid.refreshBuilds();
             HeroesGrid.redrawPreview();
-        });
-
-        document.getElementById('editBuildSubmit').addEventListener("click", async () => {
-            console.log("editBuildSubmit");
-            const row = HeroesGrid.getSelectedRow();
-
-            const existingBuild = HeroesGrid.getSelectedBuildRow();
-            if (!existingBuild) {
-                Notifier.warn("Select a build to edit.");
-                return;
-            }
-
-            const editedBuild = await Dialog.editBuildDialog(existingBuild.name);
-            console.warn("EDITBUILD", editedBuild, existingBuild);
-
-            const buildName = editedBuild.buildName;
-
-            existingBuild.name = buildName;
-
-            Api.editBuild(row.id, existingBuild).then(x => {
-                HeroesGrid.refreshBuilds();
-                Saves.autoSave();
-            })
-        });
-
-        document.getElementById('removeBuildSubmit').addEventListener("click", async () => {
-            console.log("removeBuildSubmit");
-            const row = HeroesGrid.getSelectedRow();
-            const existingBuild = HeroesGrid.getSelectedBuildRow();
-
-            console.warn("REMOVEBUILD", row, existingBuild);
-
-            const confirmed = await Dialog.confirmation(
-                i18next.t("Are you sure you want to remove this build?"),
-                i18next.t("Remove Build")
-            );
-            if (!confirmed) return;
-
-            Api.removeBuild(row.id, existingBuild).then(x => {
-                HeroesGrid.refreshBuilds();
-                Saves.autoSave();
-            })
-        });
-
-        document.getElementById('saveAsBuildSubmit').addEventListener("click", async () => {
-            console.log("saveAsBuildSubmit");
-            const row = HeroesGrid.getSelectedRow();
-
-            row.items = Object.values(row.equipment).map(x => x.id)
-            console.warn("Save as build", row);
-            console.warn("Save as build", row.items);
-
-            if (row.items.length < 6) {
-                Notifier.warn("Hero needs a 6 item build before it can be saved");
-                return;
-            }
-
-            row.items = [
-                row.equipment.Weapon.id,
-                row.equipment.Helmet.id,
-                row.equipment.Armor.id,
-                row.equipment.Necklace.id,
-                row.equipment.Ring.id,
-                row.equipment.Boots.id,
-            ]
-
-            Api.addBuild(row.id, row).then(x => {
-                HeroesGrid.refreshBuilds();
-                Saves.autoSave();
-            });
-        });
-
-        document.getElementById('equipBuildSubmit').addEventListener("click", async () => {
-            console.log("equipBuildSubmit");
-            const row = HeroesGrid.getSelectedRow();
-            const existingBuild = HeroesGrid.getSelectedBuildRow()
-
-            if (!existingBuild || !existingBuild.items || !row || existingBuild.items.includes(undefined) || existingBuild.items.includes(null)) {
-                return;
-            }
-
-            Api.equipItemsOnHero(row.id, existingBuild.items).then(x => {
-                HeroesGrid.refreshBuilds();
-                module.exports.redraw();
-                HeroesGrid.redrawPreview();
-                Saves.autoSave();
-            })
-        });
-
-        document.getElementById('addSubstatModsSubmit').addEventListener("click", async () => {
-            const row = HeroesGrid.getSelectedRow();
-            if (!row) return;
-            console.log("addSubstatModsSubmit", row);
-
-            const modStats = await Dialog.editModStatsDialog(row);
-
-            // mods
-
-            await Api.setModStats(modStats, row.id).then(module.exports.redraw);
-            Notifier.success("Saved mod stats");
-            Saves.autoSave();
-        });
-
-        document.getElementById('setHeroRankSubmit').addEventListener("click", async () => {
-            const row = HeroesGrid.getSelectedRow();
-            if (!row) return;
-            console.log("setHeroRankSubmit", row);
-
-            const rankInfo = await Dialog.editRankDialog(row.index);
-
-            // mods
-
-            await Api.reorderHeroes(row.id, rankInfo.rank).then(module.exports.redraw);
-            // Notifier.success("Changed rank");
-            Saves.autoSave();
-        });
-
-        document.getElementById('addHeroStatsSubmit').addEventListener("click", async () => {
-            const row = HeroesGrid.getSelectedRow();
-            if (!row) return;
-            console.log("addHeroStatsSubmit", row);
-
-            // Api.removeHeroById(row.id).then(response => {
-            //     console.log("RESPONSE", response)
-            //     HeroesGrid.refresh(response.heroes)
-            //     redrawHeroInputSelector();
-            // });
-            await module.exports.showBonusStatsWindow(row);
-            Saves.autoSave();
-        });
-
-        document.getElementById('removeHeroesSubmit').addEventListener("click", async () => {
-            console.log("removeHeroesSubmit");
-            const row = HeroesGrid.getSelectedRow();
-            if (!row) return;
-
-            const confirmed = await Dialog.confirmation(
-                i18next.t("Are you sure you want to remove this hero? This will also remove all of its saved builds."),
-                i18next.t("Remove Hero")
-            );
-            if (!confirmed) return;
-
-            Api.removeHeroById(row.id).then(async response => {
-                console.log("RESPONSE", response)
-                module.exports.redrawHeroInputSelector();
-                await redrawGrid();
-                HeroesGrid.redrawPreview();
-                Saves.autoSave();
-            });
-        });
-
-        document.getElementById('unequipHeroesSubmit').addEventListener("click", async () => {
-            console.log("unequipHeroesSubmit", HeroesGrid.getSelectedRow());
-            const row = HeroesGrid.getSelectedRow();
-            if (!row) return;
-
-            Api.unequipItems(getSelectedGearIds()).then(async response => {
-                console.log("RESPONSE", response)
-                await redrawGrid();
-                clearPreview();
-                HeroesGrid.redrawPreview();
-                Saves.autoSave();
-            })
-        });
-
-        document.getElementById('unlockHeroesSubmit').addEventListener("click", async () => {
-            console.log("unlockHeroesSubmit", HeroesGrid.getSelectedRow());
-            const row = HeroesGrid.getSelectedRow();
-            if (!row) return;
-
-            // Api.unlockHeroById(row.id).then(response => {
-            //     console.log("RESPONSE", response)
-            //     HeroesGrid.refresh(response.heroes)
-            //     redrawGrid();
-            //     clearPreview();
-            //     Saves.autoSave();
-            // })
-
-            Api.unlockItems(getSelectedGearIds()).then(async response => {
-                console.log("RESPONSE", response)
-                await redrawGrid();
-                clearPreview();
-                HeroesGrid.redrawPreview();
-                Saves.autoSave();
-            })
-        });
-
-        document.getElementById('lockHeroesSubmit').addEventListener("click", async () => {
-            console.log("lockHeroesSubmit", HeroesGrid.getSelectedRow());
-            const row = HeroesGrid.getSelectedRow();
-            if (!row) return;
-
-            // Api.lockHeroById(row.id).then(response => {
-            //     console.log("RESPONSE", response)
-            //     HeroesGrid.refresh(response.heroes)
-            //     redrawGrid();
-            //     clearPreview();
-            //     Saves.autoSave();
-            // })
-
-            Api.lockItems(getSelectedGearIds()).then(async response => {
-                console.log("RESPONSE", response)
-                await redrawGrid();
-                clearPreview();
-                HeroesGrid.redrawPreview();
-                Saves.autoSave();
-            })
         });
 
         document.getElementById('tab4label').addEventListener("click", () => {
@@ -417,15 +204,11 @@ function getSelectedGear() {
     const row = HeroesGrid.getSelectedRow();
     if (!row || !row.equipment) return [];
 
-    var results = [];
-    if (row.equipment.Weapon && $('#heroesGridWeapon').prop('checked')) results.push(row.equipment.Weapon);
-    if (row.equipment.Helmet && $('#heroesGridHelmet').prop('checked')) results.push(row.equipment.Helmet);
-    if (row.equipment.Armor && $('#heroesGridArmor').prop('checked')) results.push(row.equipment.Armor);
-    if (row.equipment.Necklace && $('#heroesGridNecklace').prop('checked')) results.push(row.equipment.Necklace);
-    if (row.equipment.Ring && $('#heroesGridRing').prop('checked')) results.push(row.equipment.Ring);
-    if (row.equipment.Boots && $('#heroesGridBoots').prop('checked')) results.push(row.equipment.Boots);
-
-    return results;
+    // 卡片上的勾选框已经去掉了，英雄页的 6 件装备永远是一起操作
+    const gearNames = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
+    return gearNames
+        .map((gear) => row.equipment[gear])
+        .filter((item) => !!item);
 }
 
 function getSelectedGearIds() {
@@ -464,6 +247,174 @@ function clearPreview() {
         const displayId = Constants.gearDisplayIdByIndex[i];
         document.getElementById(displayId).innerHTML = "";
     }
+}
+
+/* ---------------- 英雄 / 配装 行操作 ---------------- */
+
+async function editHeroInfo(row) {
+    if (!row) return;
+    await module.exports.showBonusStatsWindow(row);
+    Saves.autoSave();
+}
+
+async function editSubstatMods(row) {
+    if (!row) return;
+
+    const modStats = await Dialog.editModStatsDialog(row);
+    await Api.setModStats(modStats, row.id).then(module.exports.redraw);
+    Notifier.success("Saved mod stats");
+    Saves.autoSave();
+}
+
+async function setHeroRank(row) {
+    if (!row) return;
+
+    const rankInfo = await Dialog.editRankDialog(row.index);
+    await Api.reorderHeroes(row.id, rankInfo.rank).then(module.exports.redraw);
+    Saves.autoSave();
+}
+
+async function removeHero(row) {
+    if (!row) return;
+
+    const confirmed = await Dialog.confirmation(
+        i18next.t("Are you sure you want to remove this hero? This will also remove all of its saved builds."),
+        i18next.t("Remove Hero")
+    );
+    if (!confirmed) return;
+
+    Api.removeHeroById(row.id).then(async () => {
+        module.exports.redrawHeroInputSelector();
+        await redrawGrid();
+        HeroesGrid.redrawPreview();
+        Saves.autoSave();
+    });
+}
+
+function equipBuild(hero, build) {
+    if (!hero || !build || !build.items) return;
+    if (build.items.includes(undefined) || build.items.includes(null)) return;
+
+    Api.equipItemsOnHero(hero.id, build.items).then(async () => {
+        // 先刷新英雄列表（equipment 变了），再重画 builds，
+        // 功能列才会把「穿上」图标换成「脱下」图标
+        await redrawGrid();
+        clearPreview();
+        HeroesGrid.refreshBuilds();
+        HeroesGrid.redrawPreview();
+        Saves.autoSave();
+    });
+}
+
+// 脱下这套配装的 6 件装备（效果和原来「脱下装备」按钮一致）
+function unequipBuild(hero, build) {
+    const gearIds = (build && build.items ? build.items : []).filter(Boolean);
+    const idsToUnequip = gearIds.length ? gearIds : getSelectedGearIds();
+
+    if (!idsToUnequip || !idsToUnequip.length) return;
+
+    Api.unequipItems(idsToUnequip).then(async () => {
+        await redrawGrid();
+        clearPreview();
+        // 重新拉一次英雄并重画 builds，功能列才会把「脱下」图标换回「装备」图标
+        HeroesGrid.refreshBuilds();
+        HeroesGrid.redrawPreview();
+        Saves.autoSave();
+    });
+}
+
+async function removeBuild(hero, build) {
+    if (!hero || !build) return;
+
+    const confirmed = await Dialog.confirmation(
+        i18next.t("Are you sure you want to remove this build?"),
+        i18next.t("Remove Build")
+    );
+    if (!confirmed) return;
+
+    Api.removeBuild(hero.id, build).then(() => {
+        HeroesGrid.refreshBuilds();
+        Saves.autoSave();
+    });
+}
+
+/* ---------------- 英雄列表右键菜单 ---------------- */
+
+let heroContextMenuElement = null;
+let heroContextMenuMouseDown = null;
+let heroContextMenuKeyDown = null;
+
+function closeHeroContextMenu() {
+    if (heroContextMenuMouseDown) {
+        document.removeEventListener('mousedown', heroContextMenuMouseDown, true);
+        heroContextMenuMouseDown = null;
+    }
+    if (heroContextMenuKeyDown) {
+        document.removeEventListener('keydown', heroContextMenuKeyDown, true);
+        heroContextMenuKeyDown = null;
+    }
+    window.removeEventListener('scroll', closeHeroContextMenu, true);
+    window.removeEventListener('blur', closeHeroContextMenu);
+
+    if (heroContextMenuElement) {
+        heroContextMenuElement.remove();
+        heroContextMenuElement = null;
+    }
+}
+
+function showHeroContextMenu(event, row) {
+    if (!event || !row) return;
+
+    closeHeroContextMenu();
+
+    const items = [
+        {label: i18next.t('Add Bonus Stats'), action: () => editHeroInfo(row)},
+        {label: i18next.t('Add Substat Mods'), action: () => editSubstatMods(row)},
+        {label: i18next.t('Set Hero Rank'), action: () => setHeroRank(row)},
+        {label: i18next.t('Remove Hero'), action: () => removeHero(row), danger: true},
+    ];
+
+    const menu = document.createElement('div');
+    menu.className = 'heroContextMenu';
+
+    items.forEach((item) => {
+        const entry = document.createElement('div');
+        entry.className = 'heroContextMenuItem' + (item.danger ? ' heroContextMenuDanger' : '');
+        entry.textContent = item.label;
+        entry.addEventListener('click', (clickEvent) => {
+            clickEvent.stopPropagation();
+            closeHeroContextMenu();
+            item.action();
+        });
+        menu.appendChild(entry);
+    });
+
+    document.body.appendChild(menu);
+    heroContextMenuElement = menu;
+
+    // 贴着鼠标弹出，超出窗口时向内侧收
+    const rect = menu.getBoundingClientRect();
+    const left = Math.max(4, Math.min(event.clientX, window.innerWidth - rect.width - 4));
+    const top = Math.max(4, Math.min(event.clientY, window.innerHeight - rect.height - 4));
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    heroContextMenuMouseDown = (mouseEvent) => {
+        if (heroContextMenuElement && heroContextMenuElement.contains(mouseEvent.target)) return;
+        closeHeroContextMenu();
+    };
+    heroContextMenuKeyDown = (keyEvent) => {
+        if (keyEvent.key === 'Escape') closeHeroContextMenu();
+    };
+
+    // 延后挂载，避免当前这次右键事件立刻把菜单关掉
+    setTimeout(() => {
+        if (!heroContextMenuElement) return;
+        document.addEventListener('mousedown', heroContextMenuMouseDown, true);
+        document.addEventListener('keydown', heroContextMenuKeyDown, true);
+        window.addEventListener('scroll', closeHeroContextMenu, true);
+        window.addEventListener('blur', closeHeroContextMenu);
+    }, 0);
 }
 
 

@@ -274,17 +274,6 @@
       "health": 54
     }
   },
-  "Axe of Heavenly Mandate": {
-    "code": "ef315",
-    "name": "Axe of Heavenly Mandate",
-    "rarity": 3,
-    "role": "",
-    "stats": {
-      "attack": 18,
-      "defense": 0,
-      "health": 7
-    }
-  },
   "Azure Comet": {
     "code": "efw22",
     "name": "Azure Comet",
@@ -404,17 +393,6 @@
       "attack": 12,
       "defense": 0,
       "health": 45
-    }
-  },
-  "Blood-Seared Moon": {
-    "code": "ef506",
-    "name": "Blood-Seared Moon",
-    "rarity": 5,
-    "role": "",
-    "stats": {
-      "attack": 15,
-      "defense": 0,
-      "health": 54
     }
   },
   "Bloodbead Dagger": {
@@ -912,17 +890,6 @@
       "health": 76
     }
   },
-  "Elegiac Candles": {
-    "code": "efr25",
-    "name": "Elegiac Candles",
-    "rarity": 5,
-    "role": "",
-    "stats": {
-      "attack": 9,
-      "defense": 0,
-      "health": 76
-    }
-  },
   "Elf's Bow": {
     "code": "ef202",
     "name": "Elf's Bow",
@@ -1146,17 +1113,6 @@
   "Fullmetal's Automail": {
     "code": "efw28",
     "name": "Fullmetal's Automail",
-    "rarity": 5,
-    "role": "warrior",
-    "stats": {
-      "attack": 15,
-      "defense": 0,
-      "health": 54
-    }
-  },
-  "Fullmetals Automail": {
-    "code": "efw28",
-    "name": "Fullmetals Automail",
     "rarity": 5,
     "role": "warrior",
     "stats": {
@@ -2298,17 +2254,6 @@
       "health": 32
     }
   },
-  "Sharpshooters Handgun": {
-    "code": "efr20",
-    "name": "Sharpshooters Handgun",
-    "rarity": 5,
-    "role": "ranger",
-    "stats": {
-      "attack": 21,
-      "defense": 0,
-      "health": 32
-    }
-  },
   "Shepherd of the Hollow": {
     "code": "efa15",
     "name": "Shepherd of the Hollow",
@@ -2593,17 +2538,6 @@
       "attack": 15,
       "defense": 0,
       "health": 54
-    }
-  },
-  "Succubus Mirror": {
-    "code": "ef427",
-    "name": "Succubus Mirror",
-    "rarity": 4,
-    "role": "",
-    "stats": {
-      "attack": 8,
-      "defense": 0,
-      "health": 67
     }
   },
   "Summer Photogenic": {

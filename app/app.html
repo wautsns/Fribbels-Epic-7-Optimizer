@@ -96,7 +96,7 @@ window.jQuery = $;
           <select id="gvg-filter-0" class="gvgFilterSelect gvgFilterHeroSelect"></select>
           <select id="gvg-filter-1" class="gvgFilterSelect gvgFilterHeroSelect"></select>
           <select id="gvg-filter-2" class="gvgFilterSelect gvgFilterHeroSelect"></select>
-          <button type="button" id="clearGvgFilter" class="gvgFilterClear" data-t>Clear</button>
+          <input type="submit" value="Clear" id="clearGvgFilter" class="gvgFilterClear" data-t>
         </div>
 
         <div class="gvgTableContainer">
@@ -110,6 +110,7 @@ window.jQuery = $;
           <input type="submit" value="Import" class="gearPreviewButton" id="gvg-import" data-t>
           <input type="submit" value="Remove duplicates" class="gearPreviewButton" id="gvg-dedupe" data-t>
           <input type="submit" value="Clear" class="gearPreviewButton" id="gvg-clear" data-t>
+          <input type="submit" value="Clear team markers" class="gearPreviewButton gvgClearTeamsButton" id="gvg-clear-teams" data-t>
         </div>
       </div>
     </div>
@@ -121,6 +122,9 @@ window.jQuery = $;
             <select id="addHeroesSelector" class="gearPreviewButton"></select>
 
             <input type="submit" value="Add New Hero" class="gearPreviewButton" id="addHeroesSubmit" data-t>
+
+            <!-- 一队 / 二队存在时，英雄列表只显示对应的角色条目 -->
+            <span id="heroesTeamFilterNote" class="heroesTeamFilterNote" style="display:none"></span>
           </div>
 
 
@@ -218,17 +222,6 @@ window.jQuery = $;
         <div class="buildsTableContainer">
           <div id="builds-table" class="ag-theme-balham"></div>
         </div>
-        <div class="heroesTabButtonRow">
-          <input type="submit" value="Add Bonus Stats" class="gearPreviewButton" id="addHeroStatsSubmit" data-t>
-          <input type="submit" value="Add Substat Mods" class="gearPreviewButton" id="addSubstatModsSubmit" data-t>
-          <input type="submit" value="Set Hero Rank" class="gearPreviewButton" id="setHeroRankSubmit" data-t>
-
-          <input type="submit" value="Equip Build" class="gearPreviewButton" id="equipBuildSubmit" data-t>
-          <input type="submit" value="Rename Build" class="gearPreviewButton" id="editBuildSubmit" data-t>
-          <input type="submit" value="Save As Build" class="gearPreviewButton" id="saveAsBuildSubmit" data-t>
-          <input type="submit" value="Remove Build" class="gearPreviewButton" id="removeBuildSubmit" data-t>
-          <input type="submit" value="Remove Hero" class="gearPreviewButton" id="removeHeroesSubmit" data-t>
-        </div>
 
         <div id="heroes-equipped-section">
           <div id="heroes-equipped-weapon" class="gear-preview-row">
@@ -243,15 +236,6 @@ window.jQuery = $;
           </div>
           <div id="heroes-equipped-boots" class="gear-preview-row">
           </div>
-        </div>
-
-        <div class="heroesTabButtonRow">
-          <input type="submit" value="One-Click Equip" class="gearPreviewButton" id="emulatorSelectHero" data-t>
-          <input type="submit" value="Unequip Items" class="gearPreviewButton" id="unequipHeroesSubmit" data-t>
-          <input type="submit" value="Lock Items" class="gearPreviewButton" id="lockHeroesSubmit" data-t>
-          <input type="submit" value="Unlock Items" class="gearPreviewButton" id="unlockHeroesSubmit" data-t>
-          <input type="submit" value="Select All" class="gearPreviewButton" id="heroPreviewSelectAll" data-t>
-          <input type="submit" value="Deselect All" class="gearPreviewButton" id="heroPreviewDeselectAll" data-t>
         </div>
 
       </div>
@@ -871,10 +855,7 @@ window.jQuery = $;
           <input type="submit" value="Reforge Item" class="gearPreviewButton" id="reforgeGear" data-t>
           <input type="submit" value="Add New Item" class="gearPreviewButton" id="addGear" data-t>
           <input type="submit" value="Remove Items" class="gearPreviewButton" id="removeGear" data-t>
-          <input type="submit" value="Unequip Items" class="gearPreviewButton" id="unequipGear" data-t>
           <input type="submit" value="Unequip All Items" class="gearPreviewButton" id="unequipAllGear" data-t>
-          <input type="submit" value="Lock Items" class="gearPreviewButton" id="lockGear" data-t>
-          <input type="submit" value="Unlock Items" class="gearPreviewButton" id="unlockGear" data-t><br><br>
         </div>
 
         <div class="panelLabel">
@@ -1068,80 +1049,69 @@ window.jQuery = $;
                   <b data-t>Main stats</b>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatAttackPercentFilter">
                       <img class="gearTabIcon" id="mainStatAttackPercentFilterIcon" src="./assets/statatkpercentdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Attack %</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatAttackFilter">
                       <img class="gearTabIcon" id="mainStatAttackFilterIcon" src="./assets/statatkdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Attack</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatHealthPercentFilter">
                       <img class="gearTabIcon" id="mainStatHealthPercentFilterIcon" src="./assets/stathppercentdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Health %</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatHealthFilter">
                       <img class="gearTabIcon" id="mainStatHealthFilterIcon" src="./assets/stathpdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Health</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatDefensePercentFilter">
                       <img class="gearTabIcon" id="mainStatDefensePercentFilterIcon" src="./assets/statdefpercentdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Defense %</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatDefenseFilter">
                       <img class="gearTabIcon" id="mainStatDefenseFilterIcon" src="./assets/statdefdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Defense</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatCrFilter">
                       <img class="gearTabIcon" id="mainStatCrFilterIcon" src="./assets/statcrdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Crit Chance</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatCdFilter">
                       <img class="gearTabIcon" id="mainStatCdFilterIcon" src="./assets/statcddark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Crit Damage</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatEffFilter">
                       <img class="gearTabIcon" id="mainStatEffFilterIcon" src="./assets/stateffdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Effectiveness</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatEffResFilter">
                       <img class="gearTabIcon" id="mainStatEffResFilterIcon" src="./assets/statresdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Effect Resist</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="mainStatSpeedFilter">
                       <img class="gearTabIcon" id="mainStatSpeedFilterIcon" src="./assets/statspddark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Speed</div>
                     </div>
                   </div>
                 </div>
@@ -1152,86 +1122,74 @@ window.jQuery = $;
                   <b data-t>Sub stats</b>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatAttackPercentFilter">
                       <img class="gearTabIcon" id="subStatAttackPercentFilterIcon" src="./assets/statatkpercentdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Attack %</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatAttackFilter">
                       <img class="gearTabIcon" id="subStatAttackFilterIcon" src="./assets/statatkdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Attack</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatHealthPercentFilter">
                       <img class="gearTabIcon" id="subStatHealthPercentFilterIcon" src="./assets/stathppercentdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Health %</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatHealthFilter">
                       <img class="gearTabIcon" id="subStatHealthFilterIcon" src="./assets/stathpdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Health</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatDefensePercentFilter">
                       <img class="gearTabIcon" id="subStatDefensePercentFilterIcon" src="./assets/statdefpercentdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Defense %</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatDefenseFilter">
                       <img class="gearTabIcon" id="subStatDefenseFilterIcon" src="./assets/statdefdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Defense</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatCrFilter">
                       <img class="gearTabIcon" id="subStatCrFilterIcon" src="./assets/statcrdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Crit Chance</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatCdFilter">
                       <img class="gearTabIcon" id="subStatCdFilterIcon" src="./assets/statcddark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Crit Damage</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatEffFilter">
                       <img class="gearTabIcon" id="subStatEffFilterIcon" src="./assets/stateffdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Effectiveness</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatEffResFilter">
                       <img class="gearTabIcon" id="subStatEffResFilterIcon" src="./assets/statresdark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Effect Resist</div>
                     </div>
                   </div>
                 </div>
                 <div class="gearTabFilterLongRow">
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton" id="subStatSpeedFilter">
                       <img class="gearTabIcon" id="subStatSpeedFilterIcon" src="./assets/statspddark.png"></img>
-                      <div class="gearTabButtonLabel" data-t>Speed</div>
                     </div>
                   </div>
-                  <div class="gearTabLongButton">
+                  <div class="gearTabIconOnlyButton">
                     <div class="gearTabButton clearSubstatsFilterButton" id="clearSubstatsFilter">
                       <img class="gearTabIcon" id="clearSubstatsFilterIcon" src="./assets/trash.png" style="opacity:0.8"></img>
-                      <div class="gearTabButtonLabel" data-t>Clear</div>
                     </div>
                   </div>
                 </div>
@@ -1462,7 +1420,7 @@ window.jQuery = $;
     <div id="enhancingSection" class="tab-panel">
 
       <div class="enhanceGuide" data-t>
-        Click on the magnifying glass on an item to analyze it.
+        Double-click the gear icon at the top-left of an item to analyze it.
       </div>
 
       <div class="enhanceContainer">
@@ -1481,15 +1439,7 @@ window.jQuery = $;
       </div>
 
       <div class="enhanceSecondRow">
-        <div class="enhanceChart" id="chart1">
-        </div>
-
-        <div class="radarChart" id="chart2">
-        </div>
-      </div>
-
-      <div class="enhanceThirdRow">
-        <div class="gsChart" id="gsChart">
+        <div class="scoreRadar" id="scoreRadar1">
         </div>
       </div>
     </div>

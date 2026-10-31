@@ -638,6 +638,21 @@ module.exports = {
         });
     },
 
+    htmlConfirmation: async (html, title = '') => {
+        return new Promise(async (resolve, reject) => {
+            const result = await Swal.fire({
+                title: title,
+                html: html,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: i18next.t("OK"),
+                cancelButtonText: i18next.t("Cancel")
+            });
+
+            resolve(result.value);
+        });
+    },
+
     editModStatsDialog: async (hero) => {
         return new Promise(async (resolve, reject) => {
             const getAllHeroesResponse = await Api.getAllHeroes();

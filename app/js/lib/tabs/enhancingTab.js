@@ -1,9 +1,77 @@
 var echarts = require('echarts');
 
 barsCharts = [undefined, undefined, undefined, undefined];
-guageChart = undefined;
-radarChart = undefined;
-gsChart = undefined;
+scoreRadar = undefined;
+
+/*
+ * 评分雷达图：12 轴（一速/速度/输出/必爆输出/半肉/白字半肉/血防半肉/抗性坦/命中坦/纯肉坦/双效/未来可期）
+ * 轴上限固定（见 gearScoreTable.js 的 RADAR_AXES），所以不同装备之间可以直接比
+ */
+function drawScoreRadar(item) {
+    if (!item || !global.GearScoreTable || !scoreRadar) return;
+
+    const profile = GearScoreTable.scoreItem(item);
+    const axes = GearScoreTable.RADAR_AXES;
+    const textColor = DarkMode.isDark() ? '#e2e2e2' : '#363636';
+    const lineColor = DarkMode.isDark() ? '#7cc4ff' : '#1e90ff';
+    const gridColor = DarkMode.isDark() ? '#3a3f45' : '#e0e0e0';
+
+    /*
+     * 外圈 = 装等 70 分（毕业线），超过的分数要画到圈外：
+     * 直接按比例画会远远飞出画布（有的类别能到 5~6 倍），所以超出部分用开立方压缩，
+     * 保证形状明显突出外圈又不会跑到画布外面；点上的标签始终显示真实分值。
+     */
+    const values = axes.map((axis) => {
+        const score = profile[axis.key] || 0;
+        const max = axis.max || 10;
+        if (score <= max) return score;
+        return max * Math.cbrt(score / max);
+    });
+
+    scoreRadar.setOption({
+        tooltip: {
+            trigger: 'item',
+            // 悬浮提示里也统一 1 位小数
+            formatter: () => axes
+                .map((axis) => `${axis.label}: ${Number(profile[axis.key] || 0).toFixed(2)}`)
+                .join('<br/>'),
+        },
+        radar: {
+            indicator: axes.map((axis) => ({ name: axis.label, max: axis.max || 10 })),
+            // 外圈只占一半左右，给「超出毕业线」的部分留出画布空间
+            radius: '46%',
+            center: ['50%', '50%'],
+            axisName: { color: textColor, fontSize: 12 },
+            axisLabel: { show: false },
+            splitNumber: 4,
+            splitLine: { lineStyle: { color: gridColor } },
+            axisLine: { lineStyle: { color: gridColor } },
+            splitArea: { show: false },
+        },
+        series: [{
+            type: 'radar',
+            symbolSize: 5,
+            data: [{
+                value: values,
+                name: i18next.t('Gear scores'),
+                areaStyle: { opacity: 0.3 },
+                lineStyle: { color: lineColor, width: 2 },
+                itemStyle: { color: lineColor },
+                label: {
+                    show: true,
+                    fontSize: 11,
+                    color: textColor,
+                    // 显示真实分值（不受超圈压缩影响），统一保留 2 位小数
+                    formatter: (params) => {
+                        const axis = axes[params.dimIndex];
+                        const real = Number(axis ? profile[axis.key] : params.value) || 0;
+                        return real > 0 ? real.toFixed(2) : '';
+                    },
+                },
+            }],
+        }],
+    }, true);
+}
 
 const maxes = {
     "Attack": 346 * 1.5,
@@ -45,16 +113,6 @@ const statToReadableText = {
     "CriticalHitDamagePercent": "Crit Dmg",
     "EffectivenessPercent": "Eff",
     "EffectResistancePercent": "Eff Res"
-}
-
-function calculateMaxPossibleScore(item) {
-    var total = 0;
-
-    for (substat of item.substats) {
-        total += substat.reforgedMax * substatWeights[substat.type]
-    }
-
-    return total;
 }
 
 function calculateScoreTotals(item) {
@@ -246,14 +304,10 @@ module.exports = {
             }
         }
 
-        var chartDom = document.getElementById('chart1');
-        guageChart = echarts.init(chartDom, DarkMode.isDark() ? 'dark' : undefined);
-
-        var radarChartDom = document.getElementById('chart2');
-        radarChart = echarts.init(radarChartDom, DarkMode.isDark() ? 'dark' : undefined);
-
-        var gsChartDom = document.getElementById('gsChart');
-        gsChart = echarts.init(gsChartDom, DarkMode.isDark() ? 'dark' : undefined);
+        const scoreRadarDom = document.getElementById('scoreRadar1');
+        if (scoreRadarDom) {
+            scoreRadar = echarts.init(scoreRadarDom, DarkMode.isDark() ? 'dark' : undefined);
+        }
 
         initializeBars()
         // const getAllItemsResponse = await Api.getAllItems();
@@ -287,7 +341,6 @@ module.exports = {
     },
 
     redrawEnhanceGuide: async (item) => {
-        var simulationResults = ItemSimulator.simulate(item);
         setTheme();
         Reforge.calculateMaxes(item);
         console.log("redraw", item);
@@ -295,88 +348,6 @@ module.exports = {
         const baseStats = null;
         const html = HtmlGenerator.buildItemPanel(item, "enhanceTab", baseStats, true)
         document.getElementById("enhanceTabPreview").innerHTML = html;
-
-
-        // Guage
-
-
-
-        var maxScore = Math.floor(calculateMaxPossibleScore(item));
-        var maxPerEnhance = [
-            40,
-            48,
-            56,
-            64,
-            72,
-            80
-        ]
-        var percent = Utils.round10ths(item.reforgedWss/maxScore*100)
-        var option = {
-            tooltip: {
-                formatter: '{a} <br/>{b} : {c}%'
-            },
-            series: [{
-                name: 'Rating',
-                type: 'gauge',
-                startAngle: 225,
-                radius: '90%',
-                endAngle: -45,
-                // max: 80,
-                max: maxPerEnhance[Math.floor(item.enhance/3)],
-                splitNumber: 8,
-                detail: {
-                    // formatter: '{value}',
-                    formatter: '{value}' + ' / ' + maxScore + '\n ' + percent + '%',
-                    fontSize: 18,
-                    lineHeight: 20,
-                    offsetCenter: [0, '15%'],
-                    color: DarkMode.isDark() ? '#f0f0f0' : '#363636'
-                },
-                axisLabel: {
-                    color: DarkMode.isDark() ? '#f0f0f0' : '#363636',
-                    formatter: function (value) {
-                        return Math.round(value);
-                    }
-                },
-                axisLine: {
-                    lineStyle: {
-                        width: 6,
-                        color: [
-                            [40/80, '#FF6E76'],
-                            [50/80, '#ffb340'],
-                            [60/80, '#FDDD60'],
-                            [70/80, '#7CFFB2'],
-                            [1, '#58D9F9']
-                        ]
-                    }
-                },
-                title: {
-                    offsetCenter: [0, '-10%'],
-                    color: DarkMode.isDark() ? '#f0f0f0' : '#363636'
-                },
-                data: [{
-                    value: item.reforgedWss,
-                    name: i18next.t('SCORE')
-                }],
-                pointer: {
-                    icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
-                    length: '25%',
-                    width: 20,
-                    offsetCenter: [0, '-40%'],
-                    itemStyle: {
-                        color: 'auto'
-                    }
-                },
-                tooltip: {
-                    trigger: false,
-                    formatter: function (value) {
-                        return "asdffsd" + value;
-                    }
-                }
-            }]
-        };
-
-        guageChart.setOption(option);
 
         // Stats
 
@@ -422,9 +393,6 @@ module.exports = {
         // leftText += "Score: <br>";
         // rightText += item.reforgedWss + "<br>";
 
-        // leftText += "Score: <br>";
-        // rightText += maxScore + "<br>";
-
         // leftText += "Dps score: <br>";
         // rightText += item.dpsWss + "<br>";
 
@@ -439,136 +407,9 @@ module.exports = {
         // $('#statsLeft').html(leftText)
         // $('#statsRight').html(rightText)
 
-        // Radar
+        // 评分雷达图
+        drawScoreRadar(item);
 
-        var ratings = GearRating.rate(item);
-        // var archetypes = GearRating.getArchetypes();
-        ratings.forEach(x => x.max = 2)
-
-        // console.error(ratings);
-        var option;
-
-        option = {
-            // title: {
-            //     text: 't'
-            // },
-            // legend: {
-            //     data: ['x']
-            // },
-            radar: {
-                // shape: 'circle',
-                indicator: ratings
-            },
-            tooltip: {
-                trigger: 'item'
-            },
-            series: [{
-                name: 'Scores',
-                type: 'radar',
-                areaStyle: {},
-                data: [
-                    {
-                        // value: [1, 2, 3, 4,5,6,7],
-                        value: ratings.map(x => Utils.round100ths(x.score)),
-                        name: i18next.t('Archetypes')
-                    },
-                ]
-            }]
-        };
-
-        option && radarChart.setOption(option);
-
-        // GS
-
-        if (item.enhance < 16) {
-            var gs = simulationResults.gsArr;
-            var moddedGs = simulationResults.moddedGsArr
-
-            var min = Math.min(Math.min(...gs), Math.min(...moddedGs)) - 1
-            var max = Math.max(Math.max(...gs), Math.max(...moddedGs)) + 1
-
-            function generateLineArr(gs, min, max) {
-                // var minGs = Math.min(...gs)
-                // var maxGs = Math.max(...gs)
-                var xArr = []
-                var yArr = []
-                var count = 0;
-                for (var i = min; i <= max; i++) {
-                    xArr[count] = i;
-                    yArr[count] = 0;
-                    count++;
-                }
-                for (var result of gs) {
-                    var index = result - min;
-                    yArr[index]++
-                }
-
-                var n = ItemSimulator.getSimulationN();
-                for (var i = 0; i < yArr.length; i++) {
-                    yArr[i] = yArr[i] / n * 100
-                }
-
-                if (item.enhance >= 15) {
-                    for (var i = 0; i <= yArr.length; i++) {
-                        if (yArr[i] == 0) {
-                            yArr[i] = undefined;
-                        }
-                    }
-                }
-                return {
-                    xArr: xArr,
-                    yArr: yArr,
-                }
-            }
-
-            var gsSeries = generateLineArr(gs, min, max)
-            var moddedGsSeries = generateLineArr(moddedGs, min, max)
-
-            var option = {
-                xAxis: {
-                    type: 'category',
-                    data: gsSeries.xArr
-                },
-                yAxis: {
-                    type: 'value'
-                },
-                legend: {
-                    data: ['GS probabilities', 'GS probabilities with max substat mod']
-                },
-                series: [
-                    {
-                        name: 'GS probabilities',
-                        data: gsSeries.yArr,
-                        type: (item.enhance >= 15 ? 'scatter' : 'line'),
-                        areaStyle: {},
-                        smooth: true
-                    },
-                    {
-                        name: 'GS probabilities with max substat mod',
-                        data: moddedGsSeries.yArr,
-                        type: (item.enhance >= 15 ? 'scatter' : 'line'),
-                        areaStyle: {},
-                        smooth: true,
-                        lineStyle: {color: '#71de7c'},
-                        itemStyle: {color: '#71de7c'}
-                    },
-                ],
-                xAxis: {
-                    type: 'category',
-                    name: 'Gear score',
-                    data: gsSeries.xArr
-                },
-                yAxis: [{
-                    type: 'value',
-                    name: '% chance',
-                    tickAmount: 16
-                    // ...
-                }]
-            };
-            // option.yaxis.labels.formatter = val => val.toFixed(2)
-            option && gsChart.setOption(option);
-
-        }
         // Bars
 
         function buildBars(id, showAxis, item, index) {
@@ -596,7 +437,12 @@ module.exports = {
                     }
                 },
                 grid: {
-                    left: '10%',
+                    // 左边留给副属性名字（containLabel 自动量），右边留给 “当前 / 最大 (百分比)” 那串文字
+                    left: 4,
+                    right: 130,
+                    top: 0,
+                    bottom: 0,
+                    containLabel: true,
                 },
                 xAxis: {
                     show: false,

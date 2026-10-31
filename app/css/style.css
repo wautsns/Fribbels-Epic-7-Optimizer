@@ -268,29 +268,34 @@ input, button {
   border-radius: 7px;
 }
 
-/* 配装器底部那 6 件装备：去掉放大镜按钮后把卡片压窄，6 张能在一排里放下。
-   卡片内部最宽的是头部（装备图标 33 + 等级 44 + 材料 34+12 + 英雄头像 48），
-   所以头部几块要一起收一点，否则窄卡片会被内容撑开。 */
-#optimizer-equipped-section .gear-preview-row {
-  width: 152px;
+/* 配装器 / 英雄页底部那 6 件装备：两处必须用同一套尺寸，否则窄窗口下会出现横向滚动条。
+   卡片内部最宽的是头部（装备图标 30 + 等级 38 + 材料 34+6 + 英雄头像 40 = 148），
+   所以内容宽度不能低于 148，否则窄卡片会被内容撑开。 */
+#optimizer-equipped-section .gear-preview-row,
+#heroes-equipped-section .gear-preview-row {
+  width: 150px;
   padding: 10px 10px 5px;
-  margin-right: 8px;
+  margin-right: 6px;
   flex-shrink: 0;
 }
 
-#optimizer-equipped-section .gear-preview-row .itemDisplayHeaderData {
+#optimizer-equipped-section .gear-preview-row .itemDisplayHeaderData,
+#heroes-equipped-section .gear-preview-row .itemDisplayHeaderData {
   width: 38px;
 }
 
-#optimizer-equipped-section .gear-preview-row .itemDisplayEquippedHero {
+#optimizer-equipped-section .gear-preview-row .itemDisplayEquippedHero,
+#heroes-equipped-section .gear-preview-row .itemDisplayEquippedHero {
   height: 40px;
 }
 
-#optimizer-equipped-section .gear-preview-row .itemDisplayMaterial {
+#optimizer-equipped-section .gear-preview-row .itemDisplayMaterial,
+#heroes-equipped-section .gear-preview-row .itemDisplayMaterial {
   padding-right: 6px;
 }
 
-#optimizer-equipped-section .gear-preview-row .gearTypeImg {
+#optimizer-equipped-section .gear-preview-row .gearTypeImg,
+#heroes-equipped-section .gear-preview-row .gearTypeImg {
   width: 30px;
   height: 30px;
 }
@@ -705,6 +710,30 @@ input[type=number]::-webkit-outer-spin-button {
   height: 29px;
   vertical-align: middle;
 }
+/* builds 列表「功能列」：装备 / 脱下 / 一键换装 / 删除，四个都是 FontAwesome 24px 实心字形 */
+.buildGlyph {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+  line-height: 24px;
+  text-align: center;
+  vertical-align: middle;
+  margin-right: 6px;
+  cursor: pointer;
+  opacity: 0.8;
+  /* 跟随主题文字色，深色模式下也可见 */
+  color: inherit;
+}
+.buildGlyph:hover {
+  opacity: 1;
+  color: #06c;
+}
+/* 一键换装运行中：转圈图标高亮一点，提示“再点一下可中断” */
+.buildRunningIcon {
+  opacity: 1;
+  color: #06c;
+}
 .shrinkSets {
   height: 26px;
   vertical-align: middle;
@@ -1041,7 +1070,8 @@ input[type=number]::-webkit-outer-spin-button {
     font-weight: 400;
 }
 .heroesTabButtonRow {
-  padding-bottom: 4px;
+  /* 上下留一样的 4px，整排才会在空白区域里垂直居中 */
+  padding: 4px 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -1187,6 +1217,13 @@ body.dark-theme input {
   min-width: 135px;
   height: 40px;
 }
+/* 主属性 / 副属性 过滤按钮：只显示图标，所以是方块
+   里面 .gearTabButton 实际宽 42 + 边框 2 + 右边距 3 = 47 */
+.gearTabIconOnlyButton {
+  width: 47px;
+  min-width: 47px;
+  height: 40px;
+}
 .gearTabMediumButton {
   width: 100px;
   min-width: 100px;
@@ -1252,7 +1289,8 @@ body.dark-theme input {
   width: 290px;
 }
 .gearTabSetFilter {
-  width: 750px;
+  /* 套装图标一行最多 13 个 × 40px = 520，原来写死 750 正好把整页撑宽 */
+  width: auto;
 }
 .gearTabSetFilterIconsRow {
   display: flex;
@@ -1264,16 +1302,19 @@ body.dark-theme input {
   margin-bottom: 20px;
 }
 .gearTabOtherFiltersRow {
-  width: 900px;
+  /* 原来是写死 900px，按钮瘦下来以后右侧全是空白，还会把整页撑出横向滚动条 */
+  width: auto;
   display: flex;
   flex-direction: row;
 }
 .gearTabMainStatFilter {
-  width: 300px;
+  width: 96px;
+  min-width: 96px;
   margin-right: 20px;
 }
 .gearTabSubstatFilter {
-  width: 300px;
+  width: 96px;
+  min-width: 96px;
   margin-right: 35px;
 }
 .gearTabFilterLongRow {
@@ -1331,15 +1372,23 @@ body.dark-theme input {
   cursor: pointer;
 }
 .reforgeSwitch {
-  min-width: 180px;
-  display: inline-block;
-  float: right;
+  /* 原来固定 180px 且不带 nowrap，窗口一窄标签就换行；
+     改成按内容宽度、整体不换行 */
+  min-width: 0;
+  /* 不被压缩、不参与 flex-grow；显式 align-self 保证和左边那排图标行同高居中 */
+  flex: none;
+  align-self: center;
+  height: 32px;
+  white-space: nowrap;
+  /* 文字和开关垂直居中对齐 */
+  align-items: center;
   margin-left: auto;
   display: flex;
   flex-direction: row;
 }
 .reforgeSwitchLabel {
   margin-right: 5px;
+  white-space: nowrap;
 }
 .switch {
   position: relative;
@@ -1394,15 +1443,55 @@ body.dark-theme input {
 
 
 .heroesTabTopButtonRowLeft {
-  height: 20px;
-  display:inline-block;
+  /* 和右边几组统一用 32px 高的盒子 + flex 居中：
+     原来是 inline-block，里面 select/按钮按基线排，会整体偏上 */
+  height: 32px;
+  display: flex;
+  align-items: center;
   margin-right: auto;
+}
+/* 「添加英雄」按钮外观跟装备页的「重铸装备」完全一致（原生 input[type=submit] 默认尺寸），
+   所以这里只保留宽度和左右间距，不再压高度 / 行高；旁边的英雄下拉仍是 28px */
+.heroesTabTopButtonRowLeft #addHeroesSelector {
+  height: 28px;
+  margin: 0 8px 0 0;
+  box-sizing: border-box;
+}
+/* 添加英雄按钮比默认的 140px 窄一点，给右边那排筛选腾地方 */
+.heroesTabTopButtonRowLeft #addHeroesSubmit {
+  width: 110px;
+  margin: 0;
+}
+/* 一队 / 二队存在时的提示：「英雄列表只显示这些角色」 */
+.heroesTeamFilterNote {
+  margin-left: 10px;
+  font-size: 12px;
+  color: #06c;
+  white-space: nowrap;
 }
 
 .heroesTabTopButtonRowRight {
-  height: 30px;
-  display:inline-block;
-  margin-right: 25px;
+  /* 里面的图标按钮是 32px 高，盒子也按 32px 算，否则整行居中时图标会偏下、
+     右边「使用重铸后的属性」开关看起来会偏上 */
+  height: 32px;
+  display: flex;
+  align-items: center;
+  /* 原来是 25px，三组加起来挤掉了 75px，把「使用重铸后的属性」挤到第二行 */
+  margin-right: 10px;
+}
+/* .gearTabButton 本身是 42px 高，装在 32px 的英雄筛选排里会上下各溢出 5px，
+   导致这一排跟左边的下拉框/右边的开关不共中线，这里压回 32px */
+.heroesTabButtonRow .heroTabButton {
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+.heroesTabButtonRow .heroTabButton .gearTabButton {
+  height: 32px;
+  min-height: 32px;
+}
+.heroesTabButtonRow .gearTabSetFilterIconsRow {
+  align-items: center;
 }
 .heroTabButton {
   /*width: 32px;*/
@@ -1592,6 +1681,11 @@ body.dark-theme input {
   resize: vertical;
   overflow: hidden;
 }
+/* 装备列表表头不显示筛选图标 / 筛选菜单，筛选统一走左侧过滤面板 */
+#gear-grid .ag-filter-icon,
+#gear-grid .ag-header-cell-menu-button {
+  display: none !important;
+}
 #gear-grid {
   width: 100%;
 }
@@ -1608,16 +1702,21 @@ body.dark-theme input {
   width: 100%;
 }
 .heroesTableContainer {
-  min-height: 360px;
-  height: 360px;
+  /* 完整显示 8 行英雄、且不露出第 9 行顶部：8×36 + 外壳 55 = 343
+     （外壳 = 表头 24 + 分页条 + 内部横/纵滚动条，实测 55）。
+     原来 360 是「8 行 + 一段第 9 行」的高度，会导致页面超高 + 露出半行；
+     窗口更高时仍由 flex-grow 自动撑开 */
+  min-height: 343px;
+  height: 343px;
   flex-grow: 1;
   margin-top: 6px;
   resize: vertical;
   overflow: hidden;
 }
 .buildsTableContainer {
-  min-height: 163px;
-  height: 163px;
+  /* 4 条 builds：表头 24 + 4×27 + 分页 32 + 边框 ≈ 168，取 172 */
+  min-height: 172px;
+  height: 172px;
   flex-grow: 0.2;
   resize: vertical;
   overflow: hidden;
@@ -1974,15 +2073,9 @@ input:checked + .darkSlider:before {
 
 #enhanceTabPreview {
   width: 200px;
+  flex: none;
   margin-left: 50px;
 }
-.enhanceChart {
-  width: 270px;
-  height:  290px;
-  margin-left: 30px;
-  padding-top: 10px;
-}
-
 .enhanceContainer {
   display: flex;
   flex-direction: row;
@@ -1990,30 +2083,25 @@ input:checked + .darkSlider:before {
 }
 
 .bars {
-  width: 1000px;
+  /* 固定 600px（原来 1000px 会把整页撑出横向滚动条）；
+     1113px 窗口下 50(卡片缩进) + 200(卡片) + 70(容器缩进) + 600 = 920，右侧还留余量 */
+  width: 600px;
   height:  60px;
 }
 
-.radarChart {
-  margin-left: 50px;
-  width: 400px;
-  height:  250px;
-}
-
-.gsChart {
-  width: 820px;
-  height:  300px;
+.scoreRadar {
+  /* 单张 12 轴雷达图：宽度取窗口内容区放得下的最大值，避免出现横向滚动条 */
+  width: 720px;
+  height: 380px;
+  margin: 0 auto;
 }
 
 .enhanceSecondRow {
   display: flex;
   flex-direction: row;
-  height: 260px;
-}
-.enhanceThirdRow {
-  display: flex;
-  flex-direction: row;
-  height: 200px;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
 }
 .stats {
   min-width:  150px;
@@ -2200,7 +2288,9 @@ input:checked + .darkSlider:before {
   flex-direction: column;
   box-sizing: border-box;
   padding: 6px 8px;
-  overflow: hidden;
+  /* 纵向内容（作业列表 + 一队/二队列表）可能超过面板高度：允许纵向滚动，横向仍然裁掉 */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .gvgTitleRow {
   display: flex;
@@ -2234,22 +2324,14 @@ input:checked + .darkSlider:before {
   width: 168px;
   height: 26px;
 }
-/* 清空筛选：下拉是单选、没有「任意」项，用这个把三个筛选一起复位 */
-.gvgFilterClear {
-  height: 26px;
+/* 清空筛选：下拉是单选、没有「任意」项，用这个把三个筛选一起复位。
+   外观跟装备页的「重铸装备」一致（就是原生 input[type=submit] 的默认样子），
+   所以用元素选择器压过全局的 input[type=submit] 尺寸规则，只保留原来的左右内边距 */
+input[type=submit].gvgFilterClear {
+  height: 23px;
   padding: 0 10px;
-  font: inherit;
-  font-size: 12px;
-  line-height: 24px;
-  border-radius: 5px;
-  border: 1px solid #cfcfcf;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  opacity: 0.8;
-}
-.gvgFilterClear:hover {
-  opacity: 1;
+  line-height: 21px;
+  margin: 0;
 }
 /* 6 行 * 36px 行高 + 32px 表头：列表不占满面板，下方留给其它功能 */
 .gvgTableContainer {
@@ -2273,6 +2355,10 @@ input:checked + .darkSlider:before {
   object-fit: contain;
   margin-right: 2px;
   vertical-align: middle;
+}
+/* 「清除一二队标记」和「清空」之间隔 16px：前面的按钮自带 margin-right:10px，这里再补 6px */
+.gvgClearTeamsButton {
+  margin-left: 6px;
 }
 .gvgTagRow {
   display: flex;
@@ -2315,26 +2401,36 @@ input:checked + .darkSlider:before {
   display: inline-block;
   color: #333;
 }
-/* 置队按钮：① / ②，和前面的图标按钮一样大，无边框无底色。
-   ①② 是文字字形，默认偏细且基线偏上，所以加粗 + 用 flex 精确居中。 */
+/* 置队按钮：数字徽章（1 = 一队，2 = 二队）。
+   当前被置为该队的那一份用强调色，其余是深灰实心（和行内图标同色系）。 */
 .gvgPinButton {
-  width: 18px;
-  height: 18px;
-  border: none;
-  background: transparent;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
   padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: #333;
+  color: #fff;
   font-family: inherit;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1;
-  color: #333;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   vertical-align: middle;
+  cursor: pointer;
 }
-.gvgRowButton:not(.gvgPinButton):hover .fas,
 .gvgPinButton:hover {
+  background: #06c;
+}
+/* 当前的一队 / 二队 */
+.gvgPinButtonActive,
+.gvgPinButtonActive:hover {
+  background: #06c;
+}
+.gvgRowButton:not(.gvgPinButton):hover .fas {
   color: #06c;
 }
 
@@ -2540,4 +2636,27 @@ input:checked + .darkSlider:before {
 .gvgDetailFooter {
   margin-top: 6px;
   text-align: right;
+}
+
+/* ---------------- 英雄列表右键菜单 ---------------- */
+.heroContextMenu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 150px;
+  padding: 4px 0;
+  border: 1px solid var(--inactive-color, #cacaca);
+  border-radius: 4px;
+  background: var(--bg-color, #ffffff);
+  color: var(--font-color, #333333);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  user-select: none;
+}
+.heroContextMenuItem {
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.heroContextMenuItem:hover {
+  background: var(--input-color, #e0e0e0);
 }

@@ -22,17 +22,26 @@ global.heroesGrid = null;
 global.buildsGrid = null;
 var currentHeroes = [];
 var selectedBuildNode = null;
+// refreshBuilds 拉到的最新英雄数据（builds 功能列判断“已装备/未装备”用）
+var currentBuildsHero = null;
 
 var currentAggregate = {};
 
-/* 英雄列表的筛选状态（职业 / 属性），用外部过滤器实现 */
+/* 英雄列表的筛选状态（职业 / 属性 / GVG 一队二队），用外部过滤器实现 */
 var heroFilterState = {
     classFilter: null,
     elementFilter: null,
+    /* GVG 一队 / 二队存在时，只显示这些角色条目（hero id 集合），null = 不筛 */
+    teamHeroIds: null,
 };
 
 function matchesHeroFilters(hero) {
     if (!hero) return true;
+
+    const teamHeroIds = heroFilterState.teamHeroIds;
+    if (teamHeroIds && !teamHeroIds.has(hero.id)) {
+        return false;
+    }
 
     const classFilter = heroFilterState.classFilter;
     if (classFilter && !String(hero.role || '').toLowerCase().startsWith(classFilter.toLowerCase())) {
@@ -45,6 +54,23 @@ function matchesHeroFilters(hero) {
     }
 
     return true;
+}
+
+/* 英雄列表左上角的提示：一队 / 二队筛选生效时显示「只看这 N 个角色」 */
+function updateTeamFilterNote() {
+    const note = document.getElementById('heroesTeamFilterNote');
+    if (!note) return;
+
+    const ids = heroFilterState.teamHeroIds;
+    if (!ids || !ids.size) {
+        note.style.display = 'none';
+        note.innerText = '';
+        return;
+    }
+
+    note.style.display = 'inline';
+    note.innerText = `${i18next.t('GVG team filter')} (${ids.size})`;
+    note.title = i18next.t('Showing only the hero entries used by GVG team 1 / 2');
 }
 
 module.exports = {
@@ -96,6 +122,11 @@ module.exports = {
         heroesGrid.gridOptions.api.setRowData(heroes)
         heroesGrid.gridOptions.api.redrawRows();
 
+        // setRowData 之后外部过滤器不会自动重跑（GVG 一队/二队筛选靠它）
+        if (heroFilterState.teamHeroIds) {
+            heroesGrid.gridOptions.api.onFilterChanged();
+        }
+
         // 神器图标路径是异步取的（本地没有的会下载），取完再刷新这一列
         loadArtifactIcons(heroes).then((changed) => {
             if (changed) {
@@ -113,7 +144,7 @@ module.exports = {
                     node.setSelected(true, false);
                     heroesGrid.gridOptions.api.ensureNodeVisible(node);
                 }
-            } else {
+            } else if (selectedNode && selectedNode.data) {
                 if (node.data.id == selectedNode.data.id) {
                     node.setSelected(true, false);
                 }
@@ -133,37 +164,51 @@ module.exports = {
     },
 
     refreshBuilds: async (response) => {
+        // setRowData 会把 builds 的选中状态清掉，先记下当前选中的是哪一套（按 items 比对）
+        const selectedBuildSignature = getSelectedBuildSignature();
+
         const selectedRow = module.exports.getSelectedRow();
-        if (!selectedRow) return;
 
         var hero;
         if (response) {
             hero = response.hero;
-        } else {
+        } else if (selectedRow) {
             const useReforgedStats = HeroesTab.getUseReforgedStats();
             hero = (await Api.getHeroById(selectedRow.id, useReforgedStats)).hero;
+        } else if (currentBuildsHero) {
+            // 英雄表刚好丢过选中状态时，用上一次的英雄把 builds 重画出来
+            const useReforgedStats = HeroesTab.getUseReforgedStats();
+            hero = (await Api.getHeroById(currentBuildsHero.id, useReforgedStats)).hero;
+        } else {
+            return;
         }
+
+        // 功能列判断「已装备/未装备」要用这份最新数据
+        currentBuildsHero = hero;
 
         updateCurrentAggregate(hero);
         console.log("Refresh build selected hero row", hero);
         buildsGrid.gridOptions.api.setRowData(hero.builds == null ? [] : hero.builds)
 
-        const getMaybeSelectedRows = buildsGrid.gridOptions.api.getSelectedNodes()[0];
-        if (getMaybeSelectedRows) {
-            selectedBuildNode = getMaybeSelectedRows;
+        // 换上/脱下以后，功能列（穿上 <-> 脱下）必须整列按最新数据重画
+        buildsGrid.gridOptions.api.refreshCells({ columns: ['buildActions'], force: true });
+
+        // 再把刚才选中的那套配装选回来（保留蓝色高亮）
+        let newSelectedNode = null;
+        if (selectedBuildSignature) {
+            buildsGrid.gridOptions.api.forEachNode((node) => {
+                if (!newSelectedNode && buildSignature(node.data) === selectedBuildSignature) {
+                    newSelectedNode = node;
+                }
+            });
         }
 
-
-        if (!selectedBuildNode) {
+        if (!newSelectedNode) {
             return;
         }
 
-        buildsGrid.gridOptions.api.forEachNode((node) => {
-            if (JSON.stringify(node.data.items) == JSON.stringify(selectedBuildNode.data.items)) {
-                node.setSelected(true, false);
-            }
-        })
-        // })
+        newSelectedNode.setSelected(true, false);
+        selectedBuildNode = newSelectedNode;
     },
 
     getSelectedRow: () => {
@@ -196,6 +241,25 @@ module.exports = {
             api.onFilterChanged();
         }
     },
+
+    /**
+     * GVG 一队 / 二队筛选：传 hero id 数组表示"只显示这些角色条目"，传 null 表示不筛。
+     * 只改外部过滤器状态，不动 rowData（数据还是全量，取消筛选立刻恢复）。
+     */
+    setTeamFilter: (heroIds) => {
+        heroFilterState.teamHeroIds = heroIds && heroIds.length
+            ? new Set(heroIds.map((id) => Number(id)))
+            : null;
+
+        const api = heroesGrid && heroesGrid.gridOptions && heroesGrid.gridOptions.api;
+        if (api) {
+            api.onFilterChanged();
+        }
+
+        updateTeamFilterNote();
+    },
+
+    getTeamFilter: () => heroFilterState.teamHeroIds,
 
     redrawPreview: async () => {
         const heroRow = module.exports.getSelectedRow();
@@ -582,13 +646,21 @@ function buildGrid(localeText) {
         onRowDragLeave: onRowDragLeave,
         onSortChanged: onSortChanged,
         onFilterChanged: onFilterChanged,
-        // 职业 / 属性筛选：格子里是图片，用外部过滤器按数据字段筛选
-        isExternalFilterPresent: () => !!(heroFilterState.classFilter || heroFilterState.elementFilter),
+        // 职业 / 属性 / GVG 一队二队筛选：格子里是图片，用外部过滤器按数据字段筛选
+        isExternalFilterPresent: () => !!(heroFilterState.classFilter || heroFilterState.elementFilter || heroFilterState.teamHeroIds),
         doesExternalFilterPass: (node) => matchesHeroFilters(node.data),
         suppressMoveWhenRowDragging: true,
         onRowDoubleClicked: onRowDoubleClicked,
         suppressCellSelection: true,
         enableRangeSelection: false,
+        // 右键菜单：社区版没有原生菜单，这里自己弹（先选中右键所在行）
+        suppressContextMenu: true,
+        onCellContextMenu: (params) => {
+            if (!params.data || !params.event) return;
+            params.event.preventDefault();
+            params.node.setSelected(true);
+            HeroesTab.showHeroContextMenu(params.event, params.data);
+        },
 
         animateRows: true,
         immutableData: true,
@@ -611,7 +683,6 @@ function buildGrid(localeText) {
             // valueFormatter: numberFormatter,
         },
         columnDefs: [
-            {headerName: i18next.t('name'), field: 'name', width: 400},
             {headerName: i18next.t('sets'), field: 'sets', width: 100, cellRenderer: (params) => GridRenderer.renderSets(params.value)},
             {headerName: i18next.t('atk'), field: 'atk'},
             {headerName: i18next.t('def'), field: 'def'},
@@ -635,13 +706,24 @@ function buildGrid(localeText) {
             {headerName: i18next.t('s1'), field: 's1', width: 50},
             {headerName: i18next.t('s2'), field: 's2', width: 50},
             {headerName: i18next.t('s3'), field: 's3', width: 50},
-            {headerName: i18next.t('gs'), field: 'score', width: 40},
-            {headerName: i18next.t('bs'), field: 'bs', width: 40},
-            // {headerName: i18next.t('upg'), field: 'upgrades', width: 35},
+            // 功能列：装备这套配装 / 删除这套配装
+            {
+                headerName: '',
+                colId: 'buildActions',
+                width: 114,
+                sortable: false,
+                resizable: false,
+                suppressMovable: true,
+                cellRenderer: (params) => HtmlGenerator.buildBuildActionsCell(
+                    isBuildEquipped(params.data),
+                    !!(EmulatorEquip.isBusy && EmulatorEquip.isBusy())
+                ),
+            },
         ],
         rowHeight: 27,
         rowSelection: 'single',
         onRowSelected: onBuildRowSelected,
+        onCellClicked: onBuildCellClicked,
         suppressScrollOnNewData: true,
         localeText:localeText,
         rowData: [],
@@ -665,6 +747,19 @@ function buildGrid(localeText) {
     const buildsGridDiv = document.getElementById('builds-table');
     heroesGrid = new Grid(gridDiv, gridOptions);
     buildsGrid = new Grid(buildsGridDiv, buildsGridOptions);
+
+    // 一键换装开始/结束时，只刷新 builds 功能列（机器人图标 <-> 转圈图标）
+    if (EmulatorEquip.onBusyChange) {
+        EmulatorEquip.onBusyChange(() => {
+            const api = buildsGrid && buildsGrid.gridOptions && buildsGrid.gridOptions.api;
+            if (!api) return;
+            try {
+                api.refreshCells({ columns: ['buildActions'], force: true });
+            } catch (error) {
+                console.warn('[heroes] refresh build actions failed', error);
+            }
+        });
+    }
 }
 
 
@@ -848,6 +943,9 @@ function formatHeroName(hero) {
 async function onBuildRowSelected(event) {
     console.log("onBuildRowSelected", event);
     if (event.node.selected) {
+        // 记住选中行，refreshBuilds() 重画 builds 时要按它恢复选中（蓝底高亮）
+        selectedBuildNode = event.node;
+
         const hero = HeroesGrid.getSelectedRow();
         const useReforgeStats = HeroesTab.getUseReforgedStats();
         const heroResponse = await Api.getHeroById(hero.id, useReforgeStats);
@@ -898,6 +996,61 @@ function onHeroRowSelected(event) {
     }
 }
 
+// builds 列表「功能列」的点击：装备这套配装 / 脱下这套配装 / 一键换装（运行中=中断）/ 删除
+function onBuildCellClicked(params) {
+    if (!params.colDef || params.colDef.colId !== 'buildActions' || !params.data || !params.event) {
+        return;
+    }
+
+    const target = params.event.target;
+    if (!target || !target.classList) {
+        return;
+    }
+
+    const hero = module.exports.getSelectedRow();
+    if (!hero) {
+        return;
+    }
+
+    // 点任何一个图标都先把这行配装选中（预览、一键换装都依赖“选中的配装”）
+    params.node.setSelected(true);
+
+    if (target.classList.contains('buildEquipIcon')) {
+        HeroesTab.equipBuild(hero, params.data);
+    } else if (target.classList.contains('buildUnequipIcon')) {
+        HeroesTab.unequipBuild(hero, params.data);
+    } else if (target.classList.contains('buildOneClickEquipIcon')) {
+        // 正在执行时再点同一个图标 = 中断
+        if (EmulatorEquip.isBusy && EmulatorEquip.isBusy()) {
+            EmulatorEquip.cancel();
+            return;
+        }
+        EmulatorEquip.equipHeroBuild();
+    } else if (target.classList.contains('buildDeleteIcon')) {
+        HeroesTab.removeBuild(hero, params.data);
+    }
+}
+
+/* 这条配装是否就是英雄当前身上穿的（按 6 件装备的 id 比较，与顺序无关） */
+function isBuildEquipped(build) {
+    if (!build || !build.items) return false;
+
+    // 优先用 refreshBuilds 里刚拉到的那份英雄数据，避免用英雄表里还没刷新的旧 equipment
+    const hero = currentBuildsHero || module.exports.getSelectedRow();
+    if (!heroHasEquippedGear(hero)) return false;
+
+    const equippedIds = HERO_EQUIPMENT_SLOTS
+        .map((slot) => hero.equipment[slot] && hero.equipment[slot].id)
+        .filter(Boolean);
+    const buildIds = build.items.filter(Boolean);
+
+    if (equippedIds.length !== HERO_EQUIPMENT_SLOTS.length || buildIds.length !== HERO_EQUIPMENT_SLOTS.length) {
+        return false;
+    }
+
+    return equippedIds.every((id) => buildIds.includes(id));
+}
+
 function redrawPreviewHero(heroId) {
     const useReforgedStats = HeroesTab.getUseReforgedStats();
     console.log("Use reforge", useReforgedStats)
@@ -906,7 +1059,10 @@ function redrawPreviewHero(heroId) {
         console.log("On hero row selected hero row", hero);
 
         updateCurrentAggregate(hero);
+        // 先更新「这一行英雄」，setRowData 渲染功能列时才会判断对“已装备/未装备”
+        currentBuildsHero = hero;
         buildsGrid.gridOptions.api.setRowData(hero.builds == null ? [] : hero.builds)
+        buildsGrid.gridOptions.api.refreshCells({ columns: ['buildActions'], force: true });
 
         const equipmentMap = hero.equipment ? hero.equipment : {};
         const equipment = [
@@ -945,6 +1101,24 @@ function heroHasEquippedGear(hero) {
     const equipmentMap = (hero && hero.equipment) || {};
 
     return HERO_EQUIPMENT_SLOTS.some(slot => equipmentMap[slot]);
+}
+
+/* 一条配装的 6 件装备 id，按 id 排序后当作这行的唯一标识 */
+function buildSignature(build) {
+    const ids = build && build.items ? build.items.filter(Boolean) : [];
+    return ids.length === HERO_EQUIPMENT_SLOTS.length ? ids.slice().sort().join('|') : '';
+}
+
+/* 当前选中的那条配装的标识（setRowData 之前取，用来恢复选中） */
+function getSelectedBuildSignature() {
+    const api = buildsGrid && buildsGrid.gridOptions && buildsGrid.gridOptions.api;
+    if (api) {
+        const node = api.getSelectedNodes()[0];
+        if (node && node.data) {
+            return buildSignature(node.data);
+        }
+    }
+    return selectedBuildNode && selectedBuildNode.data ? buildSignature(selectedBuildNode.data) : '';
 }
 
 /* 只选中配装表的第一行（触发的是预览，不会写回英雄装备） */

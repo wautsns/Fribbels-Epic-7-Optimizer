@@ -13,6 +13,10 @@ const SCHEMA_VERSION = 1;
 const PACKAGE_SCHEMA = 'e7-gvg-plans';
 const CLIPBOARD_PREFIX = 'E7GVG1:';
 
+/* 一队 / 二队：本机状态，存在 localStorage 里。
+   不进作业数据、不随导出/粘贴走，作业的排序位置也不再决定谁是队伍（design.md 6.4）。 */
+const TEAMS_STORAGE_KEY = 'e7gvg.teams';
+
 /* 站位展示顺序：前 → 下 → 上 → 后（design.md 6.2） */
 const POSITIONS = ['front', 'bottom', 'top', 'back'];
 
@@ -26,6 +30,9 @@ const RUNTIME_REQUEST_KEYS = [
 
 let plans = [];
 let heroCodeToName = null;
+
+/* { first: id|null, second: id|null } —— 懒加载，见 loadTeams() */
+let teams = null;
 
 /* ------------------------------------------------------------------ *
  * 基础工具
@@ -66,6 +73,65 @@ function asIntegerOrNull(value, min, max) {
     return rounded;
 }
 
+/* ------------------------------------------------------------------ *
+ * 一队 / 二队（本机状态）
+ * ------------------------------------------------------------------ */
+
+function teamStorage() {
+    try {
+        return typeof localStorage !== 'undefined' ? localStorage : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function loadTeams() {
+    if (teams) return teams;
+
+    teams = { first: null, second: null };
+
+    const store = teamStorage();
+    if (!store) return teams;
+
+    try {
+        const parsed = JSON.parse(store.getItem(TEAMS_STORAGE_KEY) || 'null');
+        if (parsed && typeof parsed === 'object') {
+            teams.first = parsed.first ? asString(parsed.first) : null;
+            teams.second = parsed.second ? asString(parsed.second) : null;
+        }
+    } catch (error) {
+        console.warn('GVG: unable to read the saved teams', error);
+    }
+
+    return teams;
+}
+
+function saveTeams() {
+    const store = teamStorage();
+    if (!store) return;
+
+    try {
+        store.setItem(TEAMS_STORAGE_KEY, JSON.stringify(loadTeams()));
+    } catch (error) {
+        console.warn('GVG: unable to save the teams', error);
+    }
+}
+
+/** 作业被删除 / 清空 / 整表替换后，清掉指向不存在作业的一队、二队引用 */
+function pruneTeams() {
+    const current = loadTeams();
+    let changed = false;
+
+    for (const slot of ['first', 'second']) {
+        if (current[slot] && !plans.some((plan) => plan.id === current[slot])) {
+            current[slot] = null;
+            changed = true;
+        }
+    }
+
+    if (changed) saveTeams();
+}
+
 /** herodata.json 的 code 索引（懒建；code 是跨设备稳定标识） */
 function heroIndex() {
     if (heroCodeToName) return heroCodeToName;
@@ -86,6 +152,28 @@ function heroIndex() {
     return heroCodeToName;
 }
 
+/** artifactdata.json 的 code 索引（懒建；作业里存 code，不存名字 —— 名字会变、code 稳定） */
+let artifactCodeToName = null;
+
+function artifactIndex() {
+    if (artifactCodeToName) return artifactCodeToName;
+
+    artifactCodeToName = {};
+    try {
+        const allArtifactData = HeroData.getAllArtifactData();
+        for (const name of Object.keys(allArtifactData)) {
+            const code = allArtifactData[name] && allArtifactData[name].code;
+            if (code) artifactCodeToName[code] = name;
+        }
+    } catch (error) {
+        console.warn(
+            'GVG: artifactdata unavailable while indexing artifact codes',
+            error
+        );
+    }
+    return artifactCodeToName;
+}
+
 module.exports = {
     SCHEMA_VERSION,
     PACKAGE_SCHEMA,
@@ -99,6 +187,28 @@ module.exports = {
     getSorted: () => module.exports.sortPlans(clone(plans)),
 
     getById: (id) => clone(plans.find((plan) => plan.id === id) || null),
+
+    /**
+     * 当前的一队 / 二队。指向已删除作业的引用按"未设置"处理，不会返回脏 id。
+     * 这个状态只在本机（localStorage），不进作业、不进导出包。
+     */
+    getTeams: () => {
+        const current = loadTeams();
+        const exists = (id) => !!id && plans.some((plan) => plan.id === id);
+        return {
+            first: exists(current.first) ? current.first : null,
+            second: exists(current.second) ? current.second : null,
+        };
+    },
+
+    /** 清掉一队 / 二队（作业数据里的排序位置不变） */
+    clearTeams: () => {
+        const current = loadTeams();
+        current.first = null;
+        current.second = null;
+        saveTeams();
+        module.exports.commit();
+    },
 
     heroNameForCode: (code) => heroIndex()[code] || null,
 
@@ -118,6 +228,44 @@ module.exports = {
     },
 
     isKnownHeroCode: (code) => !!heroIndex()[code],
+
+    /* ---------------- 神器（存 code；名字只用于显示） ---------------- */
+
+    artifactNameForCode: (code) => artifactIndex()[code] || null,
+
+    artifactCodeForName: (name) => {
+        try {
+            const allArtifactData = HeroData.getAllArtifactData();
+            const artifact = allArtifactData && allArtifactData[name];
+            return (artifact && artifact.code) || null;
+        } catch (error) {
+            console.warn(
+                'GVG: artifactdata unavailable while resolving artifact code',
+                error
+            );
+            return null;
+        }
+    },
+
+    /** 神器下拉的选项（按名字排序）：[{ code, name }]，code 与名字现在是一一对应的 */
+    getArtifactOptions: () => {
+        try {
+            const allArtifactData = HeroData.getAllArtifactData() || {};
+            return Object.keys(allArtifactData)
+                .map((name) => {
+                    const artifact = allArtifactData[name];
+                    return {
+                        code: (artifact && artifact.code) || '',
+                        name,
+                    };
+                })
+                .filter((option) => option.code)
+                .sort((a, b) => a.name.localeCompare(b.name));
+        } catch (error) {
+            console.warn('GVG: artifact data unavailable', error);
+            return [];
+        }
+    },
 
     /** 列表里的全部英雄（按 i18n 名排序），编辑弹窗的下拉用 */
     getAllHeroOptions: () => {
@@ -168,6 +316,7 @@ module.exports = {
         }
 
         plans = next;
+        pruneTeams();
         return result;
     },
 
@@ -197,12 +346,16 @@ module.exports = {
     remove: (id) => {
         const before = plans.length;
         plans = plans.filter((plan) => plan.id !== id);
-        if (plans.length !== before) module.exports.commit();
+        if (plans.length !== before) {
+            pruneTeams();
+            module.exports.commit();
+        }
         return before !== plans.length;
     },
 
     clear: () => {
         plans = [];
+        pruneTeams();
         module.exports.commit();
     },
 
@@ -233,7 +386,15 @@ module.exports = {
         const plan = plans.find((item) => item.id === id);
         if (!plan) return false;
 
+        // 位置仍然提到第一位（保留原来的排序行为），但它不再决定谁是队伍
         plan.lastUsedAt = module.exports.nextUseTimestamp();
+
+        // 一队同时只能有一份：直接覆盖，原来的一队自然回到普通徽章
+        const current = loadTeams();
+        current.first = plan.id;
+        if (current.second === plan.id) current.second = null;
+        saveTeams();
+
         module.exports.commit();
         return true;
     },
@@ -252,6 +413,12 @@ module.exports = {
             anchor.lastUsedAt = timestamp;
         }
         plan.lastUsedAt = timestamp - 1;
+
+        // 二队同样只能有一份
+        const current = loadTeams();
+        current.second = plan.id;
+        if (current.first === plan.id) current.first = null;
+        saveTeams();
 
         module.exports.commit();
         return true;
@@ -272,11 +439,13 @@ module.exports = {
                 position: member.position,
                 artifact: member.artifact
                     ? {
+                          code: member.artifact.code,
                           name: member.artifact.name,
                           minLevel: member.artifact.minLevel,
                       }
                     : null,
                 imprintMode: member.imprintMode,
+                ee: member.ee,
                 requirement: member.requirement || null,
             }));
 
@@ -338,6 +507,7 @@ module.exports = {
         const removed = plans.length - survivors.length;
         if (removed > 0) {
             plans = survivors;
+            pruneTeams();
             module.exports.commit();
         }
         return removed;
@@ -350,6 +520,22 @@ module.exports = {
         const copy = clone(plan);
         if (copy) delete copy.lastUsedAt;
         return copy;
+    },
+
+    /**
+     * 「配装器配置」指纹：剔除运行期字段后做键顺序无关序列化。
+     * 用来判断某个角色条目是不是就是作业里指定的那套配置（GVG 页下方列表 / 自动建条目）。
+     */
+    requirementFingerprint: (request) => {
+        if (!request || typeof request !== 'object' || Array.isArray(request))
+            return '';
+
+        const copy = clone(request);
+        for (const key of RUNTIME_REQUEST_KEYS) delete copy[key];
+        delete copy.hero;
+        delete copy.heroId;
+
+        return Object.keys(copy).length ? stableStringify(copy) : '';
     },
 
     buildPackage: () => ({
@@ -558,6 +744,7 @@ function normalizeMembers(rawOffense) {
             position,
             artifact: normalizeArtifact(rawMember.artifact),
             imprintMode: rawMember.imprintMode === 'team' ? 'team' : 'self',
+            ee: normalizeEeForHero(heroCode, normalizeEe(rawMember.ee)),
             requirement: normalizeRequirement(rawMember.requirement),
         });
     }
@@ -574,15 +761,67 @@ function normalizeMembers(rawOffense) {
     return members;
 }
 
-/** 神器可留空（= 无要求）；等级是阈值，0~30 整数（design.md 4.2） */
+/**
+ * 神器要求：主键是 **code**（`artifactdata.json` 里官方攻略站的神器 id，跨设备稳定），
+ * `name` 只是显示用、不参与匹配。等级是阈值，0~30 整数（design.md 4.2）。
+ */
 function normalizeArtifact(rawArtifact) {
     if (!rawArtifact || typeof rawArtifact !== 'object') return null;
 
-    const name = asString(rawArtifact.name).trim();
-    if (!name) return null;
+    const rawName = asString(rawArtifact.name).trim();
+    let code = asString(rawArtifact.code).trim();
+
+    // 只给了名字（粘贴文本 / 剪贴板）→ 反查 code
+    if (!code && rawName) code = module.exports.artifactCodeForName(rawName) || '';
+    if (!code) return null;
+
+    // 只有 code（外面手写的包）→ 用 code 反查名字
+    const name = rawName || module.exports.artifactNameForCode(code) || '';
 
     const minLevel = asIntegerOrNull(rawArtifact.minLevel, 0, 30);
-    return { name, minLevel: minLevel == null ? 0 : minLevel };
+    return { code, name, minLevel: minLevel == null ? 0 : minLevel };
+}
+
+/**
+ * 专属装备要求（不配数值，只配"有没有 / 哪个变体"）：
+ *   - none：不带专属
+ *   - any ：带专属即可（只有"光暗 + 5★"是这种，没有 Ⅰ/Ⅱ/Ⅲ 之分）
+ *   - 1/2/3：其余角色（三色，以及光暗的 3★ / 4★）的 Ⅰ / Ⅱ / Ⅲ 变体
+ */
+const EE_VALUES = ['none', 'any', '1', '2', '3'];
+
+function normalizeEe(rawEe) {
+    if (rawEe == null || rawEe === '') return 'none';
+
+    // 兼容 { mode, variant } 写法
+    if (typeof rawEe === 'object') {
+        if (rawEe.mode === 'any' || rawEe.mode === 'has') return 'any';
+        if (rawEe.variant != null && EE_VALUES.includes(String(rawEe.variant)))
+            return String(rawEe.variant);
+        return rawEe.mode === 'none' ? 'none' : 'none';
+    }
+
+    const value = asString(rawEe).trim();
+    return EE_VALUES.includes(value) ? value : 'none';
+}
+
+/* 光暗 5★ 没有 Ⅰ/Ⅱ/Ⅲ 之分：这种角色误存了变体（外部粘贴的作业）就归一到 any */
+function normalizeEeForHero(heroCode, ee) {
+    if (ee !== '1' && ee !== '2' && ee !== '3') return ee;
+
+    try {
+        const name = module.exports.heroNameForCode(heroCode);
+        const info = name && HeroData.getAllHeroData()[name];
+        if (!info) return ee;
+
+        const isLightDark5Star =
+            (info.attribute === 'light' || info.attribute === 'dark') &&
+            Number(info.rarity) === 5;
+
+        return isLightDark5Star ? 'any' : ee;
+    } catch (error) {
+        return ee;
+    }
 }
 
 /** 面板要求：深拷贝 + 剔除运行期字段（design.md 4.3） */

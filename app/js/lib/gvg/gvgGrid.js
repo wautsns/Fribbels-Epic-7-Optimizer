@@ -172,7 +172,11 @@ function offenseTooltip(params) {
     return params.data.offense.members
         .map((member) => {
             const artifact = member.artifact
-                ? ` · ${i18next.t(member.artifact.name)}${
+                ? ` · ${i18next.t(
+                      member.artifact.name ||
+                          GvgPlans.artifactNameForCode(member.artifact.code) ||
+                          member.artifact.code
+                  )}${
                       member.artifact.minLevel
                           ? ` +${member.artifact.minLevel}`
                           : ''
@@ -211,11 +215,17 @@ function renderActions(params) {
     container.appendChild(
         glyphButton('fa-trash', 'Delete', () => GvgTab.deletePlan(id))
     );
+    // 一队 / 二队：本机字段（localStorage），当前被置为该队的那个用强调色
+    const teams = GvgPlans.getTeams();
     container.appendChild(
-        pinButton('①', 'Set as first team', () => GvgTab.pinFirst(id))
+        pinButton('1', 'Set as first team', teams.first === id, () =>
+            GvgTab.pinFirst(id)
+        )
     );
     container.appendChild(
-        pinButton('②', 'Set as second team', () => GvgTab.pinSecond(id))
+        pinButton('2', 'Set as second team', teams.second === id, () =>
+            GvgTab.pinSecond(id)
+        )
     );
 
     return container;
@@ -246,10 +256,11 @@ function glyphButton(faIcon, titleKey, onClick) {
     return button;
 }
 
-/** 置队按钮：① = 一队，② = 二队（和普通图标按钮同样大小） */
-function pinButton(label, titleKey, onClick) {
+/** 置队按钮：1 = 一队，2 = 二队；当前被置为该队时显示强调色 */
+function pinButton(label, titleKey, active, onClick) {
     const button = document.createElement('button');
-    button.className = 'gvgRowButton gvgPinButton';
+    button.className =
+        'gvgRowButton gvgPinButton' + (active ? ' gvgPinButtonActive' : '');
     button.title = i18next.t(titleKey);
     button.innerText = label;
     button.addEventListener('click', (event) => {

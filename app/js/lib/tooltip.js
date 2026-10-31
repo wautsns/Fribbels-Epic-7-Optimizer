@@ -159,17 +159,13 @@ module.exports = {
 +i18next.t("+ Hp %</br>")
 +i18next.t("+ Effectiveness</br>")
 +i18next.t("+ Effect Resistance</br>")
-+i18next.t("+ Speed * (8/4)</br>")
-+i18next.t("+ Crit Damage * (8/7)</br>")
-+i18next.t("+ Crit Chance * (8/5)</br>")
++i18next.t("+ Speed * 2</br>")
++i18next.t("+ Crit Damage * 1.125</br>")
++i18next.t("+ Crit Chance * 1.5</br>")
 +i18next.t("+ Flat Attack * 3.46 / 39</br>")
 +i18next.t("+ Flat Defense * 4.99 / 31</br>")
 +i18next.t("+ Flat Hp * 3.09 / 174</br>")
 +'</code>'
-
-+'<p>'+i18next.t("dScore - DPS Score. This is the Score formula but only counting Attack/%, Crit Chance, Crit Damage, and Speed.")+'</p>'
-+'<p>'+i18next.t("sScore - Support Score. This is the Score formula but only counting Hp/%, Defense/%, Effect Resist, and Speed.")+'</p>'
-+'<p>'+i18next.t("cScore - Combat Score. This is the Score formula excluding Effectiveness and Effect Resist.")+'</p>'
 
         });
 
@@ -180,9 +176,7 @@ module.exports = {
 +'<p>'+i18next.t("Reforge Item - Only works on +15 level 85 gears, predicts the item's reforged stats and generates the edited version.")+'</p>'
 +'<p>'+i18next.t("Add New Item - Create a new item and fill in its stats.")+'</p>'
 +'<p>'+i18next.t("Remove Items - Unequips and then deletes the items. Multiple selection enabled.")+'</p>'
-+'<p>'+i18next.t("Unequip Items - Unequips the items from their units. Multiple selection enabled.")+'</p>'
 +'<p>'+i18next.t("Unequip All Items - Unequips every equipped item from all units.")+'</p>'
-+'<p>'+i18next.t("Lock/Unlock Items - Locks/Unlocks the items that you want to be excluded from searches.")+'</p>'
 
         });
 

@@ -182,14 +182,19 @@ module.exports = {
             redrawHeroImage();
             module.exports.redrawHeroSelector();
             module.exports.loadPreviousHeroFilters(heroResponse, null, true);
-            // the pinned row doubles as the "before" panel, so it needs the hero's real
-            // numbers instead of the zeroed stat fields of the hero payload
-            // （baseStats 里没有 equipment/sets，必须显式带回，否则套装图标和结果表第一列都是空的）
-            OptimizerGrid.setPinnedHero(Object.assign({}, heroResponse.hero, heroResponse.baseStats, {
-                equipment: heroResponse.hero.equipment,
-                sets: heroResponse.hero.sets
-            }));
+            // the pinned row doubles as the "before" panel: use the hero's real (equipped)
+            // numbers, and only fall back to the bare base stats when those are all zero.
+            // baseStats 里没有 equipment/sets，必须显式带回，否则套装图标和结果表第一列都是空的
+            const pinnedHero = Object.assign({}, heroResponse.hero);
+            if (!pinnedHero.atk && !pinnedHero.hp && !pinnedHero.def && heroResponse.baseStats) {
+                Object.assign(pinnedHero, heroResponse.baseStats);
+            }
+            pinnedHero.equipment = heroResponse.hero.equipment;
+            pinnedHero.sets = heroResponse.hero.sets;
+            OptimizerGrid.setPinnedHero(pinnedHero);
             module.exports.drawBaseStats(heroResponse)
+            // 底部 6 件装备的卡片也要立刻换成这个英雄的当前装备
+            module.exports.drawEquippedGear(pinnedHero)
         });
 
         // $('#forceNumberSelect').change(recalculateFilters);
@@ -648,16 +653,18 @@ module.exports = {
         return request;
     },
 
-    // The hero payload carries zeroed stat fields; the usable numbers are the hero's base
-    // stats, so the preview panel shows those until a result row is compared.
+    // The preview shows the hero's current numbers on both sides until a result row is
+    // compared. Prefer the hero payload's (equipped) stats; baseStats is the bare fallback
+    // for payloads whose stat fields are all zero.
     drawBaseStats: (heroResponse) => {
-        const stats = (heroResponse && (heroResponse.baseStats || heroResponse.hero)) || null;
+        const hero = heroResponse && heroResponse.hero;
+        const baseStats = heroResponse && heroResponse.baseStats;
+        const stats = (hero && (hero.atk || hero.hp || hero.def) ? hero : (baseStats || hero)) || null;
         if (!stats) return;
 
         const filled = Object.assign({ atk: 0, def: 0, hp: 0, spd: 0, cr: 0, cd: 0, eff: 0, res: 0, score: 0 }, stats);
         // 已装备的套装：before 一侧按装备列表统计（equipment），after 一侧用套装计数数组（sets）。
         // 后端返回的英雄 sets 恒为 null，用装备列表反推一份。
-        const hero = heroResponse && heroResponse.hero;
         if (hero && hero.equipment) filled.equipment = hero.equipment;
         if (hero && hero.sets) {
             filled.sets = hero.sets;
@@ -880,6 +887,35 @@ module.exports = {
         })
     },
 
+    // 把英雄当前穿着的 6 件装备画到底部那排卡片上。
+    // 切英雄 / 从英雄页双击过来时之前没人调用 drawPreview，卡片会停在上一个英雄，
+    // 要等到点结果表第一行才刷新。
+    drawEquippedGear: (hero) => {
+        const slots = ['weapon', 'helmet', 'armor', 'necklace', 'ring', 'boots'];
+        const gearNames = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
+
+        const clearCards = () => {
+            slots.forEach((slot) => {
+                document.getElementById('optimizer-heroes-equipped-' + slot).innerHTML = '';
+            });
+        };
+
+        const equipment = hero && hero.equipment;
+        if (!equipment) {
+            clearCards();
+            return;
+        }
+
+        const gearIds = gearNames.map((gear) => (equipment[gear] ? equipment[gear].id : undefined));
+        if (gearIds.some((id) => !id)) {
+            // 有空槽位时 drawPreview 会把 null 一起发给后端，先清空，避免显示上一个英雄的装备
+            clearCards();
+            return;
+        }
+
+        module.exports.drawPreview(gearIds, []);
+    },
+
     editGearFromIcon: (id, reforge, checkboxPrefix) => {
         editGearFromIcon(id, reforge, checkboxPrefix);
     },
@@ -918,18 +954,11 @@ module.exports = {
 
             if (selectedId && selectedId == hero.id) {
                 optimizerHeroSelector.value = selectedId
-                // 列表里的 Hero 不带 equipment/sets，取一次完整数据，否则属性预览里
-                // 「已装备的套装」那一排会是空的
-                const selectedHeroResponse = await Api.getHeroById(selectedId, $('#inputPredictReforges').prop('checked'));
-                const selectedHero = selectedHeroResponse && selectedHeroResponse.hero;
-                if (selectedHero) {
-                    OptimizerGrid.setPinnedHero(Object.assign({}, selectedHero, selectedHeroResponse.baseStats, {
-                        equipment: selectedHero.equipment,
-                        sets: selectedHero.sets
-                    }));
-                } else {
-                    OptimizerGrid.setPinnedHero(hero);
-                }
+                // 列表接口返回的 Hero 已经带好实时数值和 equipment（后端会 addStatsToHero），
+                // 直接用即可；缺的 sets 由 setPinnedHero 用 equipment 反推
+                OptimizerGrid.setPinnedHero(hero);
+                // 底部 6 件装备的卡片跟着当前英雄刷新
+                module.exports.drawEquippedGear(hero);
             }
         }
         redrawHeroImage();

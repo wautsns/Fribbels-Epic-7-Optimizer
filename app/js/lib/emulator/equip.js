@@ -969,31 +969,67 @@ async function selectSetInFrame(frame, setKey) {
     return true;
 }
 
+// Scrolls the set list back to the top. Three quick swipes on the left column (x=200 -
+// x=380 sits in the gap between the two columns and barely scrolls the list), then a single
+// wait for the list to stop moving. Waiting after every swipe would be pointless here: the
+// game needs ~1.2s before a swipe even starts moving, so the swipes coalesce anyway.
+async function scrollSetListToTop(swipes = 3) {
+    const baseline = await captureFrame();
+
+    for (let i = 0; i < swipes; i++) {
+        await inputThenWait({ swipe: [200, 380, 200, 620, 450] }, 120);
+    }
+
+    const result = await waitForRegionStable(
+        baseline,
+        SET_PANEL_REGION,
+        5000
+    );
+
+    // result.moved === false means the list was already at the top
+    return result.frame;
+}
+
 async function applySetFilter(setKey) {
     if (!(await openSetDialog())) {
         console.warn('[emulator] set dialog did not open, skipping set filter');
         return false;
     }
 
-    // checkbox panel: reset to "All" first so only the wanted set stays ticked
-    await inputThenWait({ tap: SET_ALL_POINT }, 650);
+    // checkbox panel: reset to "All" first so only the wanted set stays ticked, then wait
+    // for the list to finish re-rendering instead of sleeping a fixed time
+    let before = await captureFrame();
+    await inputThenWait({ tap: SET_ALL_POINT }, 150);
+    await waitForRegionStable(before, SET_PANEL_REGION, 2600);
 
     // 1) the set may already be visible where the list currently is
-    if (await selectSetInFrame(await captureFrame(), setKey)) {
+    let frame = await captureFrame();
+    if (await selectSetInFrame(frame, setKey)) {
         return true;
     }
 
     // 2) otherwise go back to the top and page through the list
-    for (let i = 0; i < 4; i++) {
-        await inputThenWait({ swipe: [380, 380, 380, 620, 600] }, 260);
-    }
+    frame = await scrollSetListToTop();
 
     for (let page = 0; page < 4; page++) {
-        if (await selectSetInFrame(await captureFrame(), setKey)) {
+        if (await selectSetInFrame(frame, setKey)) {
             return true;
         }
 
-        await inputThenWait({ swipe: [380, 600, 380, 380, 800] }, 650);
+        const pageStart = await captureFrame();
+        // same column trick as scrollSetListToTop: swipe on the left column, not the gap
+        await inputThenWait({ swipe: [200, 600, 200, 380, 600] }, 150);
+        const scrolled = await waitForRegionStable(
+            pageStart,
+            SET_PANEL_REGION,
+            3600
+        );
+        frame = scrolled.frame;
+
+        if (!scrolled.moved) {
+            // the list did not move: it is already at the bottom
+            break;
+        }
     }
 
     console.warn(
@@ -1064,6 +1100,140 @@ async function assertListNotEmpty(frame) {
         );
     }
 }
+
+// ---- waiting for what should appear (instead of sleeping a fixed time) ----------------
+const GRID_STABLE_DELTA = 6;
+const GRID_STABLE_TIMEOUT = 3000;
+const TILE_APPEAR_TIMEOUT = 1600;
+
+function gridRegion() {
+    return {
+        x: LAYOUT.gridRegion.x,
+        y: LAYOUT.gridRegion.y,
+        w: LAYOUT.gridRegion.w,
+        h: LAYOUT.gridRegion.h,
+    };
+}
+
+// True when the tile at the given cell is drawn (same sampling as findCandidates).
+// The y tolerance is generous on purpose: the row y comes from the measured scroll offset,
+// which is accurate to a few pixels and must not turn into a false "tile missing".
+function hasTileAt(frame, cell) {
+    return findCandidates(frame).some(
+        (candidate) =>
+            Math.abs(candidate.x - cell.x) <= 2 &&
+            Math.abs(candidate.y - cell.y) <= 14
+    );
+}
+
+// Waits until a screen region stops changing (the list decelerates / icons bounce after a
+// swipe). `baseline` is the frame captured *before* the input: the returned `moved` flag
+// tells the caller whether that input had any effect at all.
+//
+// Two phases on purpose: the game needs up to ~1.2s before the list even starts to move
+// (measured: delta stays at 0 for ~1s, then jumps to ~23 while it scrolls). Treating the
+// quiet moment right after the swipe as "settled" would scan a frame that is about to
+// move, which is exactly how a click ends up on the wrong place. So first wait for the
+// motion to start, then for it to stop (two consecutive stable pairs).
+const MOTION_START_DELTA = 8;
+const MOTION_START_TIMEOUT = 1400;
+
+async function waitForRegionStable(baseline, region, timeout = 2000, delta = 4) {
+    const started = Date.now();
+    let previous = await captureFrame();
+    let motionStarted = false;
+    let stablePairs = 0;
+
+    while (Date.now() - started < timeout) {
+        const frame = await captureFrame();
+        const step = screen.regionDelta(previous, frame, region);
+
+        if (!motionStarted) {
+            if (step >= MOTION_START_DELTA) {
+                motionStarted = true;
+                stablePairs = 0;
+            } else if (Date.now() - started > MOTION_START_TIMEOUT) {
+                // the input had no visible effect (e.g. the list is already at that end)
+                return { frame, moved: false };
+            }
+        } else if (step < delta) {
+            stablePairs += 1;
+            if (stablePairs >= 2) {
+                return { frame, moved: true };
+            }
+        } else {
+            stablePairs = 0;
+        }
+
+        previous = frame;
+        await sleep(80);
+    }
+
+    return { frame: previous, moved: motionStarted };
+}
+
+// Waits until the grid content stops moving. Used after a swipe (the list decelerates and
+// measuring a moving list gives a wrong scroll offset) and after a filter change.
+async function waitForGridStable(previous, timeout = 2000) {
+    const result = await waitForRegionStable(
+        previous,
+        gridRegion(),
+        timeout,
+        GRID_STABLE_DELTA
+    );
+    return result.frame;
+}
+
+// Waits until the item list is drawn *and* settled. A single capture right after the last
+// filter chip is not proof that the list finished refreshing, and tapping into a list that
+// is still rendering is what made the target tile get missed.
+async function waitForGridReady(timeout = GRID_STABLE_TIMEOUT) {
+    const started = Date.now();
+    let previous = await captureFrame();
+
+    while (Date.now() - started < timeout) {
+        const frame = await captureFrame();
+        const hasTiles = findCandidates(frame).length > 0;
+        const stable =
+            screen.regionDelta(previous, frame, gridRegion()) < GRID_STABLE_DELTA;
+
+        if (hasTiles && stable) {
+            return frame;
+        }
+
+        previous = frame;
+        await sleep(80);
+    }
+
+    console.warn(
+        '[emulator] the item list did not settle within',
+        timeout + 'ms'
+    );
+    return previous;
+}
+
+// Waits until the tile at the computed cell shows up (after a scroll / list refresh the
+// tile can be painted a moment later than the coordinates are known).
+async function waitForTileAt(cell, timeout = TILE_APPEAR_TIMEOUT) {
+    const started = Date.now();
+    let frame = await captureFrame();
+
+    while (Date.now() - started < timeout) {
+        if (hasTileAt(frame, cell)) {
+            return frame;
+        }
+        await sleep(80);
+        frame = await captureFrame();
+    }
+
+    console.warn(
+        '[emulator] no tile appeared at',
+        cell.x + ',' + cell.y,
+        'within ' + timeout + 'ms'
+    );
+    return null;
+}
+
 
 // Rank of the target inside the filtered list: sort by the active substat chips in
 // order (descending), ties by acquisition, mirroring the in-game list order.
@@ -1317,8 +1487,8 @@ async function scrollGrid(distance = 260) {
 async function scrollToTop() {
     for (let i = 0; i < 8; i++) {
         const before = await captureFrame();
-        await inputThenWait({ swipe: [995, 320, 995, 580, 1200] }, 700);
-        const after = await captureFrame();
+        await inputThenWait({ swipe: [995, 320, 995, 580, 700] }, 60);
+        const after = await waitForGridStable(before, 2600);
 
         if (measureScroll(after, before).d < 20) {
             return;
@@ -1342,13 +1512,13 @@ async function scrollGridBy(distance) {
     const step = Math.max(60, Math.min(260, Math.abs(distance)));
 
     if (distance >= 0) {
-        await adb.swipe(995, 560, 995, 560 - step, 1100);
+        await inputThenWait({ swipe: [995, 560, 995, 560 - step, 700] }, 60);
     } else {
-        await adb.swipe(995, 320, 995, 320 + step, 1100);
+        await inputThenWait({ swipe: [995, 320, 995, 320 + step, 700] }, 60);
     }
 
-    await sleep(800);
-    const after = await captureFrame();
+    // the list decelerates after the swipe: measuring a moving list gives a wrong offset
+    const after = await waitForGridStable(before);
     const up = measureScroll(before, after);
     const down = measureScroll(after, before);
     const moved = up.score <= down.score ? up.d : -down.d;
@@ -1462,7 +1632,9 @@ async function selectItem(item, options = {}) {
     // changing a filter resets the list to the top
     gridScroll = 0;
 
-    const frame = await captureFrame();
+    // the list re-renders after the last chip; wait until it is drawn and settled instead
+    // of assuming the next capture already shows the filtered result
+    let frame = await waitForGridReady();
     await assertListNotEmpty(frame);
 
     if (!options.allItems || !item.id) {
@@ -1512,6 +1684,11 @@ async function selectItem(item, options = {}) {
                     (candidate % LAYOUT.grid.cols) * LAYOUT.grid.dx,
                 y: position.y,
             };
+
+            // a tile that is painted a moment later must not be clicked into the void
+            if (!(await waitForTileAt(cell))) {
+                continue;
+            }
 
             const result = await selectAndVerify(cell, item);
             if (result.ok) {
@@ -1573,8 +1750,15 @@ module.exports = {
     chipIsUnset,
     findCandidates,
     verifyCell,
+    waitForGridReady,
+    waitForGridStable,
+    waitForRegionStable,
+    scrollSetListToTop,
+    waitForTileAt,
+    hasTileAt,
     measureScroll,
     scrollGrid,
+    scrollGridBy,
     scrollToItemRow,
     selectItem,
 };

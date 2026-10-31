@@ -1313,6 +1313,29 @@ function onRowDoubleClicked(e) {
     var heroId = e.data.id
 
     console.log("Double clicked hero row", e)
-    $("#inputHeroAdd").val(heroId).change();
-    $('#tab1').trigger('click');
+
+    const select = document.getElementById('inputHeroAdd');
+    if (!select) {
+        $('#tab1').trigger('click');
+        return;
+    }
+
+    // 配装器的英雄下拉是「切到配装器时」才重建的：刚新建的角色条目（比如 GVG 置队时自动补的）
+    // 可能还不在选项里，这时 .val(heroId) 设不进去，.change() 只会加载上一个英雄的配置
+    // → 表现就是“第一次双击没带配装数据，回列表再双击才有”。
+    const exists = [...select.options].some((option) => String(option.value) === String(heroId));
+    if (exists) {
+        $("#inputHeroAdd").val(heroId).change();
+        $('#tab1').trigger('click');
+        return;
+    }
+
+    // 先补一次下拉选项，再选中 + 切页
+    Promise.resolve()
+        .then(() => OptimizerTab.redrawHeroSelector())
+        .catch((error) => console.warn('Failed to refresh the hero selector', error))
+        .then(() => {
+            $("#inputHeroAdd").val(heroId).change();
+            $('#tab1').trigger('click');
+        });
 }

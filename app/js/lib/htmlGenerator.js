@@ -469,7 +469,7 @@ module.exports = {
   </div>
   <div class="itemDisplayFooterIconContainer">
       ${storageOrLocator(item, checkboxPrefix)}
-      ${magnify(item, checkboxPrefix)}
+      ${checkboxPrefix == "optimizerGrid" ? "" : magnify(item, checkboxPrefix)}
       ${editItemDisplay(item, checkboxPrefix)}
       ${editLockDisplay(item, checkboxPrefix)}
   </div>

@@ -98,6 +98,22 @@ module.exports = {
             });
         }
 
+        // 英雄列表里的 Hero 不带已装备的装备/套装，这里沿用同一个英雄上一份带装备的数据，
+        // 否则属性预览里「已装备的套装」那一排会变空
+        if (pinnedRow.id === hero.id) {
+            ['equipment', 'sets'].forEach((key) => {
+                if (hero[key] == null && pinnedRow[key] != null) {
+                    hero[key] = pinnedRow[key];
+                }
+            });
+        }
+
+        // 后端的英雄数据里 sets 恒为 null，用装备列表自己算一份，
+        // 结果表第一列「套装」和属性预览的右侧都靠它
+        if (!hero.sets && hero.equipment) {
+            hero.sets = GridRenderer.setsCounterFromEquipment(hero.equipment);
+        }
+
         hero.eq = 0
         optimizerGrid.gridOptions.api.setPinnedTopRowData([hero]);
         pinnedRow = hero;
@@ -320,12 +336,9 @@ function buildGrid(localeText) {
             {headerName: i18next.t('s1'), field: 's1', width: DIGITS_5},
             {headerName: i18next.t('s2'), field: 's2', width: DIGITS_5},
             {headerName: i18next.t('s3'), field: 's3', width: DIGITS_5},
-            {headerName: i18next.t('gs'), field: 'score', width: DIGITS_3},
-            {headerName: i18next.t('bs'), field: 'bs', width: DIGITS_3},
-            {headerName: i18next.t('prio'), field: 'priority', width: DIGITS_3},
             {headerName: i18next.t('eq'), field: 'eq', width: DIGITS_2},
             {headerName: i18next.t('upg'), field: 'upgrades', width: DIGITS_2},
-            {headerName: i18next.t(''), field: 'property', width: 25, sortable: false, cellRenderer: (params) => GridRenderer.renderStar(params.value)},
+            {headerName: '', field: 'property', width: 30, sortable: false, cellRenderer: (params) => GridRenderer.renderStar(params.value)},
         ],
         rowHeight: 27,
         rowModelType: 'infinite',
@@ -348,7 +361,13 @@ function buildGrid(localeText) {
         suppressDragLeaveHidesColumns: true,
     };
 
+    // 表格宽度 = 各列固定宽度之和，不再拉伸填满（右边就不会空出一大块，
+    // 整个窗口也能跟着变窄）。额外留 22px 给纵向滚动条和 1px 边框，
+    // 否则行数多、出现纵向滚动条时会顺带冒出横向滚动条。
     const gridDiv = document.getElementById('myGrid');
+    const gridWidth = gridOptions.columnDefs.reduce((sum, colDef) => sum + (colDef.width || 0), 0);
+    gridDiv.style.width = (gridWidth + 22) + 'px';
+
     optimizerGrid = new Grid(gridDiv, gridOptions);
     console.log("Built optimizergrid", optimizerGrid);
 }

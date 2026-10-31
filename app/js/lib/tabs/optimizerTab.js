@@ -108,16 +108,6 @@ function calculatePlaceholderRatings(index) {
         const ehp = Math.floor(minHp * (minDef / 300 + 1));
         $("#inputMinEhpLimit" + index).attr("placeholder", ehp);
     }
-
-    const minAtk = readNumber('inputMinAtkLimit' + index)
-    const minCd = readNumber('inputMinCdLimit' + index)
-
-    if (minAtk == undefined || minCd == undefined || minAtk == 0 || minCd == 0) {
-        $("#inputMinMcdmgLimit" + index).attr("placeholder", "");
-    } else {
-        const mcd = minAtk * minCd / 100;
-        $("#inputMinMcdmgLimit" + index).attr("placeholder", mcd);
-    }
 }
 
 module.exports = {
@@ -134,14 +124,6 @@ module.exports = {
         document.getElementById('inputMinHpLimit').addEventListener("change", () => {
             calculatePlaceholderRatings()
         });
-
-        document.getElementById('inputMinAtkLimit').addEventListener("change", () => {
-            calculatePlaceholderRatings()
-        });
-        document.getElementById('inputMinCdLimit').addEventListener("change", () => {
-            calculatePlaceholderRatings()
-        });
-
 
         document.getElementById('submitOptimizerRequest').addEventListener("click", () => {
             submitOptimizationRequest()
@@ -165,7 +147,6 @@ module.exports = {
             electron.shell.openExternal('https://fribbels.github.io/e7/hero-library.html?hero=' + heroResponse.hero.name);
         });
         document.getElementById('submitOptimizerReset').addEventListener("click", () => {
-            clearRatings();
             clearStats();
             calculatePlaceholderRatings();
             // clearForce();
@@ -191,28 +172,6 @@ module.exports = {
         document.getElementById('gearPreviewUnequip').addEventListener("click", () => {
             unequipSelectedGear()
         });
-        document.getElementById('gearPreviewLock').addEventListener("click", () => {
-            lockSelectedGear()
-        });
-        document.getElementById('gearPreviewUnlock').addEventListener("click", () => {
-            unlockSelectedGear()
-        });
-        document.getElementById('gearPreviewSelectAll').addEventListener("click", () => {
-            $('#optimizerGridWeapon').prop('checked', true);
-            $('#optimizerGridHelmet').prop('checked', true);
-            $('#optimizerGridArmor').prop('checked', true);
-            $('#optimizerGridNecklace').prop('checked', true);
-            $('#optimizerGridRing').prop('checked', true);
-            $('#optimizerGridBoots').prop('checked', true);
-        });
-        document.getElementById('gearPreviewDeselectAll').addEventListener("click", () => {
-            $('#optimizerGridWeapon').prop('checked', false);
-            $('#optimizerGridHelmet').prop('checked', false);
-            $('#optimizerGridArmor').prop('checked', false);
-            $('#optimizerGridNecklace').prop('checked', false);
-            $('#optimizerGridRing').prop('checked', false);
-            $('#optimizerGridBoots').prop('checked', false);
-        });
 
 
         $('#inputHeroAdd').change(async () => {
@@ -225,7 +184,11 @@ module.exports = {
             module.exports.loadPreviousHeroFilters(heroResponse, null, true);
             // the pinned row doubles as the "before" panel, so it needs the hero's real
             // numbers instead of the zeroed stat fields of the hero payload
-            OptimizerGrid.setPinnedHero(Object.assign({}, heroResponse.hero, heroResponse.baseStats, { equipment: heroResponse.hero.equipment }));
+            // （baseStats 里没有 equipment/sets，必须显式带回，否则套装图标和结果表第一列都是空的）
+            OptimizerGrid.setPinnedHero(Object.assign({}, heroResponse.hero, heroResponse.baseStats, {
+                equipment: heroResponse.hero.equipment,
+                sets: heroResponse.hero.sets
+            }));
             module.exports.drawBaseStats(heroResponse)
         });
 
@@ -257,10 +220,6 @@ module.exports = {
         });
         document.getElementById('statsLabel').addEventListener("click", async () => {
             clearStats();
-            recalculateFilters();
-        });
-        document.getElementById('ratingsLabel').addEventListener("click", async () => {
-            clearRatings();
             recalculateFilters();
         });
         document.getElementById('skillsLabel').addEventListener("click", async () => {
@@ -540,13 +499,6 @@ module.exports = {
             })
         }
 
-        const min = params.inputMinItemGSLimit == undefined ? 0 : params.inputMinItemGSLimit
-        const max = params.inputMaxItemGSLimit == undefined ? 99999999 : params.inputMaxItemGSLimit
-
-        items = items.filter(item => {
-            return item.reforgedWss > min && item.reforgedWss < max
-        })
-
         items = ModificationFilter.apply(items, params.inputSubstatMods, hero, submit);
 
         if (params.inputFilterPriority != 100) {
@@ -626,22 +578,10 @@ module.exports = {
         request.inputResMaxLimit = readNumber('inputMaxResLimit' + index);
         LimitConfiguration.setRequestFlags(request, index, isNumberInputConfigured);
 
-        request.inputMinCpLimit = readNumber('inputMinCpLimit' + index);
-        request.inputMaxCpLimit = readNumber('inputMaxCpLimit' + index);
-        request.inputMinHppsLimit = readNumber('inputMinHppsLimit' + index);
-        request.inputMaxHppsLimit = readNumber('inputMaxHppsLimit' + index);
         request.inputMinEhpLimit = readNumber('inputMinEhpLimit' + index);
         request.inputMaxEhpLimit = readNumber('inputMaxEhpLimit' + index);
-        request.inputMinEhppsLimit = readNumber('inputMinEhppsLimit' + index);
-        request.inputMaxEhppsLimit = readNumber('inputMaxEhppsLimit' + index);
-        request.inputMinDmgLimit = readNumber('inputMinDmgLimit' + index);
-        request.inputMaxDmgLimit = readNumber('inputMaxDmgLimit' + index);
-        request.inputMinDmgpsLimit = readNumber('inputMinDmgpsLimit' + index);
-        request.inputMaxDmgpsLimit = readNumber('inputMaxDmgpsLimit' + index);
-        request.inputMinMcdmgLimit = readNumber('inputMinMcdmgLimit' + index);
-        request.inputMaxMcdmgLimit = readNumber('inputMaxMcdmgLimit' + index);
-        request.inputMinMcdmgpsLimit = readNumber('inputMinMcdmgpsLimit' + index);
-        request.inputMaxMcdmgpsLimit = readNumber('inputMaxMcdmgpsLimit' + index);
+        request.inputMinUpgradesLimit = readNumber('inputMinUpgradesLimit' + index);
+        request.inputMaxUpgradesLimit = readNumber('inputMaxUpgradesLimit' + index);
 
         request.inputMinS1Limit = readNumber('inputMinS1Limit' + index);
         request.inputMaxS1Limit = readNumber('inputMaxS1Limit' + index);
@@ -649,25 +589,6 @@ module.exports = {
         request.inputMaxS2Limit = readNumber('inputMaxS2Limit' + index);
         request.inputMinS3Limit = readNumber('inputMinS3Limit' + index);
         request.inputMaxS3Limit = readNumber('inputMaxS3Limit' + index);
-
-        request.inputMinDmgHLimit = readNumber('inputMinDmgHLimit' + index);
-        request.inputMaxDmgHLimit = readNumber('inputMaxDmgHLimit' + index);
-        request.inputMinDmgDLimit = readNumber('inputMinDmgDLimit' + index);
-        request.inputMaxDmgDLimit = readNumber('inputMaxDmgDLimit' + index);
-        request.inputMinUpgradesLimit = readNumber('inputMinUpgradesLimit' + index);
-        request.inputMaxUpgradesLimit = readNumber('inputMaxUpgradesLimit' + index);
-        request.inputMinConversionsLimit = readNumber('inputMinConversionsLimit' + index);
-        request.inputMaxConversionsLimit = readNumber('inputMaxConversionsLimit' + index);
-        request.inputMinEquippedLimit = readNumber('inputMinEquippedLimit' + index);
-        request.inputMaxEquippedLimit = readNumber('inputMaxEquippedLimit' + index);
-        request.inputMinScoreLimit = readNumber('inputMinScoreLimit' + index);
-        request.inputMaxScoreLimit = readNumber('inputMaxScoreLimit' + index);
-        request.inputMinBSLimit = readNumber('inputMinBSLimit' + index);
-        request.inputMaxBSLimit = readNumber('inputMaxBSLimit' + index);
-        request.inputMinPriorityLimit = readNumber('inputMinPriorityLimit' + index);
-        request.inputMaxPriorityLimit = readNumber('inputMaxPriorityLimit' + index);
-        request.inputMinItemGSLimit = readNumber('inputMinItemGSLimit' + index);
-        request.inputMaxItemGSLimit = readNumber('inputMaxItemGSLimit' + index);
 
         // request.inputAtkMinForce = readNumber('inputMinAtkForce');
         // request.inputAtkMaxForce = readNumber('inputMaxAtkForce');
@@ -734,6 +655,15 @@ module.exports = {
         if (!stats) return;
 
         const filled = Object.assign({ atk: 0, def: 0, hp: 0, spd: 0, cr: 0, cd: 0, eff: 0, res: 0, score: 0 }, stats);
+        // 已装备的套装：before 一侧按装备列表统计（equipment），after 一侧用套装计数数组（sets）。
+        // 后端返回的英雄 sets 恒为 null，用装备列表反推一份。
+        const hero = heroResponse && heroResponse.hero;
+        if (hero && hero.equipment) filled.equipment = hero.equipment;
+        if (hero && hero.sets) {
+            filled.sets = hero.sets;
+        } else if (hero && hero.equipment) {
+            filled.sets = GridRenderer.setsCounterFromEquipment(hero.equipment);
+        }
         StatPreview.draw(filled, filled);
     },
 
@@ -793,22 +723,10 @@ module.exports = {
         $("#inputMinResLimit" + index).val(LimitConfiguration.displayValue(request, 'inputResMinLimit', 'inputResMinConfigured', 0));
         $("#inputMaxResLimit" + index).val(LimitConfiguration.displayValue(request, 'inputResMaxLimit', 'inputResMaxConfigured', 2147483647));
 
-        $("#inputMinCpLimit" + index).val(inputDisplayNumber(request.inputMinCpLimit));
-        $("#inputMaxCpLimit" + index).val(inputDisplayNumber(request.inputMaxCpLimit));
-        $("#inputMinHppsLimit" + index).val(inputDisplayNumber(request.inputMinHppsLimit));
-        $("#inputMaxHppsLimit" + index).val(inputDisplayNumber(request.inputMaxHppsLimit));
         $("#inputMinEhpLimit" + index).val(inputDisplayNumber(request.inputMinEhpLimit));
         $("#inputMaxEhpLimit" + index).val(inputDisplayNumber(request.inputMaxEhpLimit));
-        $("#inputMinEhppsLimit" + index).val(inputDisplayNumber(request.inputMinEhppsLimit));
-        $("#inputMaxEhppsLimit" + index).val(inputDisplayNumber(request.inputMaxEhppsLimit));
-        $("#inputMinDmgLimit" + index).val(inputDisplayNumber(request.inputMinDmgLimit));
-        $("#inputMaxDmgLimit" + index).val(inputDisplayNumber(request.inputMaxDmgLimit));
-        $("#inputMinDmgpsLimit" + index).val(inputDisplayNumber(request.inputMinDmgpsLimit));
-        $("#inputMaxDmgpsLimit" + index).val(inputDisplayNumber(request.inputMaxDmgpsLimit));
-        $("#inputMinMcdmgLimit" + index).val(inputDisplayNumber(request.inputMinMcdmgLimit));
-        $("#inputMaxMcdmgLimit" + index).val(inputDisplayNumber(request.inputMaxMcdmgLimit));
-        $("#inputMinMcdmgpsLimit" + index).val(inputDisplayNumber(request.inputMinMcdmgpsLimit));
-        $("#inputMaxMcdmgpsLimit" + index).val(inputDisplayNumber(request.inputMaxMcdmgpsLimit));
+        $("#inputMinUpgradesLimit" + index).val(inputDisplayNumber(request.inputMinUpgradesLimit));
+        $("#inputMaxUpgradesLimit" + index).val(inputDisplayNumber(request.inputMaxUpgradesLimit));
 
         $("#inputMinS1Limit" + index).val(inputDisplayNumber(request.inputMinS1Limit));
         $("#inputMaxS1Limit" + index).val(inputDisplayNumber(request.inputMaxS1Limit));
@@ -816,23 +734,6 @@ module.exports = {
         $("#inputMaxS2Limit" + index).val(inputDisplayNumber(request.inputMaxS2Limit));
         $("#inputMinS3Limit" + index).val(inputDisplayNumber(request.inputMinS3Limit));
         $("#inputMaxS3Limit" + index).val(inputDisplayNumber(request.inputMaxS3Limit));
-
-        $("#inputMinDmgHLimit" + index).val(inputDisplayNumber(request.inputMinDmgHLimit));
-        $("#inputMaxDmgHLimit" + index).val(inputDisplayNumber(request.inputMaxDmgHLimit));
-        $("#inputMinDmgDLimit" + index).val(inputDisplayNumber(request.inputMinDmgDLimit));
-        $("#inputMaxDmgDLimit" + index).val(inputDisplayNumber(request.inputMaxDmgDLimit));
-        $("#inputMinUpgradesLimit" + index).val(inputDisplayNumber(request.inputMinUpgradesLimit));
-        $("#inputMaxUpgradesLimit" + index).val(inputDisplayNumber(request.inputMaxUpgradesLimit));
-        $("#inputMinConversionsLimit" + index).val(inputDisplayNumber(request.inputMinConversionsLimit));
-        $("#inputMaxConversionsLimit" + index).val(inputDisplayNumber(request.inputMaxConversionsLimit));
-        $("#inputMinEquippedLimit" + index).val(inputDisplayNumber(request.inputMinEquippedLimit));
-        $("#inputMaxEquippedLimit" + index).val(inputDisplayNumber(request.inputMaxEquippedLimit));
-        $("#inputMinScoreLimit" + index).val(inputDisplayNumber(request.inputMinScoreLimit));
-        $("#inputMaxScoreLimit" + index).val(inputDisplayNumber(request.inputMaxScoreLimit));
-        $("#inputMinBSLimit" + index).val(inputDisplayNumber(request.inputMinBSLimit));
-        $("#inputMaxBSLimit" + index).val(inputDisplayNumber(request.inputMaxBSLimit));
-        $("#inputMinPriorityLimit" + index).val(inputDisplayNumber(request.inputMinPriorityLimit));
-        $("#inputMaxPriorityLimit" + index).val(inputDisplayNumber(request.inputMaxPriorityLimit));
 
         const optimizerSettings = Settings.getOptimizerOptions();
 
@@ -1017,7 +918,18 @@ module.exports = {
 
             if (selectedId && selectedId == hero.id) {
                 optimizerHeroSelector.value = selectedId
-                OptimizerGrid.setPinnedHero(hero);
+                // 列表里的 Hero 不带 equipment/sets，取一次完整数据，否则属性预览里
+                // 「已装备的套装」那一排会是空的
+                const selectedHeroResponse = await Api.getHeroById(selectedId, $('#inputPredictReforges').prop('checked'));
+                const selectedHero = selectedHeroResponse && selectedHeroResponse.hero;
+                if (selectedHero) {
+                    OptimizerGrid.setPinnedHero(Object.assign({}, selectedHero, selectedHeroResponse.baseStats, {
+                        equipment: selectedHero.equipment,
+                        sets: selectedHero.sets
+                    }));
+                } else {
+                    OptimizerGrid.setPinnedHero(hero);
+                }
             }
         }
         redrawHeroImage();
@@ -1072,9 +984,6 @@ function clearSubstatPriority() {
     document.querySelector('#filterSliderInput').setAttribute('value', 7)
 }
 
-function clearRatings() {
-    $(".optimizer-number-input").val("")
-}
 function clearSkills() {
     $(".skill-number-input").val("")
 }
@@ -1384,28 +1293,6 @@ async function unequipSelectedGear() {
 
     OptimizerGrid.setPinnedHero(hero);
 
-    drawPreview()
-    Saves.autoSave();
-}
-
-async function lockSelectedGear() {
-    const selectedGear = filterSelectedGearByCheckbox(OptimizerGrid.getSelectedGearIds());
-    const heroId = getSelectedHeroId();
-
-    if (selectedGear.length == 0) return;
-
-    await Api.lockItems(selectedGear);
-    drawPreview()
-    Saves.autoSave();
-}
-
-async function unlockSelectedGear() {
-    const selectedGear = filterSelectedGearByCheckbox(OptimizerGrid.getSelectedGearIds());
-    const heroId = getSelectedHeroId();
-
-    if (selectedGear.length == 0) return;
-
-    await Api.unlockItems(selectedGear);
     drawPreview()
     Saves.autoSave();
 }

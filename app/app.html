@@ -302,7 +302,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="atkStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="atkStatAfter"></div>
-                  <div class="statPreviewDiff" id="atkStatDiff"></div>
                 </div>
 
                 <div class="statPreviewRow">
@@ -310,7 +309,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="defStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="defStatAfter"></div>
-                  <div class="statPreviewDiff" id="defStatDiff"></div>
                 </div>
 
                 <div class="statPreviewRow">
@@ -318,7 +316,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="hpStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="hpStatAfter"></div>
-                  <div class="statPreviewDiff" id="hpStatDiff"></div>
                 </div>
 
                 <div class="statPreviewRow">
@@ -326,7 +323,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="spdStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="spdStatAfter"></div>
-                  <div class="statPreviewDiff" id="spdStatDiff"></div>
                 </div>
 
                 <div class="statPreviewRow">
@@ -334,7 +330,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="crStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="crStatAfter"></div>
-                  <div class="statPreviewDiff" id="crStatDiff"></div>
                 </div>
 
                 <div class="statPreviewRow">
@@ -342,7 +337,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="cdStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="cdStatAfter"></div>
-                  <div class="statPreviewDiff" id="cdStatDiff"></div>
                 </div>
 
                 <div class="statPreviewRow">
@@ -350,7 +344,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="effStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="effStatAfter"></div>
-                  <div class="statPreviewDiff" id="effStatDiff"></div>
                 </div>
 
                 <div class="statPreviewRow">
@@ -358,7 +351,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="resStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="resStatAfter"></div>
-                  <div class="statPreviewDiff" id="resStatDiff"></div>
                 </div>
 
                 <div class="statPreviewRow">
@@ -366,7 +358,6 @@ window.jQuery = $;
                   <div class="statPreviewBefore" id="gsStatBefore">0</div>
                   <div class="statPreviewArrow">➤</div>
                   <div class="statPreviewAfter" id="gsStatAfter"></div>
-                  <div class="statPreviewDiff" id="gsStatDiff"></div>
                 </div>
 
                 <div class="horizontalSpace"></div>
@@ -489,13 +480,13 @@ window.jQuery = $;
               <div class="inputStatLabel" data-t>Res</div>
               <input type="number" id="inputMaxResLimit" class="optimizer-number-input stat-number-input"><br>
 
-              <input type="number" id="inputMinCpLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>Cp</div>
-              <input type="number" id="inputMaxCpLimit" class="optimizer-number-input rating-number-input"><br>
+              <input type="number" id="inputMinEhpLimit" class="optimizer-number-input stat-number-input">
+              <div class="inputStatLabel" data-t>Ehp</div>
+              <input type="number" id="inputMaxEhpLimit" class="optimizer-number-input stat-number-input"><br>
 
-              <input type="number" id="inputMinItemGSLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>ItemGS</div>
-              <input type="number" id="inputMaxItemGSLimit" class="optimizer-number-input rating-number-input"><br>
+              <input type="number" id="inputMinUpgradesLimit" class="optimizer-number-input stat-number-input">
+              <div class="inputStatLabel" data-t>Upg</div>
+              <input type="number" id="inputMaxUpgradesLimit" class="optimizer-number-input stat-number-input"><br>
 
               <div class="horizontalSpace" ></div>
               <div class="horizontalSpace" ></div>
@@ -522,76 +513,91 @@ window.jQuery = $;
               <input type="number" id="inputMaxS3Limit" class="optimizer-number-input stat-number-input skill-number-input"><br>
             </div>
 
-            <div id="placeholder-panel" class="constraints-panel-col-small">
-              <div class="panelLabel">
-                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="filterRatingsTooltip"></img>
-                <div class="panelLabelText" id="ratingsLabel" data-content=" (clear)" data-t>Rating filters</div>
-              </div>
-
-              <input type="number" id="inputMinHppsLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>HpS</div>
-              <input type="number" id="inputMaxHppsLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinEhpLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>Ehp</div>
-              <input type="number" id="inputMaxEhpLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinEhppsLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>EhpS</div>
-              <input type="number" id="inputMaxEhppsLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinDmgLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>Dmg</div>
-              <input type="number" id="inputMaxDmgLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinDmgpsLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>DmgS</div>
-              <input type="number" id="inputMaxDmgpsLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinMcdmgLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>Mcd</div>
-              <input type="number" id="inputMaxMcdmgLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinMcdmgpsLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>McdS</div>
-              <input type="number" id="inputMaxMcdmgpsLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinDmgHLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>DmgH</div>
-              <input type="number" id="inputMaxDmgHLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinDmgDLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>DmgD</div>
-              <input type="number" id="inputMaxDmgDLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinScoreLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>GS</div>
-              <input type="number" id="inputMaxScoreLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinBSLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>BS</div>
-              <input type="number" id="inputMaxBSLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinPriorityLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>Prio</div>
-              <input type="number" id="inputMaxPriorityLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinUpgradesLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>Upg</div>
-              <input type="number" id="inputMaxUpgradesLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinConversionsLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>Conv</div>
-              <input type="number" id="inputMaxConversionsLimit" class="optimizer-number-input rating-number-input"><br>
-
-              <input type="number" id="inputMinEquippedLimit" class="optimizer-number-input rating-number-input">
-              <div class="inputStatLabel" data-t>Eq</div>
-              <input type="number" id="inputMaxEquippedLimit" class="optimizer-number-input rating-number-input"><br>
-            </div>
-
             <div class="vertical"></div>
 
             <div id="constraints-focus-panel" class="constraints-panel-col">
+              <div class="panelLabel">
+                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="accessoryMainStatsTooltip"></img>
+                <div class="panelLabelText" id="accessorySetsLabel" data-content=" (clear)" data-t>Accessory main stats</div>
+              </div>
+
+
+              <select multiple="multiple" id="inputNecklaceStat" class="inputGearFilterSelect">
+                <option value="CriticalHitChancePercent" data-t>Crit Chance</option>
+                <option value="CriticalHitDamagePercent" data-t>Crit Damage</option>
+                <option value="AttackPercent" data-t>Attack %</option>
+                <option value="Attack" data-t>Attack</option>
+                <option value="HealthPercent" data-t>Health %</option>
+                <option value="Health" data-t>Health</option>
+                <option value="DefensePercent" data-t>Defense %</option>
+                <option value="Defense" data-t>Defense</option>
+              </select><br>
+
+              <select multiple="multiple" id="inputRingStat" class="inputGearFilterSelect">
+                <option value="EffectivenessPercent" data-t>Effectiveness</option>
+                <option value="EffectResistancePercent" data-t>Effect Resistance</option>
+                <option value="AttackPercent" data-t>Attack %</option>
+                <option value="Attack" data-t>Attack</option>
+                <option value="HealthPercent" data-t>Health %</option>
+                <option value="Health" data-t>Health</option>
+                <option value="DefensePercent" data-t>Defense %</option>
+                <option value="Defense" data-t>Defense</option>
+              </select><br>
+
+              <select multiple="multiple" id="inputBootsStat" class="inputGearFilterSelect">
+                <option value="Speed" data-t>Speed</option>
+                <option value="AttackPercent" data-t>Attack %</option>
+                <option value="Attack" data-t>Attack</option>
+                <option value="HealthPercent" data-t>Health %</option>
+                <option value="Health" data-t>Health</option>
+                <option value="DefensePercent" data-t>Defense %</option>
+                <option value="Defense" data-t>Defense</option>
+              </select><br>
+
+
+              <div class="horizontalSpace" ></div>
+
+              <div class="panelLabel">
+                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="excludeTooltip"></img>
+                <div class="panelLabelText" data-t>Exclude</div>
+              </div>
+
+
+              <select multiple="multiple" id="inputExcludeSet" class="inputSetFilterSelect">
+                <!-- <option value="None" data-t>None</option> -->
+                <optgroup label="4 Piece" data-t>
+                  <option value="Attack" data-t>Attack</option>
+                  <option value="Counter" data-t>Counter</option>
+                  <option value="Destruction" data-t>Destruction</option>
+                  <option value="Injury" data-t>Injury</option>
+                  <option value="Lifesteal" data-t>Lifesteal</option>
+                  <option value="Protection" data-t>Protection</option>
+                  <option value="Rage" data-t>Rage</option>
+                  <option value="Revenge" data-t>Revenge</option>
+                  <option value="Reversal" data-t>Reversal</option>
+                  <option value="Riposte" data-t>Riposte</option>
+                  <option value="Warfare" data-t>Warfare</option>
+                  <option value="Weakening" data-t>Weakening</option>
+                  <option value="Speed" data-t>Speed</option>
+                </optgroup>
+                <optgroup label="2 Piece" data-t>
+                  <option value="Critical" data-t>Critical</option>
+                  <option value="Defense" data-t>Defense</option>
+                  <option value="Health" data-t>Health</option>
+                  <option value="Hit" data-t>Hit</option>
+                  <option value="Immunity" data-t>Immunity</option>
+                  <option value="Penetration" data-t>Penetration</option>
+                  <option value="Resist" data-t>Resist</option>
+                  <option value="Torrent" data-t>Torrent</option>
+                  <option value="Unity" data-t>Unity</option>
+                  <option value="Pursuit" data-t>Pursuit</option>
+                  <option value="Fervor" data-t>Fervor</option>
+                </optgroup>
+              </select><br>
+
+
+              <div class="horizontalSpace" ></div>
+
               <div class="panelLabel">
                 <img src="./assets/tooltip.png" class="tooltipImageLeft" id="setsTooltip"></img>
                 <div class="panelLabelText" data-t>Sets</div>
@@ -663,88 +669,6 @@ window.jQuery = $;
                   <option value="Fervor" data-t>Fervor</option>
                 </optgroup>
               </select>
-
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="panelLabel">
-                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="accessoryMainStatsTooltip"></img>
-                <div class="panelLabelText" id="accessorySetsLabel" data-content=" (clear)" data-t>Accessory main stats</div>
-              </div>
-
-
-              <select multiple="multiple" id="inputNecklaceStat" class="inputGearFilterSelect">
-                <option value="CriticalHitChancePercent" data-t>Crit Chance</option>
-                <option value="CriticalHitDamagePercent" data-t>Crit Damage</option>
-                <option value="AttackPercent" data-t>Attack %</option>
-                <option value="Attack" data-t>Attack</option>
-                <option value="HealthPercent" data-t>Health %</option>
-                <option value="Health" data-t>Health</option>
-                <option value="DefensePercent" data-t>Defense %</option>
-                <option value="Defense" data-t>Defense</option>
-              </select>
-
-              <select multiple="multiple" id="inputRingStat" class="inputGearFilterSelect">
-                <option value="EffectivenessPercent" data-t>Effectiveness</option>
-                <option value="EffectResistancePercent" data-t>Effect Resistance</option>
-                <option value="AttackPercent" data-t>Attack %</option>
-                <option value="Attack" data-t>Attack</option>
-                <option value="HealthPercent" data-t>Health %</option>
-                <option value="Health" data-t>Health</option>
-                <option value="DefensePercent" data-t>Defense %</option>
-                <option value="Defense" data-t>Defense</option>
-              </select><br>
-
-              <select multiple="multiple" id="inputBootsStat" class="inputGearFilterSelect">
-                <option value="Speed" data-t>Speed</option>
-                <option value="AttackPercent" data-t>Attack %</option>
-                <option value="Attack" data-t>Attack</option>
-                <option value="HealthPercent" data-t>Health %</option>
-                <option value="Health" data-t>Health</option>
-                <option value="DefensePercent" data-t>Defense %</option>
-                <option value="Defense" data-t>Defense</option>
-              </select><br>
-
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="panelLabel">
-                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="excludeTooltip"></img>
-                <div class="panelLabelText" data-t>Exclude</div>
-              </div>
-
-
-              <select multiple="multiple" id="inputExcludeSet" class="inputSetFilterSelect">
-                <!-- <option value="None" data-t>None</option> -->
-                <optgroup label="4 Piece" data-t>
-                  <option value="Attack" data-t>Attack</option>
-                  <option value="Counter" data-t>Counter</option>
-                  <option value="Destruction" data-t>Destruction</option>
-                  <option value="Injury" data-t>Injury</option>
-                  <option value="Lifesteal" data-t>Lifesteal</option>
-                  <option value="Protection" data-t>Protection</option>
-                  <option value="Rage" data-t>Rage</option>
-                  <option value="Revenge" data-t>Revenge</option>
-                  <option value="Reversal" data-t>Reversal</option>
-                  <option value="Riposte" data-t>Riposte</option>
-                  <option value="Warfare" data-t>Warfare</option>
-                  <option value="Weakening" data-t>Weakening</option>
-                  <option value="Speed" data-t>Speed</option>
-                </optgroup>
-                <optgroup label="2 Piece" data-t>
-                  <option value="Critical" data-t>Critical</option>
-                  <option value="Defense" data-t>Defense</option>
-                  <option value="Health" data-t>Health</option>
-                  <option value="Hit" data-t>Hit</option>
-                  <option value="Immunity" data-t>Immunity</option>
-                  <option value="Penetration" data-t>Penetration</option>
-                  <option value="Resist" data-t>Resist</option>
-                  <option value="Torrent" data-t>Torrent</option>
-                  <option value="Unity" data-t>Unity</option>
-                  <option value="Pursuit" data-t>Pursuit</option>
-                  <option value="Fervor" data-t>Fervor</option>
-                </optgroup>
-              </select><br>
             </div>
             <div class="vertical"></div>
 
@@ -884,16 +808,6 @@ window.jQuery = $;
                 <div class="optimizerActionButtonsRow">
                   <input type="submit" class="gearActionButton" value="Equip" id="gearPreviewEquip" data-t>
                   <input type="submit" class="gearActionButton" value="Unequip" id="gearPreviewUnequip" data-t>
-                </div>
-                <div id="buttonSpace"></div>
-                <div class="optimizerActionButtonsRow">
-                  <input type="submit" class="gearActionButton" value="Lock" id="gearPreviewLock" data-t>
-                  <input type="submit" class="gearActionButton" value="Unlock" id="gearPreviewUnlock" data-t>
-                </div>
-                <div id="buttonSpace"></div>
-                <div class="optimizerActionButtonsRow">
-                  <input type="submit" class="gearActionButton" value="Select All" id="gearPreviewSelectAll" data-t>
-                  <input type="submit" class="gearActionButton" value="Deselect All" id="gearPreviewDeselectAll" data-t>
                 </div>
                 <div id="buttonSpace"></div>
                 <div class="optimizerActionButtonsRow">

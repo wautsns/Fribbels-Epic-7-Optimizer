@@ -148,15 +148,22 @@ input[type=submit] {
 
 .optimization-results-panel {
   flex-grow: 2;
-  min-height: 340px;
+  /* 这个高度跟着右侧「筛选/搜索详情 + 功能」的内容走：去掉锁定/解锁、全选/全反选
+     两排按钮后内容少了约 54px，这里也跟着从 340 收到 286，表格随之变矮、底部仍对齐 */
+  min-height: 286px;
   height: 100%;
   display: flex;
 }
 
 #myGrid {
   height: 100%;
-  flex-grow: 2;
-  min-width: 1150px;
+  /* 宽度由 optimizerGrid.js 按各列固定宽度之和设定，不再拉伸填满可用宽度，
+     这样表格右缘不会空出一大块，窗口也能收窄。
+     窗口比表格还窄时让它自己缩、由表格内部的横向滚动条兜底，
+     这样不会把整个页面撑出横向滚动条。 */
+  flex-grow: 0;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .optionsShortSelector > .ms-choice {
@@ -222,7 +229,8 @@ input, button {
 
 .constraints-panel-col-med {
   padding: 5px 4px 4px 4px;
-  width: 210px;
+  /* 去掉“属性变化”那一列后，210 → 180，省下的宽度留给属性优先级 */
+  width: 180px;
   flex-grow: 0;
   flex-shrink: 0;
   line-height: 14px;
@@ -258,6 +266,33 @@ input, button {
   border: 1px solid var(--inactive-color);
   margin-right: 10px;
   border-radius: 7px;
+}
+
+/* 配装器底部那 6 件装备：去掉放大镜按钮后把卡片压窄，6 张能在一排里放下。
+   卡片内部最宽的是头部（装备图标 33 + 等级 44 + 材料 34+12 + 英雄头像 48），
+   所以头部几块要一起收一点，否则窄卡片会被内容撑开。 */
+#optimizer-equipped-section .gear-preview-row {
+  width: 152px;
+  padding: 10px 10px 5px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+#optimizer-equipped-section .gear-preview-row .itemDisplayHeaderData {
+  width: 38px;
+}
+
+#optimizer-equipped-section .gear-preview-row .itemDisplayEquippedHero {
+  height: 40px;
+}
+
+#optimizer-equipped-section .gear-preview-row .itemDisplayMaterial {
+  padding-right: 6px;
+}
+
+#optimizer-equipped-section .gear-preview-row .gearTypeImg {
+  width: 30px;
+  height: 30px;
 }
 
 .tab {
@@ -637,8 +672,10 @@ input, button {
   border-radius: 10%;
 }
 
+/* 输入框宽度由 selectors.js 里 multipleSelect 的 width 参数控制（见 focusPanelInputWidth）。
+   这里不要再设 min-width / max-width：.ms-parent 会继承 select 的 class，设了就会把包装层
+   撑开、参数失效（同 .gvgTextInput 附近那条注释的原因）。 */
 .inputSetFilterSelect {
-  min-width: 200px;
   width: 100%;
   user-select: none;
     padding: 1px;
@@ -646,7 +683,6 @@ input, button {
 }
 
 .inputGearFilterSelect {
-  min-width: 200px;
   width: 100%;
   user-select: none;
     padding: 1px;
@@ -857,7 +893,12 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .gridRightPanel {
-  width: 275px;
+  /* 里面 #optimizer-actions-panel 是 210px + padding，这里多出来的宽度纯属浪费，
+     会顶着整排变宽、让窗口收窄时冒出横向滚动条 */
+  width: 220px;
+  flex-shrink: 0;
+  /* 表格改成按列宽定宽后，右侧面板仍贴窗口右边，窗口收窄时两者自然贴紧 */
+  margin-left: auto;
   display: flex;
   flex-direction: row;
 }
@@ -916,7 +957,21 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 #stat-priority-panel {
-    min-width: 220px;
+    /* 窗口收窄时这一列要能跟着缩，否则整排会撑出横向滚动条；
+       160 是保证滑块还拖得动的地板值 */
+    min-width: 160px;
+    /* 评分过滤面板移除后多出来的空间全部落到这一列，但它不适合无限变宽
+       （滑块会拉得过长、Result priority / Auto 两个按钮也会被拉宽） */
+    max-width: 300px;
+}
+/* 评分过滤面板移除后，横排多出来的空间不再分给「饰品主属性/排除/套装」这一列：
+   这一列一被拉宽，三个饰品主属性下拉就会挤成两列（第二列跑到右边），属性优先级也会被推远。
+   这里把它再收窄一些（200 → 170），省下来的宽度留给属性优先级，滑块才够长。
+   下拉框宽度见 selectors.js 的 focusPanelInputWidth（160）。 */
+#constraints-focus-panel {
+  width: 170px;
+  flex-grow: 0;
+  flex-shrink: 0;
 }
 .constraints-right-panel {
   width: 210px;
@@ -1389,13 +1444,6 @@ body.dark-theme input {
   cursor: pointer;
   content: attr(data-content);
 }
-#ratingsLabel {
-  cursor: pointer;
-}
-#ratingsLabel:hover:after {
-  cursor: pointer;
-  content: attr(data-content);
-}
 #forceLabel {
   cursor: pointer;
 }
@@ -1490,23 +1538,34 @@ body.dark-theme input {
   text-align: left;
   width: 40px;
 }
-.statPreviewDiff {
-  display: inline-block;
-  vertical-align: middle;
-  text-align: right;
-  width: 60px;
-}
+/* 套装图标用 inline-flex 排列：只排一行，图标多了也不折行（超出就裁掉） */
 .setPreviewBefore {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
   vertical-align: middle;
   text-align: left;
-  min-width: 77px;
+  min-width: 74px;
+  max-width: 74px;
+  height: 25px;
 }
 .setPreviewAfter {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
   vertical-align: middle;
   text-align: left;
-  width: 100px;
+  width: 80px;
+  height: 25px;
+}
+/* 预览里一排最多 3 个套装图标，缩小一点让整块面板能压窄 */
+#preview-panel .optimizerSetIcon,
+#preview-panel .previewSet {
+  height: 24px;
+  width: 24px;
+  flex: none;
 }
 .setPreviewArrow {
   display: inline-block;
@@ -1515,13 +1574,6 @@ body.dark-theme input {
   width: 15px;
   padding-left: 0px;
   padding-right: 0px;
-}
-.statPreviewDiff.up {
-    color: #00BE9B;
-    /*color: #00adff; blue*/
-}
-.statPreviewDiff.down {
-    color: #dc391e;
 }
 .addHeroesSelector {
   width: 170px;

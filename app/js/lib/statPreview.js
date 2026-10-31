@@ -22,18 +22,22 @@ module.exports = {
         $('#resStatAfter').text(after.res)
         $('#gsStatAfter').text(after.score)
 
-        renderDiff(before, after, 'atk')
-        renderDiff(before, after, 'def')
-        renderDiff(before, after, 'hp')
-        renderDiff(before, after, 'spd')
-        renderDiff(before, after, 'cr')
-        renderDiff(before, after, 'cd')
-        renderDiff(before, after, 'eff')
-        renderDiff(before, after, 'res')
-        renderDiff(before, after, 'score')
+        // 套装图标：两套数据都能算（装备列表 equipment / 套装计数 sets），
+        // 哪边拿得到就用哪边，拿不到就用另一边兜底，避免整排空着。
+        const renderSetsSmart = (row) => {
+            if (!row) return '';
+            if (row.equipment) {
+                const fromEquipment = renderSets(row.equipment, 'previewSet', false);
+                if (fromEquipment) return fromEquipment;
+            }
+            if (row.sets) {
+                return renderSets(row.sets, 'previewSet', true) || '';
+            }
+            return '';
+        };
 
-        $('#setBefore').html(renderSets(before.equipment, 'previewSet', false));
-        $('#setAfter').html(renderSets(after.sets, 'previewSet', true));
+        $('#setBefore').html(renderSetsSmart(before));
+        $('#setAfter').html(renderSetsSmart(after));
     },
 }
 
@@ -61,7 +65,8 @@ function renderSets(equipment, name, isAfter) {
     if (isAfter) {
         setCounters = equipment;
     } else {
-        const setNames = Object.values(equipment).map(x => x.set);
+        // 空槽位是 null，直接取 .set 会抛错、把整块预览画挂掉
+        const setNames = Object.values(equipment).filter(x => x).map(x => x.set);
         setCounters = [
             Math.floor(setNames.filter(x => x == "HealthSet").length),
             Math.floor(setNames.filter(x => x == "DefenseSet").length),
@@ -108,35 +113,10 @@ function renderSets(equipment, name, isAfter) {
         }
     })
 
-    const images = sets.map(x => '<img class="optimizerSetIcon" src=' + Assets.getSetAsset(x) + '></img>');
+    const iconClass = name || 'optimizerSetIcon';
+    const images = sets.map(x => '<img class="' + iconClass + '" src=' + Assets.getSetAsset(x) + '></img>');
     // console.log("RenderSets images", images);
     return images.join("");
 }
 
 // 38821f
-
-function renderDiff(before, after, field, id) {
-    const value = after[field] - before[field];
-    var text = Math.abs(value);
-    var id = '#' + field + 'StatDiff';
-    if (field == 'score') {
-        id = '#gsStatDiff'
-    }
-    var elem = $(id);
-
-    if (value > 0) {
-        text += " ▲";
-        elem.addClass('up');
-        elem.removeClass('down');
-    } else if (value < 0) {
-        text += " ▼";
-        elem.addClass('down');
-        elem.removeClass('up');
-    } else {
-        text = ""
-        elem.removeClass('up');
-        elem.removeClass('down');
-    }
-
-    $(id).text(text);
-}

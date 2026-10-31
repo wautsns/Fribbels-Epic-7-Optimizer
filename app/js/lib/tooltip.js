@@ -73,33 +73,11 @@ module.exports = {
                 +'<p>'+i18next.t("Flat Attack, Defense, and Health are converted to equivalent percentages using the selected hero's base stats before comparison.")+'</p>'
                 +'<p>'+i18next.t("Without a maximum: an empty minimum prefers higher values (lower for stats marked as dislike), a minimum of 0 ignores the stat, and a positive minimum prefers higher values (exactly equal values for stats marked as dislike).")+'</p>'
                 +'<p>'+i18next.t("With a maximum: values must match exactly for dominance, except for stats marked as dislike with an empty or 0 minimum, which prefer lower values.")+'</p>'
-                +'<p>'+i18next.t("ItemGS is the per-item filter for gear score, for example, used to find builds that only use items with > 70 GS.")+'</p>'});
+                +'<p>'+i18next.t("<b>Ehp - </b> Effective Hp, for comparing how much damage a unit can take. Formula: HP * (Defense/300 + 1).")+'</p>'
+                +'<p>'+i18next.t("<b>Upg - </b> Number of items to upgrade - including reforges and enhances. When substat mods are enabled, modified gear is considered upgradable.")+'</p>'});
 
         tippy('#filterSkillsTooltip', {
             content: '<p>'+i18next.t("Select skill damage filters. Skill options can be changed through the Change skill options menu. Heroes with extra procs on S1 and no S2 damage will have their S2 replaced with the S1 proc value.")+'</p>'});
-
-        tippy('#filterRatingsTooltip', {
-            content:
-
-'<p>'+i18next.t("Select rating filters to filter results by. Ratings are stats that aren't seen in the game, but are useful for comparing builds.  Left column is min (inclusive) and right column is max (inclusive).")+'</p>'
-+'<p>'+i18next.t("<b>Cp - </b> Combat power, as you would find it ingame, but without factoring in skill enhances. Useful for world boss units.")+'</p>'
-+'<p>'+i18next.t("<b>HpS - </b> Hp * Speed rating, for comparing fast/health builds, disregaring defense. Example health scaling units: Krau, Fceci.")+'</p>'
-+'<p>'+i18next.t("<b>Ehp - </b> Effective Hp, for comparing how much damage a unit can take. Formula: HP * (Defense/300 + 1).")+'</p>'
-+'<p>'+i18next.t("<b>EhpS - </b> Effective Hp * Speed rating, for comparing fast/tanky builds.")+'</p>'
-+'<p>'+i18next.t("<b>Dmg - </b> Average damage rating, measures how much damage your unit will deal on average, factoring in crit chance & damage.")+'</p>'
-+'<p>'+i18next.t("<b>DmgS - </b> Average damage * Speed rating, measures average damage vs speed.")+'</p>'
-+'<p>'+i18next.t("<b>Mcd - </b> Max crit damage rating, measures damage at 100% crit chance. Example units: Arby, JKise.")+'</p>'
-+'<p>'+i18next.t("<b>McdS - </b> Max crit damage * Speed rating, measures damage at 100% crit chance vs speed.")+'</p>'
-+'<p>'+i18next.t("<b>DmgH - </b> Dmg * Hp rating, average damage rating, scaled by your units health. Useful for HP scaling bruisers.")+'</p>'
-+'<p>'+i18next.t("<b>DmgD - </b> Dmg * Def rating, average damage rating, scaled by your units defense. Useful for defense scaling bruisers.")+'</p>'
-+'<p>'+i18next.t("<b>GS - </b> Sum of gear score of all 6 pieces.")+'</p>'
-+'<p>'+i18next.t("<b>BS - </b> Build score of the unit, taking into account main stats, imprint, flat stats base equivalent. For example, a crit chance necklace has more BS than crit dmg.")+'</p>'
-+'<p>'+i18next.t("<b>Prio - </b> Sum of priority score of all 6 pieces, calculated using the Substat Priority filter values.")+'</p>'
-+'<p>'+i18next.t("<b>Upg - </b> Number of items to upgrade - including reforges and enhances. When substat mods are enabled, modified gear is considered upgradable.")+'</p>'
-+'<p>'+i18next.t("<b>Conv - </b> Number of conversion material reforges in the results.")+'</p>'
-+'<p>'+i18next.t("<b>Eq - </b> Number of items the build takes from other units equipped in the optimizer.")+'</p>'
-
-        });
 
         tippy('#substatPriorityTooltip', {
             content:
@@ -164,8 +142,6 @@ module.exports = {
             content:
 
 '<p>'+i18next.t("<b>Equip/Unequip Items - </b> Equips/Unequip the current selected gears onto your hero. Automatically saves the build.")+'</p>'
-+'<p>'+i18next.t("<b>Lock/Unlock Items - </b> Locks/Unlocks the current selected gears that you want to be excluded from other searches.")+'</p>'
-+'<p>'+i18next.t("<b>Select/Deselect All - </b> Select/Deselects all the items. You can manually check/uncheck each checkbox as well.")+'</p>'
 +'<p>'+i18next.t("<b>Save/Remove Build - </b> Saves/Removes the currently selected row as a build. This will mark it with a star, and the build will be visible on the Heroes tab.")+'</p>'
 
         });

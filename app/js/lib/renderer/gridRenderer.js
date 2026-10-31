@@ -5,6 +5,12 @@ module.exports = {
         return renderSets(setCounters, iconClass);
     },
 
+    // 后端返回的英雄数据里 sets 一直是 null（StatCalculator 构造 HeroStats 时没带），
+    // 这里用已装备的装备列表反推一份套装计数数组
+    setsCounterFromEquipment: (equipment) => {
+        return setsCounterFromEquipment(equipment);
+    },
+
     renderStar: (value) => {
         return renderStar(value);
     },
@@ -12,6 +18,17 @@ module.exports = {
     arrowKeyNavigator: (binding, gridName, callback) => {
         return navigateToNextCell(binding, gridName, callback);
     }
+}
+
+function setsCounterFromEquipment(equipment) {
+    const counters = Constants.setsByIndex.map(() => 0);
+    if (!equipment) return counters;
+
+    Object.values(equipment).forEach((item) => {
+        const index = item && item.set ? Constants.setsByIndex.indexOf(item.set) : -1;
+        if (index >= 0) counters[index] += 1;
+    });
+    return counters;
 }
 
 function renderSets(setCounters, iconClass) {

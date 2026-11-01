@@ -3,8 +3,8 @@
  *
  * 现行规则（背景见 README.md）：
  *   1. 滑块上的 Top% **原样生效**，不会被自动下调；
- *   2. 每个 (部位 × 套装) 组的名额 = max(下限, ceil(Top% × 该组件数))，
- *      下限：**选中的套装 3 件、未选中的套装 1 件**；
+ *   2. 用户**选中**的套装：每个套装各自取前 Top%，至少 3 件；
+ *      **其它**套装：整体排序后一起取前 Top%（弱的套装不会硬塞）；
  *   3. 排序：加权分数 → 结果优先级 → 未加权 roll → id（同分也能确定顺序）。
  *
  * 用法（仓库根目录）：node test/optimizer/priority-filter-check.js
@@ -129,7 +129,7 @@ realLog('\n[1] 候选很少时：名额足够，全部保留');
     check('小池子（6 部位 × 2 件）原样返回', run(items).length === items.length);
 }
 
-realLog('\n[2] 名额：选中的套装每部位 7 件（ceil(7% × 100)），未选中的 1 件');
+realLog('\n[2] 名额：选中的套装各自 7 件，未选中的套装整体取 7%（4 件 → 1 件）');
 
 {
     const kept = run(bigPool());
@@ -171,9 +171,9 @@ realLog('\n[3] 选中套装的下限是 3 件（即使 7% 只算出 1 件）');
         bySlotSet
     );
     check(
-        '未选中套装：小套装（4 件）1 件、大套装（90 件）按 7% → 7 件',
+        '未选中套装整体取 7%：94 件 → 7 件（追击套 4 件分数更高全进 + 命中套 3 件）',
         SLOTS.every(
-            (slot) => bySlotSet[slot + '/PursuitSet'] === 1 && bySlotSet[slot + '/HitSet'] === 7
+            (slot) => bySlotSet[slot + '/PursuitSet'] === 4 && bySlotSet[slot + '/HitSet'] === 3
         ),
         bySlotSet
     );

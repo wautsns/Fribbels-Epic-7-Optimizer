@@ -11,10 +11,12 @@ module.exports = {
     /*
      * 候选装备预筛。
      *
-     * 规则（滑块上的 Top% 原样生效，不会被自动下调）：
-     *   1. 每个 (部位 × 套装) 取自己的前 Top%，件数下限：用户选中的套装至少 3 件、
-     *      没选中的套装至少 1 件（套装效果可能更强，不能整体淘汰）；
-     *   2. 同分的先后由结果优先级决定（见 buildComparator），不是"存档里靠前的先留"。
+     * 规则（滑块上的 Top% 原样生效，不会被自动下调），按部位处理：
+     *   1. 用户**选中**的套装：每个套装各自取前 Top%，件数下限 SELECTED_SET_MIN_KEEP（3 件）；
+     *   2. **其它**套装：把它们当成一个整体，一起排序后取前 Top%
+     *      （某个套装整体很弱时不会硬塞，只有当它的装备能排进「其它套装」前 Top% 才保留）；
+     *   3. 同分的先后由结果优先级决定（见 buildComparator），不是"存档里靠前的先留"。
+     * 4+2 / 2+2+2 时候选已经被前端筛成选中的套装，所以只会走第 1 条。
      * 组合数只用于打日志提醒（搜得慢不慢），不改变候选。
      */
     applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
@@ -41,7 +43,7 @@ module.exports = {
         const selectedSets = selectedSetNames(params);
         const percentage = humanPercent(params.inputFilterPriority);
 
-        const pools = buildPools(groups, percentage, selectedSets);
+        const pools = buildPools(groups, percentage, selectedSets, compare);
         const counts = countSlots(pools);
         const combos = combinationCount(counts);
 
@@ -55,9 +57,8 @@ module.exports = {
 
 const GEAR_SET_SEPARATOR = '\u0000';
 
-/* 每个 (部位 × 套装) 的件数下限：用户选中的套装 3 件，其它套装 1 件 */
+/* 件数下限：用户选中的套装每个至少 SELECTED_SET_MIN_KEEP 件（其它套装是整体取 Top%） */
 const SELECTED_SET_MIN_KEEP = 3;
-const OTHER_SET_MIN_KEEP = 1;
 
 /* 组合数超过这个量级只打一条"会比较慢"的提示，不改变候选 */
 const LARGE_COMBO_WARNING = 1e9;
@@ -230,24 +231,76 @@ function quotaOf(total, percentage) {
 }
 
 /*
- * 候选池：每个 (部位 × 套装) 取自己的前 Top%，件数下限按「是否在用户选的套装范围内」：
- *   在范围内 → 至少 3 件；不在范围内 → 至少 1 件（套装效果可能更强，不能整体淘汰）。
- * 各组件名额之和本来就 ≥ 该部位的 Top%（每项都 ≥ pct × 组内件数，整数上取整后只会更大），
- * 所以不需要再按部位补足。
+ * 候选池，按部位处理：
+ *   - 用户**选中**的套装：每个套装各自取前 Top%，至少 SELECTED_SET_MIN_KEEP 件；
+ *   - **其它**套装：把它们当成一个整体，一起排序后取前 Top%（这样某个套装整体很弱时不会
+ *     硬塞进来，只有当它的某件装备能排进「其它套装」的前 Top% 时才会被保留）。
+ * 4+2 / 2+2+2 时候选已经被前端筛成选中的套装，所以走的只有第一条。
  */
-function buildPools(groups, percentage, selectedSets) {
-    const pools = [];
+function buildPools(groups, percentage, selectedSets, compare) {
+    const slots = new Map();
 
     for (const group of groups.values()) {
-        const minimum = selectedSets.has(group.set) ? SELECTED_SET_MIN_KEEP : OTHER_SET_MIN_KEEP;
-        const quota = Math.max(minimum, quotaOf(group.total, percentage));
-        const kept = [];
-
-        for (let i = 0; i < Math.min(quota, group.items.length); i++) {
-            kept.push(group.items[i]);
+        let slot = slots.get(group.slot);
+        if (!slot) {
+            slot = { slot: group.slot, groups: [], selected: [], others: [], othersTotal: 0 };
+            slots.set(group.slot, slot);
         }
 
-        pools.push({ slot: group.slot, set: group.set, items: group.items, kept });
+        slot.groups.push(group);
+        if (selectedSets.has(group.set)) {
+            slot.selected.push(group);
+        } else {
+            slot.others.push(group);
+            slot.othersTotal += group.total;
+        }
+    }
+
+    const pools = [];
+
+    for (const slot of slots.values()) {
+        const keptByGroup = new Map();
+
+        for (const group of slot.groups) {
+            keptByGroup.set(group, new Set());
+        }
+
+        // 选中的套装：各自 Top%，至少 N 件
+        for (const group of slot.selected) {
+            const quota = Math.max(SELECTED_SET_MIN_KEEP, quotaOf(group.total, percentage));
+            const kept = keptByGroup.get(group);
+            for (let i = 0; i < Math.min(quota, group.items.length); i++) {
+                kept.add(group.items[i]);
+            }
+        }
+
+        // 其它套装：整体排序后取 Top%
+        if (slot.others.length) {
+            const quota = Math.max(1, quotaOf(slot.othersTotal, percentage));
+            const merged = [];
+
+            for (const group of slot.others) {
+                for (const item of group.items) {
+                    merged.push({ group, item });
+                }
+            }
+
+            merged.sort((left, right) => compare(left.item, right.item));
+
+            for (let i = 0; i < Math.min(quota, merged.length); i++) {
+                keptByGroup.get(merged[i].group).add(merged[i].item);
+            }
+        }
+
+        for (const group of slot.groups) {
+            const kept = keptByGroup.get(group);
+            pools.push({
+                slot: slot.slot,
+                set: group.set,
+                items: group.items,
+                kept: group.items.filter((item) => kept.has(item)),
+            });
+        }
     }
 
     return pools;
@@ -267,7 +320,7 @@ function flattenPools(pools) {
 
 /*
  * 用户在「套装」里选中的套装名（4+2 / 2+2+2 / 只选 4 / 只选 2 / 2+2 都算）。
- * 选中的套装每组至少保留 SELECTED_SET_MIN_KEEP 件，其它套装至少 OTHER_SET_MIN_KEEP 件。
+ * 选中的套装各自取前 Top%（至少 SELECTED_SET_MIN_KEEP 件），其它套装整体取 Top%。
  */
 function selectedSetNames(params) {
     const names = new Set();

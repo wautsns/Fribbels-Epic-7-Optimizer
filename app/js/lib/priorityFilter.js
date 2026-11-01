@@ -14,9 +14,7 @@ module.exports = {
      * 规则（滑块上的 Top% 原样生效，不会被自动下调）：
      *   1. 每个 (部位 × 套装) 取自己的前 Top%，件数下限：用户选中的套装至少 3 件、
      *      没选中的套装至少 1 件（套装效果可能更强，不能整体淘汰）；
-     *   2. 这些加起来还不够该部位的前 Top% 时，再从该部位全套装里按排序补足到 Top%
-     *      （各套装名额之和本来就不低于部位 Top%，所以这一步基本只是兜底）；
-     *   3. 同分的先后由结果优先级决定（见 buildComparator），不是"存档里靠前的先留"。
+     *   2. 同分的先后由结果优先级决定（见 buildComparator），不是"存档里靠前的先留"。
      * 组合数只用于打日志提醒（搜得慢不慢），不改变候选。
      */
     applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
@@ -40,11 +38,10 @@ module.exports = {
             group.total = groupTotal(group, allGroupCounts, inputSubstatMods);
         }
 
-        const slots = buildSlots(groups, compare);
         const selectedSets = selectedSetNames(params);
         const percentage = humanPercent(params.inputFilterPriority);
 
-        const pools = buildPools(slots, percentage, selectedSets);
+        const pools = buildPools(groups, percentage, selectedSets);
         const counts = countSlots(pools);
         const combos = combinationCount(counts);
 
@@ -227,89 +224,30 @@ function humanPercent(value) {
     return Number.isFinite(configured) && configured > 0 ? configured : 100;
 }
 
-/* 把「部位 × 套装」的分组再聚合成部位：部位自己的候选排序 + 各套装分组 */
-function buildSlots(groups, compare) {
-    const slots = new Map();
-
-    for (const group of groups.values()) {
-        let slot = slots.get(group.slot);
-        if (!slot) {
-            slot = { slot: group.slot, items: [], total: 0, groups: [], groupOf: new Map() };
-            slots.set(group.slot, slot);
-        }
-
-        slot.groups.push(group);
-        slot.total += group.total;
-
-        for (const item of group.items) {
-            slot.items.push(item);
-            slot.groupOf.set(item, group);
-        }
-    }
-
-    for (const slot of slots.values()) {
-        slot.items.sort(compare);
-    }
-
-    return slots;
-}
-
 /* Top% 名额：7% × 100 件应该是 7 件，浮点误差会让 ceil(7.000000000000001) 变成 8，这里减掉一点 */
 function quotaOf(total, percentage) {
     return Math.ceil((percentage / 100) * total - 1e-9);
 }
 
 /*
- * 候选池：
- *   1. 每个 (部位 × 套装) 取自己的前 Top%，件数下限按「是否在用户选的套装范围内」：
- *        在范围内 → 至少 3 件；不在范围内 → 至少 1 件（套装效果可能更强，不能整体淘汰）；
- *   2. 如果这个部位加起来还不够该部位的前 Top%，再从**该部位全套装**里按排序补足到 Top%
- *      （补的这批就是该部位整体分数最高的那些）。
- * 所以最终件数一般等于「部位 Top%」，套装很分散时才会因为下限略多。
+ * 候选池：每个 (部位 × 套装) 取自己的前 Top%，件数下限按「是否在用户选的套装范围内」：
+ *   在范围内 → 至少 3 件；不在范围内 → 至少 1 件（套装效果可能更强，不能整体淘汰）。
+ * 各组件名额之和本来就 ≥ 该部位的 Top%（每项都 ≥ pct × 组内件数，整数上取整后只会更大），
+ * 所以不需要再按部位补足。
  */
-function buildPools(slots, percentage, selectedSets) {
+function buildPools(groups, percentage, selectedSets) {
     const pools = [];
 
-    for (const slot of slots.values()) {
-        const keptByGroup = new Map();
-        let keptCount = 0;
+    for (const group of groups.values()) {
+        const minimum = selectedSets.has(group.set) ? SELECTED_SET_MIN_KEEP : OTHER_SET_MIN_KEEP;
+        const quota = Math.max(minimum, quotaOf(group.total, percentage));
+        const kept = [];
 
-        for (const group of slot.groups) {
-            const minimum = selectedSets.has(group.set) ? SELECTED_SET_MIN_KEEP : OTHER_SET_MIN_KEEP;
-            const quota = Math.max(minimum, quotaOf(group.total, percentage));
-            const kept = new Set();
-
-            for (let i = 0; i < Math.min(quota, group.items.length); i++) {
-                kept.add(group.items[i]);
-            }
-
-            keptByGroup.set(group, kept);
-            keptCount += kept.size;
+        for (let i = 0; i < Math.min(quota, group.items.length); i++) {
+            kept.push(group.items[i]);
         }
 
-        const slotQuota = Math.max(1, quotaOf(slot.total, percentage));
-        if (keptCount < slotQuota) {
-            for (const item of slot.items) {
-                if (keptCount >= slotQuota) {
-                    break;
-                }
-                const kept = keptByGroup.get(slot.groupOf.get(item));
-                if (kept && !kept.has(item)) {
-                    kept.add(item);
-                    keptCount += 1;
-                }
-            }
-        }
-
-        for (const group of slot.groups) {
-            const kept = keptByGroup.get(group);
-            pools.push({
-                slot: slot.slot,
-                set: group.set,
-                items: group.items,
-                kept: group.items.filter((item) => kept.has(item)),
-            });
-        }
+        pools.push({ slot: group.slot, set: group.set, items: group.items, kept });
     }
 
     return pools;

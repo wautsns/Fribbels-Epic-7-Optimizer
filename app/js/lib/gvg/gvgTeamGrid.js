@@ -53,6 +53,65 @@ module.exports = {
     },
 
     /**
+     * 某个作业不再是进攻阵容时（清除标记 / 被别的作业顶上），把它进攻阵容成员对应的
+     * 角色条目的装备**全部脱下**。返回脱过装备的英雄名（调用方拿去提示 / 记日志）。
+     */
+    releasePlanEntries: async (planId) => {
+        const plan = GvgPlans.getById(planId);
+        if (!plan) return [];
+
+        const heroes = await loadHeroes();
+        if (!heroes) return [];
+
+        const released = [];
+
+        for (const member of plan.offense.members) {
+            const hero = heroes.find((item) => matchesMember(item, member));
+            if (!hero || !hasEquipment(hero)) continue;
+
+            try {
+                await Api.unequipHeroById(hero.id);
+                released.push(hero.name);
+            } catch (error) {
+                console.warn(
+                    'GVG: unable to unequip the hero entry',
+                    hero.name,
+                    error
+                );
+            }
+        }
+
+        if (!released.length) return released;
+
+        console.info('[GVG] unequipped hero entries:', released.join(', '));
+
+        // 装备变了：英雄列表 / builds / 存档都要跟着刷新
+        await module.exports.syncHeroFilter();
+
+        try {
+            if (typeof HeroesTab !== 'undefined' && HeroesTab.redraw) {
+                HeroesTab.redraw();
+            }
+            // builds 的「功能列」要按最新装备状态重画（已装备 / 未装备图标）
+            if (typeof HeroesGrid !== 'undefined' && HeroesGrid.refreshBuilds) {
+                Promise.resolve(HeroesGrid.refreshBuilds()).catch(() => {});
+            }
+        } catch (error) {
+            console.warn('GVG: unable to redraw the hero list', error);
+        }
+
+        try {
+            if (global.Saves && typeof Saves.autoSave === 'function') {
+                Saves.autoSave();
+            }
+        } catch (error) {
+            console.warn('GVG: auto save failed', error);
+        }
+
+        return released;
+    },
+
+    /**
      * 当前进攻阵容 1 / 2 里还缺哪些角色条目（只查不建）。
      * 返回 [{ team, plan, member, heroName }]，同一份作业里重复的只保留一条。
      */
@@ -247,6 +306,14 @@ function heroHasEe(hero) {
     if (raw == null || raw === '' || raw === 'None') return false;
 
     return Number(raw) > 0;
+}
+
+/** 这个角色条目身上有没有装备（equipment 是按部位的对象，空槽是 null/undefined） */
+function hasEquipment(hero) {
+    const equipment = hero && hero.equipment;
+    if (!equipment) return false;
+
+    return Object.keys(equipment).some((slot) => !!equipment[slot]);
 }
 
 /** 新建角色条目：神器+等级、阵型最高档、专属最高数值、星级 6 */

@@ -135,12 +135,18 @@ module.exports = {
     /* ---------------- 置为进攻阵容 1 / 2 ---------------- */
 
     pinFirst: async (id) => {
+        const before = GvgPlans.getTeams();
         if (!GvgPlans.pinFirst(id)) return;
+
+        await releaseLosingLineups(before, GvgPlans.getTeams());
         await confirmTeamEntries();
     },
 
     pinSecond: async (id) => {
+        const before = GvgPlans.getTeams();
         if (!GvgPlans.pinSecond(id)) return;
+
+        await releaseLosingLineups(before, GvgPlans.getTeams());
         await confirmTeamEntries();
     },
 
@@ -301,13 +307,14 @@ module.exports = {
 
     /**
      * 清除进攻阵容标记：清完 commit 会重画列表，蓝底的 1 / 2 徽章自然回到常规色，
-     * 英雄列表的「只显示进攻阵容角色」筛选也跟着解除。
+     * 英雄列表的「只显示进攻阵容角色」筛选也跟着解除；原来两个阵容的角色条目装备会被脱掉。
      */
     clearTeams: async () => {
-        const teams = GvgPlans.getTeams();
-        if (!teams.first && !teams.second) return;
+        const before = GvgPlans.getTeams();
+        if (!before.first && !before.second) return;
 
         GvgPlans.clearTeams();
+        await releaseLosingLineups(before, GvgPlans.getTeams());
         Notifier.successRaw(i18next.t('Team markers cleared'));
     },
 };
@@ -372,6 +379,37 @@ function refreshFilterSelect(element, selected) {
         $(element).multipleSelect('setSelects', selected ? [selected] : []);
     } catch (error) {
         console.warn('GVG: unable to refresh filter select', error);
+    }
+}
+
+/**
+ * 进攻阵容标记变化后：不再属于任何阵容的作业，把它进攻阵容成员对应的
+ * 角色条目的装备全部脱掉（用户要求：被顶掉 / 清标记就等于这套阵容不用了）。
+ */
+async function releaseLosingLineups(before, after) {
+    if (typeof GvgTeamGrid === 'undefined' || !GvgTeamGrid) return;
+
+    const beforeIds = [before && before.first, before && before.second].filter(
+        Boolean
+    );
+    const afterIds = [after && after.first, after && after.second].filter(
+        Boolean
+    );
+    const losingIds = beforeIds.filter((planId) => !afterIds.includes(planId));
+
+    for (const planId of losingIds) {
+        try {
+            const released = await GvgTeamGrid.releasePlanEntries(planId);
+            if (released.length) {
+                Notifier.infoRaw(
+                    `${i18next.t(
+                        'Unequipped the old lineup hero entries'
+                    )}: ${released.length}`
+                );
+            }
+        } catch (error) {
+            console.warn('GVG: unable to release the old lineup entries', error);
+        }
     }
 }
 

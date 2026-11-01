@@ -37,19 +37,9 @@ const RUNTIME_REQUEST_KEYS = [
     // 配装器每跑一次都会填的新值 / 后端保存时会被置空的两个内部字段
     'items',
     'boolArr',
-    // 搜索偏好，不是「面板要求」：换了也不该判定为另一个角色条目
-    // （优先级滑块会被「按过滤器自动推导」改值，Top% 也会随界面默认值变化）
+    // 只是「候选装备取多少」的搜索空间设置，改了不影响这是不是同一个条目；
+    // 属性优先级滑块 / 结果优先级 **要** 参与指纹（它们决定最终搜出来的是哪套装备）
     'inputFilterPriority',
-    'inputAtkPriority',
-    'inputHpPriority',
-    'inputDefPriority',
-    'inputSpdPriority',
-    'inputCrPriority',
-    'inputCdPriority',
-    'inputEffPriority',
-    'inputResPriority',
-    'resultPriority',
-    'resultDislike',
 ];
 
 let plans = [];

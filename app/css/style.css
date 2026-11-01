@@ -2527,6 +2527,14 @@ input[type=submit].gvgFilterClear {
 .gvgForm .ms-parent.gvgHeroSelect {
   width: 140px;
 }
+/* 升级成 multiple-select 之前，原生 select 的宽度是按最长选项算的（编辑作业时选项都是真名字，
+   能有 200px+），一升级就缩到 140px → 看起来“跳一下缩掉”。这里提前锁成同样的 140px。
+   包装层 .ms-parent 的内联宽度由插件自己写，所以不会受这条影响。 */
+.gvgForm select.gvgHeroSelect,
+.gvgForm select.gvgImportSelect,
+.gvgForm select.gvgArtifactSelect {
+  width: 140px;
+}
 /* 带入下拉和英雄下拉同宽；收起时只显示英雄名，所以不需要更宽 */
 .gvgForm .ms-parent.gvgImportSelect {
   width: 140px;

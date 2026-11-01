@@ -13,10 +13,10 @@ module.exports = {
      * 规则：
      *   1. 组合数 ≤ 预算（COMBO_BUDGET）就完全不截断，保证结果是最优解；
      *   2. 超预算时从宽到紧试百分比（滑块值只作为上限），取第一个落进预算的；
-     *   3. 一律按「部位 × 套装」分组：用户选中的套装按百分比保留；没选中的套装每组只留 1 件
-     *      —— 只选了 4 / 2 / 2+2 套时，搭配的另一半还空着，任何套装都可能补进来，
-     *      整体淘汰某个套装就会漏掉更强的套装效果（实测：速度 8 只能搜到 310，改了之后 315）；
-     *   4. 还剩预算时把选中套装的边界同分补回来（见 addTiesWithinBudget）。
+     *   3. 候选池 = 「每个 (部位 × 套装) 各自的 Top%」 ∪ 「每个部位整体的 Top%」，
+     *      也就是：每个套装在每个部位都至少按 Top% 保留，同时该部位整体分数最高的那批也在，
+     *      允许最终件数超过 Top%（实测：少了套装代表时，极限一速只能搜到 310，改完 315）；
+     *   4. 还有预算余量时，把各组的边界同分补回来（见 addTiesWithinBudget）。
      */
     applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
         if (!items || items.length === 0) {
@@ -48,12 +48,12 @@ module.exports = {
         console.log("Priority filter: " + items.length + " candidates " + JSON.stringify(candidates) +
             " -> " + formatCount(candidateCombos) + " combinations, over budget " + formatCount(COMBO_BUDGET));
 
+        const slots = buildSlots(groups);
         const percentages = candidatePercentages(params.inputFilterPriority);
-        const selectedSets = selectedSetNames(params);
         let fallback = null;
 
         for (const percentage of percentages) {
-            const pools = buildPools(groups, percentage, selectedSets);
+            const pools = buildPools(slots, percentage);
             const counts = countSlots(pools);
             const combos = combinationCount(counts);
             fallback = pools;
@@ -172,55 +172,74 @@ function candidatePercentages(value) {
     return list;
 }
 
-/*
- * 用户在「套装」里选中的套装名。
- *
- * - 选了 4+2 / 2+2+2：候选装备事先已经筛到这些套装，分组后每个组都是「选中的」，
- *   按百分比保留即可；
- * - 只选了 4 件套 / 2 件套 / 2+2：搭配的另一半还空着，任何套装都可能补进来，
- *   所以没选中的套装也要每个 (部位, 套装) 留 1 件（见 buildPools）。
- */
-function selectedSetNames(params) {
-    const names = new Set();
-    const groups = Array.isArray(params.inputSets)
-        ? params.inputSets
-        : [params.inputSetsOne, params.inputSetsTwo, params.inputSetsThree];
+/* 把「部位 × 套装」的分组再聚合成部位：部位自己的候选排序 + 各套装分组 */
+function buildSlots(groups) {
+    const slots = new Map();
 
-    for (const group of groups || []) {
-        for (const name of group || []) {
-            if (name) {
-                names.add(name);
-            }
+    for (const group of groups.values()) {
+        let slot = slots.get(group.slot);
+        if (!slot) {
+            slot = { slot: group.slot, items: [], total: 0, groups: [] };
+            slots.set(group.slot, slot);
+        }
+
+        slot.groups.push(group);
+        slot.total += group.total;
+
+        for (const item of group.items) {
+            slot.items.push(item);
         }
     }
 
-    return names;
+    for (const slot of slots.values()) {
+        slot.items.sort((a, b) => b.score - a.score);
+    }
+
+    return slots;
 }
 
-function buildPools(groups, percentage, selectedSets) {
+/*
+ * 候选池 = 「每个 (部位 × 套装) 各自的 Top%」 ∪ 「每个部位整体的 Top%」。
+ *
+ * - 前者保证每个套装在每个部位都按同样的百分比被保留（只选了 4 / 2 / 2+2 / 没选套装时，
+ *   别的套装也可能是更好的搭配，不能因为分数低就被整体淘汰）；
+ * - 后者保证该部位整体分数最高的那批一定在池子里；
+ * - 两者取并集，所以最终件数允许超过 Top%。
+ */
+function buildPools(slots, percentage) {
     const pools = [];
 
-    for (const group of groups.values()) {
-        if (!group.items.length) {
-            continue;
+    for (const slot of slots.values()) {
+        const keepers = new Set();
+
+        for (const group of slot.groups) {
+            const quota = quotaFor(group.total, percentage);
+            for (let i = 0; i < Math.min(quota, group.items.length); i++) {
+                keepers.add(group.items[i]);
+            }
         }
 
-        const selected = selectedSets.has(group.set);
-        // 选中的套装按百分比取；没选中的每个组只留 1 件，保证套装效果有机会被搜到
-        const index = selected
-            ? Math.max(1, Math.ceil((percentage / 100) * group.total))
-            : 1;
+        const slotQuota = quotaFor(slot.total, percentage);
+        for (let i = 0; i < Math.min(slotQuota, slot.items.length); i++) {
+            keepers.add(slot.items[i]);
+        }
 
-        pools.push({
-            slot: group.slot,
-            set: group.set,
-            selected,
-            items: group.items,
-            kept: group.items.slice(0, Math.min(index, group.items.length)),
-        });
+        for (const group of slot.groups) {
+            // 保持按分数排序，后面的同分扩张要用到 `kept` 的最后一条分数
+            pools.push({
+                slot: slot.slot,
+                set: group.set,
+                items: group.items,
+                kept: group.items.filter((item) => keepers.has(item)),
+            });
+        }
     }
 
     return pools;
+}
+
+function quotaFor(total, percentage) {
+    return Math.max(1, Math.ceil((percentage / 100) * total));
 }
 
 function flattenPools(pools) {
@@ -243,34 +262,33 @@ function flattenPools(pools) {
  * 那双靴子就可能被这样丢掉（实测：速度 8 只能搜到 310，加个攻击 1/命中 1 打破平局
  * 就能搜到 315）。
  *
- * 约束：只对「用户选中的套装」补；补到名额的 2 倍为止；分数为 0 的那一档不补；
- * 整体不超过组合数预算。返回补完之后的总组合数。
+ * 约束：补到名额的 2 倍为止；分数为 0 的那一档不补；整体不超过组合数预算。
+ * 返回补完之后的总组合数。
  */
 function addTiesWithinBudget(pools, budget) {
     const counts = countSlots(pools);
     let combos = combinationCount(counts);
 
     for (const pool of pools) {
-        if (!pool.selected) {
-            continue;
-        }
-
-        const list = pool.items;
         const kept = pool.kept;
-        const index = kept.length;
-        if (index <= 0 || index >= list.length) {
+        if (kept.length === 0) {
             continue;
         }
 
-        const boundary = kept[index - 1].score;
+        const boundary = kept[kept.length - 1].score;
         if (!(Math.abs(boundary) > SCORE_EPSILON)) {
             continue;
         }
 
-        const limit = Math.min(list.length, index * 2);
-        for (let i = index; i < limit; i++) {
-            if (Math.abs(list[i].score - boundary) > SCORE_EPSILON) {
+        const keptItems = new Set(kept);
+        const limit = kept.length * 2;
+
+        for (const item of pool.items) {
+            if (kept.length >= limit) {
                 break;
+            }
+            if (keptItems.has(item) || Math.abs(item.score - boundary) > SCORE_EPSILON) {
+                continue;
             }
 
             const next = (combos / counts[pool.slot]) * (counts[pool.slot] + 1);
@@ -280,8 +298,11 @@ function addTiesWithinBudget(pools, budget) {
 
             counts[pool.slot] += 1;
             combos = next;
-            kept.push(list[i]);
+            kept.push(item);
+            keptItems.add(item);
         }
+
+        kept.sort((a, b) => b.score - a.score);
     }
 
     return combos;

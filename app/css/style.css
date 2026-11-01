@@ -2630,57 +2630,94 @@ input[type=submit].gvgFilterClear {
   font-weight: 400;
   color: #333;
 }
-.gvgDetailLabel {
-  font-weight: 600;
-  font-size: 14px;
-  color: #1f1f1f;
-  margin-bottom: 2px;
+/* 紧凑版详情：每一块一行，左边是固定宽度的标签列（防守阵容 / 进攻阵容 / 作业标签 / 三段文本） */
+.gvgDetailRow {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.gvgDetailRowLabel {
+  flex: 0 0 64px;
+  color: #7a7f87;
+  white-space: nowrap;
+}
+.gvgDetailRowContent {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .gvgDetailDefenseRow {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
 }
 .gvgDetailDefenseHero {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
 }
+/* 详情里的头像统一 20px（表格里用的 .gvgHeroIcon 保持原样） */
+.gvgDetailHeroIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
 .gvgDetailMember {
-  margin-bottom: 4px;
+  padding: 1px 0 3px;
 }
-.gvgDetailMemberHeader {
-  display: flex;
+/* 站位徽章 / 头像 / 英雄名 / 神器·阵型·专属，四列对齐（名字列定宽，长了省略） */
+.gvgDetailMemberLine {
+  display: grid;
+  grid-template-columns: 20px 20px 170px minmax(0, 1fr);
+  gap: 5px;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  min-height: 24px;
 }
-.gvgDetailPosition {
-  font-weight: 600;
-  font-size: 14px;
+.gvgDetailPositionBadge {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #e8f1ff;
   color: #06c;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+.gvgDetailName {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gvgDetailMemberMeta {
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 面板要求单独一行、完整换行显示（省略号在这里最碍事，所以不截断） */
+.gvgDetailMemberRequirement {
+  padding-left: 50px;
+  line-height: 20px;
+  word-break: break-word;
 }
 .gvgDetailMuted {
   color: #888;
   font-size: 14px;
 }
-.gvgDetailRequirement {
-  font-size: 14px;
-  padding: 2px 0 0 38px;
-  word-break: break-word;
-}
-.gvgDetailTextBlock {
-  margin-bottom: 6px;
-}
 .gvgDetailText {
   font-size: 14px;
   white-space: pre-wrap;
   word-break: break-word;
+  line-height: 20px;
 }
 .gvgDetailTags {
+  display: flex;
+  gap: 4px;
   flex-wrap: wrap;
-  margin-bottom: 6px;
 }
 /* 标签沿用列表里的 .gvgTag（12px，给表格用），弹窗里放大到 14px */
 .gvgDetailTags .gvgTag {
@@ -2689,7 +2726,10 @@ input[type=submit].gvgFilterClear {
 }
 .gvgDetailFooter {
   margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #e3e6ea;
   text-align: right;
+  color: #888;
 }
 
 /* ---------------- 英雄列表右键菜单 ---------------- */

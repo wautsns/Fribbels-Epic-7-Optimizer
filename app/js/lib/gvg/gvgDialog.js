@@ -53,13 +53,16 @@ module.exports = {
         return saved;
     },
 
-    /** 只读详情：面板要求全文 + 三段文本 + 标签 + 最后修改时间 */
+    /**
+     * 只读详情：紧凑版（每名进攻成员一行信息 + 面板要求单独一行完整显示）。
+     * 结构：左边一列固定宽度的标签（防守阵容 / 进攻阵容 / 作业标签 / 三段文本），右边是内容。
+     */
     showDetails: async (planId) => {
         const plan = GvgPlans.getById(planId);
         if (!plan) return;
 
         const members = plan.offense.members
-            .map((member, index) => {
+            .map((member) => {
                 const artifact = member.artifact
                     ? `${escapeHtml(
                           i18next.t(
@@ -85,32 +88,30 @@ module.exports = {
                 const positionLabel = i18next.t(
                     POSITION_LABEL_KEYS[member.position] || 'Position'
                 );
+                const imprintLabel = i18next.t(
+                    member.imprintMode === 'team'
+                        ? 'Team imprint'
+                        : 'Self imprint'
+                );
 
                 return `
                 <div class="gvgDetailMember">
-                    <div class="gvgDetailMemberHeader">
-                        <img class="gvgHeroIcon" style="width:32px;height:32px" src="${HeroesGrid.heroIconSrc(
-                            member.name
-                        )}">
-                        <span class="gvgDetailPosition">${escapeHtml(
+                    <div class="gvgDetailMemberLine">
+                        <span class="gvgDetailPositionBadge">${escapeHtml(
                             positionLabel
                         )}</span>
-                        <span>${escapeHtml(i18next.t(member.name))}</span>
-                        <span class="gvgDetailMuted">${artifact}</span>
-                        <span class="gvgDetailMuted">${escapeHtml(
-                            i18next.t(
-                                member.imprintMode === 'team'
-                                    ? 'Team imprint'
-                                    : 'Self imprint'
-                            )
+                        <img class="gvgDetailHeroIcon" src="${HeroesGrid.heroIconSrc(
+                            member.name
+                        )}">
+                        <span class="gvgDetailName">${escapeHtml(
+                            i18next.t(member.name)
                         )}</span>
-                        <span class="gvgDetailMuted">${escapeHtml(
-                            eeLabel(member.ee, member.heroCode)
-                        )}</span>
+                        <span class="gvgDetailMemberMeta">${artifact} · ${escapeHtml(
+                    imprintLabel
+                )} · ${escapeHtml(eeLabel(member.ee, member.heroCode))}</span>
                     </div>
-                    <div class="gvgDetailRequirement">${requirement}</div>
-                </div>
-                <div class="horizontalLineWithMoreSpace"></div>`;
+                    <div class="gvgDetailMemberRequirement">${requirement}</div>
+                </div>`;
             })
             .join('');
 
@@ -121,15 +122,15 @@ module.exports = {
         ]
             .map(
                 ([label, value]) => `
-            <div class="gvgDetailTextBlock">
-                <div class="gvgDetailLabel">${escapeHtml(label)}</div>
-                <div class="gvgDetailText">${
+            <div class="gvgDetailRow">
+                <span class="gvgDetailRowLabel">${escapeHtml(label)}</span>
+                <span class="gvgDetailRowContent gvgDetailText">${
                     value
                         ? escapeHtml(value)
                         : `<span class="gvgDetailMuted">${i18next.t(
                               'None'
                           )}</span>`
-                }</div>
+                }</span>
             </div>`
             )
             .join('');
@@ -142,7 +143,7 @@ module.exports = {
             .map((code) => {
                 const name = GvgPlans.heroNameForCode(code) || code;
                 return `<span class="gvgDetailDefenseHero">
-                        <img class="gvgHeroIcon" style="width:32px;height:32px" src="${HeroesGrid.heroIconSrc(
+                        <img class="gvgDetailHeroIcon" src="${HeroesGrid.heroIconSrc(
                             name
                         )}">
                         <span>${escapeHtml(i18next.t(name))}</span>
@@ -155,20 +156,26 @@ module.exports = {
             width: 780,
             html: `
                 <div class="gvgDetail">
-                    <div class="gvgDetailLabel">${i18next.t(
-                        'Defense team'
-                    )}</div>
-                    <div class="gvgDetailDefenseRow">${defense}</div>
-                    <div class="horizontalLineWithMoreSpace"></div>
-                    <div class="gvgDetailLabel">${i18next.t(
-                        'Offense team'
-                    )}</div>
-                    ${members}
-                    <div class="gvgDetailLabel">${i18next.t('Tags')}</div>
-                    <div class="gvgTagRow gvgDetailTags">${tags}</div>
-                    <div class="horizontalLineWithMoreSpace"></div>
+                    <div class="gvgDetailRow">
+                        <span class="gvgDetailRowLabel">${i18next.t(
+                            'Defense team'
+                        )}</span>
+                        <span class="gvgDetailRowContent gvgDetailDefenseRow">${defense}</span>
+                    </div>
+                    <div class="gvgDetailRow">
+                        <span class="gvgDetailRowLabel">${i18next.t(
+                            'Offense team'
+                        )}</span>
+                        <div class="gvgDetailRowContent">${members}</div>
+                    </div>
+                    <div class="gvgDetailRow">
+                        <span class="gvgDetailRowLabel">${i18next.t(
+                            'Tags'
+                        )}</span>
+                        <span class="gvgDetailRowContent gvgDetailTags">${tags}</span>
+                    </div>
                     ${texts}
-                    <div class="gvgDetailMuted gvgDetailFooter">
+                    <div class="gvgDetailFooter">
                         ${i18next.t('Last modified')}: ${escapeHtml(
                 new Date(plan.updatedAt).toLocaleString()
             )}

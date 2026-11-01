@@ -88,6 +88,25 @@
 
     <build>
         <plugins>
+            <!--
+                Aparapi（GPU 加速）靠 LocalVariableTable 解析 kernel 方法：
+                类文件里没有调试变量信息时，它只能走「synthetic table」这条实验路径，
+                大概率解析失败 → GPU 内核报错、配装搜不出结果。
+                所以这里显式要求 -g（vars + lines + source），别让构建顺带把调试信息丢掉。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                    <debug>true</debug>
+                    <debuglevel>vars,lines,source</debuglevel>
+                    <compilerArgs>
+                        <arg>-g</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>

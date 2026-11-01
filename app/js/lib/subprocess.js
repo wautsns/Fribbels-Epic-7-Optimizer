@@ -113,18 +113,21 @@ module.exports = {
 
         child.stderr.on('data', (data) => {
             const str = data.toString()
+            errors += str;
 
             if (str.includes("aparapi") && str.includes("Ensure that OpenCL is in your PATH (windows) or in LD_LIBRARY_PATH (linux).")) {
-                
+                // GPU 不可用会自动退回 CPU，不用打扰用户
             } else if (str.includes("untested")) {
-                
+                // 同上：Aparapi 的兼容性提示
+            } else if (str.includes("LocalVariableTable") || str.includes("synthetic table based on bytecode")) {
+                // backend.jar 编译时没带 -g（类文件里缺 LocalVariableTable）时 Aparapi 会打这些警告，
+                // 它自己会尝试兜底，真失败时另有 "GPU error" 提示 → 这里只记日志，不弹错误框
+                console.warn("[backend] Aparapi codegen warning (backend.jar built without -g?): " + str.trim())
             } else if (str.includes("aparapi")) {
                 Notifier.error("Subprocess error. If you are using GPU acceleration, try disabling it on the settings tab.\n" + str);
             } else {
                 Notifier.error("Subprocess error - " + str);
             }
-
-            errors += data.toString();
         })
 
         ipc.on('app-close', _ => {

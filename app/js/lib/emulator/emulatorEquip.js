@@ -6,20 +6,56 @@ const adb = require('./adb');
 
 const SLOT_ORDER = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
 
+/**
+ * 一轮跑完（「中断操作」变回「一键换装」）后，一键换装按钮还要再禁用这么久：
+ * 连续点「中断操作」时很容易顺带点到刚变回来的「一键换装」，于是又启动一轮。
+ */
+const RESTART_COOLDOWN_MS = 3000;
+
 let busy = false;
 let stopping = false;
+let cooldown = false;
+let cooldownTimer = null;
 
 // 运行状态变化时通知界面（builds 功能列要在这里把机器人图标换成转圈图标）
 let busyListener = null;
+
+/**
+ * 给界面看的运行状态：
+ *   busy     运行中（机器人图标变转圈，点它就是中断）
+ *   stopping 已请求中断（转圈图标灰掉，点了没反应）
+ *   cooldown 刚跑完的 3 秒（机器人图标灰掉，避免连点中断后一下又启动一轮）
+ */
+function currentState() {
+    return { busy, stopping, cooldown };
+}
+
+function notifyState() {
+    if (busyListener) {
+        busyListener(currentState());
+    }
+}
 
 function setBusy(value) {
     if (busy === value) {
         return;
     }
     busy = value;
-    if (busyListener) {
-        busyListener(busy);
+    notifyState();
+}
+
+/** 开始冷却：只置状态 + 装定时器，不通知（调用方随后的状态通知会带上它） */
+function startCooldown() {
+    cooldown = true;
+
+    if (cooldownTimer) {
+        clearTimeout(cooldownTimer);
     }
+    cooldownTimer = setTimeout(() => {
+        cooldownTimer = null;
+        cooldown = false;
+        notifyState();
+    }, RESTART_COOLDOWN_MS);
 }
 
 function buildTarget(item) {
@@ -151,11 +187,31 @@ async function resolveItems(entries) {
     );
 }
 
+/**
+ * 开跑前（ensureManagePage）失败的提示：
+ * 分辨率不对 / 不在装备页都直接说清楚，别套「换装失败」；
+ * adb 没配 / 连不上这类才带前缀。
+ */
+function preflightErrorMessage(error) {
+    if (error.unsupportedResolution) {
+        return error.message;
+    }
+    if (error.notOnManagePage) {
+        return i18next.t('Please open the Manage Equipment page in game first');
+    }
+    return i18next.t('In-game equip failed: ') + error.message;
+}
+
 module.exports = {
     buildTarget,
 
     // 一键换装按钮已移除，取消入口改到 builds 功能列的机器人图标上
     isBusy: () => busy,
+    /** 已请求中断、还在等这一步操作结束 */
+    isStopping: () => stopping,
+    /** 刚跑完的冷却期（按钮要灰 3 秒，避免连点中断后一下又启动一轮） */
+    isCoolingDown: () => cooldown,
+    getState: () => currentState(),
 
     onBusyChange: (listener) => {
         busyListener = listener;
@@ -167,6 +223,9 @@ module.exports = {
         }
         stopping = true;
         setButtonStopping();
+        // 中断是「等这一步 adb 操作做完」，给个提示 + 把机器人图标灰掉，别让人以为没反应
+        Notifier.info(i18next.t('Cancelling...'));
+        notifyState();
         equip.requestCancel();
     },
 
@@ -180,6 +239,8 @@ module.exports = {
                     }
                     stopping = true;
                     setButtonStopping();
+                    Notifier.info(i18next.t('Cancelling...'));
+                    notifyState();
                     equip.requestCancel();
                     return;
                 }
@@ -192,7 +253,8 @@ module.exports = {
     // and the game applies all pending selections
     // heroArg / itemEntriesArg：GVG 的表格调用时显式传入（默认仍取英雄页的选中项）
     equipHeroBuild: async (heroArg, itemEntriesArg) => {
-        if (busy) {
+        // 冷却期内点了也不启动（图标本来就是灰的，这里再兜一次）
+        if (busy || cooldown) {
             return;
         }
 
@@ -215,8 +277,8 @@ module.exports = {
             return;
         }
 
-        setBusy(true);
         stopping = false;
+        setBusy(true);
         let currentSlot = '';
         let cancelled = false;
         setButtonRunning(true);
@@ -228,14 +290,7 @@ module.exports = {
         } catch (error) {
             setBusy(false);
             setButtonRunning(false);
-            // adb problems (not found / offline) must not be reported as "wrong page"
-            Dialog.htmlError(
-                error.notOnManagePage
-                    ? i18next.t(
-                          'Please open the Manage Equipment page in game first'
-                      )
-                    : i18next.t('In-game equip failed: ') + error.message
-            );
+            Dialog.htmlError(preflightErrorMessage(error));
             return;
         }
 
@@ -347,8 +402,10 @@ module.exports = {
                 console.log('[emulator] stream stats', JSON.stringify(stats));
             await adb.stopStream().catch(() => {});
 
-            setBusy(false);
             stopping = false;
+            // 先置冷却再 setBusy(false)，图标一次就变灰（否则会先闪一下可点的机器人）
+            startCooldown();
+            setBusy(false);
             setButtonRunning(false);
         }
     },

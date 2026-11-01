@@ -423,11 +423,39 @@ async function connect(preferred = DEFAULT_PORTS) {
 
 async function deviceSize() {
     const output = await execAdb(withSerial(['shell', 'wm', 'size']));
-    const match = output.match(/(\d+)x(\d+)/);
+    // `wm size` 可能同时打印 Physical 和 Override：实际点击用的是 Override，优先取它
+    const override = output.match(/Override size:\s*(\d+)x(\d+)/i);
+    const match = override || output.match(/(\d+)x(\d+)/);
     if (!match) {
         throw new Error(t('Unable to read the device resolution'));
     }
     return { width: Number(match[1]), height: Number(match[2]) };
+}
+
+/*
+ * 所有坐标（equip.js 的 LAYOUT、screen.js 的模板区域）都是按 1280x720 的横屏写死的。
+ * 别的分辨率下点击位置会整体偏移（可能点到别的按钮上），所以开跑前必须校验，
+ * 不是 1280x720 就直接报错，一次点击都不做。
+ */
+const REFERENCE_SIZE = { width: 1280, height: 720 };
+
+async function requireReferenceSize() {
+    const size = await deviceSize();
+    if (
+        size.width === REFERENCE_SIZE.width &&
+        size.height === REFERENCE_SIZE.height
+    ) {
+        return size;
+    }
+
+    const error = new Error(
+        t(
+            'Emulator resolution must be 1280x720 (current: {{size}}). Adjust it in the emulator settings first.',
+            { size: `${size.width}x${size.height}` }
+        )
+    );
+    error.unsupportedResolution = size;
+    throw error;
 }
 
 // coordinates are in the emulator's own pixel space (landscape)
@@ -905,6 +933,7 @@ async function stopStream() {
 module.exports = {
     ADB_CANDIDATES,
     DEFAULT_PORTS,
+    REFERENCE_SIZE,
     adbCandidates,
     regInstallDirs,
 
@@ -916,6 +945,7 @@ module.exports = {
     connect,
     listDevices,
     deviceSize,
+    requireReferenceSize,
     capture,
     captureRaw,
     tap,

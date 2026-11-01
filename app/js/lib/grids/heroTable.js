@@ -794,7 +794,7 @@ function buildGrid(localeText) {
                 suppressMovable: true,
                 cellRenderer: (params) => HtmlGenerator.buildBuildActionsCell(
                     isBuildEquipped(params.data),
-                    !!(global.EmulatorEquip && EmulatorEquip.isBusy && EmulatorEquip.isBusy())
+                    oneClickEquipState()
                 ),
             },
             // 冲突列：放在功能按钮右边，显示这条配装有几件装备正被别的英雄穿着
@@ -1088,6 +1088,13 @@ function onBuildCellClicked(params) {
     } else if (target.classList.contains('buildOneClickEquipIcon')) {
         // 一键换装只在「这条配装就是身上穿的」时可用（图标也是灰的）
         if (!isBuildEquipped(params.data)) return;
+
+        // 冷却中 / 已请求中断（图标是灰的）：一律不响应，
+        // 否则连点「中断操作」会顺带把刚变回来的「一键换装」也点掉
+        const state = oneClickEquipState();
+        if (state.stopping) return;
+        if (!state.busy && state.cooldown) return;
+
         hooks.onBuildAction('oneClick', hero, params.data);
     } else if (target.classList.contains('buildDeleteIcon')) {
         hooks.onBuildAction('remove', hero, params.data);
@@ -1144,6 +1151,25 @@ function isBuildEquipped(build) {
     }
 
     return equippedIds.every((id) => buildIds.includes(id));
+}
+
+/*
+ * 一键换装的状态（builds 功能列的机器人图标 + 点击判定都看它）：
+ *   busy     运行中 → 转圈，点它 = 中断
+ *   stopping 已请求中断 → 灰掉，点了没反应（避免以为没反应而连点）
+ *   cooldown 刚跑完的 3 秒 → 灰掉，避免连点中断后一下又启动一轮
+ */
+function oneClickEquipState() {
+    const emulator = global.EmulatorEquip;
+    return {
+        busy: !!(emulator && emulator.isBusy && emulator.isBusy()),
+        stopping: !!(emulator && emulator.isStopping && emulator.isStopping()),
+        cooldown: !!(
+            emulator &&
+            emulator.isCoolingDown &&
+            emulator.isCoolingDown()
+        ),
+    };
 }
 
 function redrawPreviewHero(heroId) {

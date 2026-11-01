@@ -371,7 +371,13 @@ module.exports = {
 
     // builds 列表「功能列」：未装备的配装显示「穿上」（fa-tshirt），已装备的显示「脱下」（fa-undo-alt），
     // 中间是「一键换装」（走模拟器；运行中变成转圈图标，再点即中断），最后是删除
-    buildBuildActionsCell(isEquipped, isRunning) {
+    //
+    // oneClickState = { busy, stopping, cooldown }（EmulatorEquip.getState()）：
+    //   busy     运行中 → 转圈，点它就是中断
+    //   stopping 已请求中断 → 转圈但灰掉，点了没反应，别指望再点一次能更快
+    //   cooldown 刚跑完的 3 秒 → 机器人灰掉，避免连点中断后一下又启动一轮
+    buildBuildActionsCell(isEquipped, oneClickState) {
+        const state = oneClickState || {};
         const equipIcon = isEquipped
             ? `<i class="fas fa-undo-alt buildGlyph buildUnequipIcon" title="${i18next.t('Unequip Items')}"></i>`
             : `<i class="fas fa-tshirt buildGlyph buildEquipIcon" title="${i18next.t('Equip Build')}"></i>`;
@@ -383,8 +389,12 @@ module.exports = {
         let oneClickIcon;
         if (!isEquipped) {
             oneClickIcon = `<i class="fas fa-robot buildGlyph buildOneClickEquipIcon buildActionDisabled" title="${i18next.t('Equip this build first')}"></i>`;
-        } else if (isRunning) {
+        } else if (state.stopping) {
+            oneClickIcon = `<i class="fas fa-spinner fa-spin buildGlyph buildOneClickEquipIcon buildActionStopping" title="${i18next.t('Stopping...')}"></i>`;
+        } else if (state.busy) {
             oneClickIcon = `<i class="fas fa-spinner fa-spin buildGlyph buildOneClickEquipIcon buildRunningIcon" title="${i18next.t('Cancel operation')}"></i>`;
+        } else if (state.cooldown) {
+            oneClickIcon = `<i class="fas fa-robot buildGlyph buildOneClickEquipIcon buildActionDisabled" title="${i18next.t('Please wait a moment')}"></i>`;
         } else {
             oneClickIcon = `<i class="fas fa-robot buildGlyph buildOneClickEquipIcon" title="${i18next.t('One-Click Equip')}"></i>`;
         }

@@ -743,6 +743,15 @@ input[type=number]::-webkit-outer-spin-button {
   opacity: 0.3;
   color: inherit;
 }
+/* 一键换装已请求中断：还是转圈，但灰掉表示“点了也没用”（等当前这一步做完） */
+.buildActionStopping {
+  opacity: 0.35;
+  cursor: default;
+}
+.buildActionStopping:hover {
+  opacity: 0.35;
+  color: inherit;
+}
 /* builds 表「冲突」列：这条配装有 N 件装备正被别的英雄穿着 */
 .buildConflictBadge {
   display: inline-flex;

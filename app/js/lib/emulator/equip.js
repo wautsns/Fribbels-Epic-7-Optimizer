@@ -282,6 +282,10 @@ async function ensureManagePage() {
     lastLoggedAdbPath = null;
     configureAdb();
     await adb.connect();
+
+    // 坐标按 1280x720 写死：分辨率不对就直接报错，一次点击都不发
+    await adb.requireReferenceSize();
+
     await assertManagePage();
 
     // 刚打开的装备页标题已经在了，但列表还在转（这时候点任何按钮都会被吞掉），

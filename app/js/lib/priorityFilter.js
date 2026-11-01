@@ -44,9 +44,12 @@ module.exports = {
 
         const candidates = countSlots(groups);
         const candidateCombos = combinationCount(candidates);
+        const sliderPercent = humanPercent(params.inputFilterPriority);
+
         if (candidateCombos <= COMBO_BUDGET) {
             console.log("Priority filter: " + items.length + " candidates " + JSON.stringify(candidates) +
-                " -> " + formatCount(candidateCombos) + " combinations, no truncation needed");
+                " -> " + formatCount(candidateCombos) + " combinations <= budget " + formatCount(COMBO_BUDGET) +
+                ", no truncation (slider Top " + sliderPercent + "% has nothing to cut)");
             return items;
         }
 
@@ -71,7 +74,9 @@ module.exports = {
 
             // 名额之内还有余量：把边界同分的装备按预算尽量补回来
             const filled = addTiesWithinBudget(pools, COMBO_BUDGET, compare);
-            console.log("Priority filter: Top " + percentage + "% -> " + JSON.stringify(countSlots(pools)) +
+            console.log("Priority filter: Top " + percentage + "%" +
+                (percentage === sliderPercent ? "" : " (slider " + sliderPercent + "%)") +
+                " -> " + JSON.stringify(countSlots(pools)) +
                 " -> " + formatCount(filled) + " combinations");
             return flattenPools(pools);
         }
@@ -251,6 +256,12 @@ function combinationCount(counts) {
 
 function formatCount(value) {
     return value >= 1e6 ? value.toExponential(2) : String(Math.round(value));
+}
+
+/* 滑块上的百分比（只用于日志/对比，实际生效的可能更小） */
+function humanPercent(value) {
+    const configured = Number(value);
+    return Number.isFinite(configured) && configured > 0 ? configured : 100;
 }
 
 /* 候选百分比：滑块值封顶，后面跟一串更紧的档位（去重、降序） */

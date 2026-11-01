@@ -521,7 +521,7 @@ module.exports = {
             dominanceRemovedCounts[gear] = dominanceInputCounts[gear] - dominanceOutputCounts[gear];
         }
 
-        items = PriorityFilter.applyPriorityFilters(params, items, baseStats, allItems, params.inputPredictReforges, params.inputSubstatMods, setConstrained)
+        items = PriorityFilter.applyPriorityFilters(params, items, baseStats, allItems, params.inputPredictReforges, params.inputSubstatMods)
 
         items = items.sort((a, b) => {
             return a.set-b.set;

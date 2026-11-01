@@ -13,9 +13,10 @@ module.exports = {
      * 规则：
      *   1. 组合数 ≤ 预算（COMBO_BUDGET）就完全不截断，保证结果是最优解；
      *   2. 超预算时从宽到紧试百分比（滑块值只作为上限），取第一个落进预算的；
-     *   3. 一律按「部位 × 套装」分组，每组至少留 1 件：某个套装在某部位被整体淘汰的话，
-     *      套装效果再强也搜不到（实测：速度 8 只能搜到 310，改了之后 315）；
-     *   4. 还剩预算时把边界同分补回来（见 addTiesWithinBudget），补到预算或名额的 2 倍为止。
+     *   3. 一律按「部位 × 套装」分组：用户选中的套装按百分比保留；没选中的套装每组只留 1 件
+     *      —— 只选了 4 / 2 / 2+2 套时，搭配的另一半还空着，任何套装都可能补进来，
+     *      整体淘汰某个套装就会漏掉更强的套装效果（实测：速度 8 只能搜到 310，改了之后 315）；
+     *   4. 还剩预算时把选中套装的边界同分补回来（见 addTiesWithinBudget）。
      */
     applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
         if (!items || items.length === 0) {
@@ -48,10 +49,11 @@ module.exports = {
             " -> " + formatCount(candidateCombos) + " combinations, over budget " + formatCount(COMBO_BUDGET));
 
         const percentages = candidatePercentages(params.inputFilterPriority);
+        const selectedSets = selectedSetNames(params);
         let fallback = null;
 
         for (const percentage of percentages) {
-            const pools = buildPools(groups, percentage);
+            const pools = buildPools(groups, percentage, selectedSets);
             const counts = countSlots(pools);
             const combos = combinationCount(counts);
             fallback = pools;
@@ -170,7 +172,32 @@ function candidatePercentages(value) {
     return list;
 }
 
-function buildPools(groups, percentage) {
+/*
+ * 用户在「套装」里选中的套装名。
+ *
+ * - 选了 4+2 / 2+2+2：候选装备事先已经筛到这些套装，分组后每个组都是「选中的」，
+ *   按百分比保留即可；
+ * - 只选了 4 件套 / 2 件套 / 2+2：搭配的另一半还空着，任何套装都可能补进来，
+ *   所以没选中的套装也要每个 (部位, 套装) 留 1 件（见 buildPools）。
+ */
+function selectedSetNames(params) {
+    const names = new Set();
+    const groups = Array.isArray(params.inputSets)
+        ? params.inputSets
+        : [params.inputSetsOne, params.inputSetsTwo, params.inputSetsThree];
+
+    for (const group of groups || []) {
+        for (const name of group || []) {
+            if (name) {
+                names.add(name);
+            }
+        }
+    }
+
+    return names;
+}
+
+function buildPools(groups, percentage, selectedSets) {
     const pools = [];
 
     for (const group of groups.values()) {
@@ -178,12 +205,16 @@ function buildPools(groups, percentage) {
             continue;
         }
 
-        // 每组至少留 1 件：某个套装在某部位被整体淘汰的话，它的套装效果就永远搜不到
-        const index = Math.max(1, Math.ceil((percentage / 100) * group.total));
+        const selected = selectedSets.has(group.set);
+        // 选中的套装按百分比取；没选中的每个组只留 1 件，保证套装效果有机会被搜到
+        const index = selected
+            ? Math.max(1, Math.ceil((percentage / 100) * group.total))
+            : 1;
 
         pools.push({
             slot: group.slot,
             set: group.set,
+            selected,
             items: group.items,
             kept: group.items.slice(0, Math.min(index, group.items.length)),
         });
@@ -212,14 +243,18 @@ function flattenPools(pools) {
  * 那双靴子就可能被这样丢掉（实测：速度 8 只能搜到 310，加个攻击 1/命中 1 打破平局
  * 就能搜到 315）。
  *
- * 约束：补到名额的 2 倍为止；分数为 0 的那一档不补；整体不超过组合数预算。
- * 返回补完之后的总组合数。
+ * 约束：只对「用户选中的套装」补；补到名额的 2 倍为止；分数为 0 的那一档不补；
+ * 整体不超过组合数预算。返回补完之后的总组合数。
  */
 function addTiesWithinBudget(pools, budget) {
     const counts = countSlots(pools);
     let combos = combinationCount(counts);
 
     for (const pool of pools) {
+        if (!pool.selected) {
+            continue;
+        }
+
         const list = pool.items;
         const kept = pool.kept;
         const index = kept.length;

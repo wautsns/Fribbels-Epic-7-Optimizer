@@ -4,10 +4,12 @@
  * 现行规则（背景见 README.md）：
  *   1. 组合数（各部位候选数的乘积）≤ 预算（2e8）时完全不截断；
  *   2. 超预算时从宽到紧试百分比（25 → 14 → 7 → 3 → 1，滑块值只是上限），取第一个落进预算的；
- *   3. 一律按「部位 × 套装」分组，**每组至少留 1 件** —— 即使没选套装，套装效果也可能更强，
- *      不能让某个套装在某部位被整体淘汰（实测：只给速度 8 分时 310 → 315）；
- *   4. 名额内还有预算余量时，把边界同分的装备补回来（补到名额 2 倍 / 预算用尽为止）；
- *   5. 分数为 0 的那一档不补同分（否则整份装备池都会被放进来）。
+ *   3. 一律按「部位 × 套装」分组：
+ *        - 用户选中的套装（4+2 / 2+2+2 / 只选 4 / 只选 2 / 2+2）按百分比保留，
+ *          并在预算内把边界同分补回来；
+ *        - 没选中的套装每个 (部位, 套装) 只留 1 件（搭配的另一半还空着，
+ *          任何套装都可能补进来，整体淘汰会漏掉更强的套装效果）；
+ *   4. 分数为 0 的那一档不补同分。
  *
  * 用法（仓库根目录）：node test/optimizer/priority-filter-check.js
  */
@@ -73,6 +75,8 @@ function params(overrides) {
             inputEffPriority: 0,
             inputResPriority: 0,
             inputFilterPriority: 7,
+            // 默认“只选了 4 件套”
+            inputSets: [['SpeedSet'], [], []],
         },
         overrides || {}
     );
@@ -129,32 +133,66 @@ realLog('\n[1] 组合数在预算内：完全不截断');
     check('小池子（6 部位 × 2 件 = 64 组合）原样返回', run(items).length === items.length);
 }
 
-realLog('\n[2] 超预算：逐 (部位 × 套装) 截断，且每个组都有代表');
+realLog('\n[2] 选了 4+2：两个套装都按百分比保留（每个部位都有代表）');
 
 {
     const items = bigPool();
-    const kept = run(items);
+    const kept = run(items, { inputSets: [['SpeedSet'], ['PursuitSet'], []] });
     const { bySlot, bySlotSet } = countsBy(kept);
 
     check('确实做了截断', kept.length < items.length);
     check('每个部位都有候选', SLOTS.every((slot) => bySlot[slot] > 0), bySlot);
     check(
-        '速度套与追击套在每个部位都保留',
+        '两个套装在每个部位都保留',
         SLOTS.every((slot) => bySlotSet[slot + '/SpeedSet'] > 0 && bySlotSet[slot + '/PursuitSet'] > 0),
         bySlotSet
     );
     check('落在预算内', combos(bySlot) <= COMBO_BUDGET, combos(bySlot));
 }
 
-realLog('\n[3] 边界同分：补回来（追击套 4 件同分，名额 1 → 留 2）');
+realLog('\n[3] 选了 4+2：边界同分补回来（追击套 4 件同分，名额 1 → 留 2）');
 
 {
-    const kept = run(bigPool());
+    const kept = run(bigPool(), { inputSets: [['SpeedSet'], ['PursuitSet'], []] });
     const pursuit = kept.filter((it) => it.gear === 'Boots' && it.set === 'PursuitSet');
-    check('Boots/追击套 4 件同为 90 分 → 保留 2 件', pursuit.length === 2, pursuit.length);
+    check('Boots/追击套保留 2 件', pursuit.length === 2, pursuit.length);
 }
 
-realLog('\n[4] 没选套装时，垫底的套装在每个部位也留 1 件（套装效果可能更强）');
+realLog('\n[4] 只选 4 件套：没选中的套装每个部位只留 1 件（不补同分）');
+
+{
+    const items = bigPool();
+    const kept = run(items, { inputSets: [['SpeedSet'], [], []] });
+    const { bySlotSet } = countsBy(kept);
+
+    check(
+        '追击套每个部位正好 1 件',
+        SLOTS.every((slot) => bySlotSet[slot + '/PursuitSet'] === 1),
+        bySlotSet
+    );
+    check(
+        '速度套按百分比保留（每部位 > 1 件）',
+        SLOTS.every((slot) => bySlotSet[slot + '/SpeedSet'] > 1),
+        bySlotSet
+    );
+    check('落在预算内', combos(countsBy(kept).bySlot) <= COMBO_BUDGET);
+}
+
+realLog('\n[5] 一个套装都没选：每个 (部位, 套装) 正好 1 件');
+
+{
+    const items = bigPool();
+    const kept = run(items, { inputSets: [[], [], []] });
+    const { bySlotSet } = countsBy(kept);
+    check(
+        '速度套/追击套各 1 件',
+        SLOTS.every((slot) => bySlotSet[slot + '/SpeedSet'] === 1 && bySlotSet[slot + '/PursuitSet'] === 1),
+        bySlotSet
+    );
+    check('总共只留了 12 件', kept.length === 12, kept.length);
+}
+
+realLog('\n[6] 垫底套装的装备也不会被整体淘汰（套装效果可能更强）');
 
 {
     // Weapon 里 40 件速度套（有速度）+ 1 件追击套（没有速度，分数垫底）
@@ -169,24 +207,24 @@ realLog('\n[4] 没选套装时，垫底的套装在每个部位也留 1 件（�
         }
     }
 
-    const kept = run(items);
+    const kept = run(items, { inputSets: [['SpeedSet'], [], []] });
     check('垫底的追击套武器仍然保留', kept.some((it) => it.id === 'weapon-pursuit-weak'));
-    check('落在预算内', combos(countsBy(kept).bySlot) <= COMBO_BUDGET, combos(countsBy(kept).bySlot));
 }
 
-realLog('\n[5] 滑块只是上限：给 3% 时不会放宽到 7%');
+realLog('\n[7] 滑块只是上限：给 3% 时不会放宽到 7%');
 
 {
     const items = bigPool();
-    const at3 = run(items, { inputFilterPriority: 3 });
-    const at7 = run(items, { inputFilterPriority: 7 });
+    const sets = [['SpeedSet'], ['PursuitSet'], []];
+    const at3 = run(items, { inputSets: sets, inputFilterPriority: 3 });
+    const at7 = run(items, { inputSets: sets, inputFilterPriority: 7 });
     check('3% 的候选数少于 7%', at3.length < at7.length, { at3: at3.length, at7: at7.length });
 }
 
-realLog('\n[6] 分数为 0 的组：不参与同分扩张');
+realLog('\n[8] 分数为 0 的组：不参与同分扩张');
 
 {
-    // 每个部位 1 件有速度的（速度套）+ 30 件 0 分的（追击套）
+    // 每个部位 1 件有速度的（速度套）+ 30 件 0 分的（追击套），两个套装都选中
     const items = [];
     for (const slot of SLOTS) {
         items.push(item(`${slot}-good`, slot, 'SpeedSet', 20, 45));
@@ -194,22 +232,25 @@ realLog('\n[6] 分数为 0 的组：不参与同分扩张');
             items.push(item(`${slot}-zero-${i}`, slot, 'PursuitSet', 0, 0));
         }
     }
-    const kept = run(items, { inputFilterPriority: 1 });
+    const kept = run(items, {
+        inputSets: [['SpeedSet'], ['PursuitSet'], []],
+        inputFilterPriority: 1,
+    });
     const zeroKept = kept.filter((it) => it.set === 'PursuitSet');
     check('0 分档每组只留 1 件', zeroKept.length === SLOTS.length, zeroKept.length);
 }
 
-realLog('\n[7] 关闭过滤（Top 100%）时原样返回');
+realLog('\n[9] 关闭过滤（Top 100%）时原样返回');
 
 {
     const items = bigPool();
     check('一件都不少', run(items, { inputFilterPriority: 100 }).length === items.length);
 }
 
-realLog('\n[8] 各部位保留数接近（不会偏袒某个部位）');
+realLog('\n[10] 各部位保留数接近（不会偏袒某个部位）');
 
 {
-    const kept = run(bigPool());
+    const kept = run(bigPool(), { inputSets: [['SpeedSet'], ['PursuitSet'], []] });
     const { bySlotSet } = countsBy(kept);
     const values = SLOTS.map((slot) => bySlotSet[slot + '/SpeedSet']);
     check('各部位速度套保留数差异 ≤ 2', Math.max(...values) - Math.min(...values) <= 2, values);

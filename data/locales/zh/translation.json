@@ -1475,6 +1475,8 @@
     "Removed duplicated GVG plans": "已移除重复的GVG作业",
     "No duplicated GVG plans found": "没有发现重复的GVG作业",
     "Delete all GVG plans?": "确定清空所有GVG作业？",
+    "Please type this text to confirm": "请输入以下文字确认",
+    "I confirm clearing all GVG plans": "我确认清空GVG作业",
     "Imported GVG plans": "已导入GVG作业",
     "Already exists": "已存在",
     "This GVG plan already exists": "该GVG作业已存在",

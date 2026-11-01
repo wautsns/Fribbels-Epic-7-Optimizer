@@ -2407,6 +2407,32 @@ input[type=submit].gvgFilterClear {
   margin-left: auto;
   margin-right: 0;
 }
+/* 「清空」风险最高：同样贴到右边框，但改成粗体红字提醒；点击后还要手动输入确认文字 */
+.gvgButtonRow .gvgDangerButton {
+  margin-left: auto;
+  margin-right: 0;
+  color: #c0392b;
+  font-weight: 700;
+}
+/* 清空确认弹窗：要照抄的那句话单独一行、加粗放大，避免手滑 */
+.gvgDangerConfirm {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 22px;
+  color: #444;
+}
+.gvgDangerConfirmPhrase {
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #fdf1ef;
+  color: #c0392b;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  user-select: text;
+  cursor: text;
+}
 .gvgTagRow {
   display: flex;
   flex-wrap: nowrap;

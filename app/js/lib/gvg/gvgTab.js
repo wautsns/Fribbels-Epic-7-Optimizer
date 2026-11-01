@@ -305,11 +305,7 @@ module.exports = {
     clearPlans: async () => {
         if (!GvgPlans.getAll().length) return;
 
-        const confirmed = await Dialog.confirmation(
-            i18next.t('Delete all GVG plans?'),
-            i18next.t('Confirm')
-        );
-        if (!confirmed) return;
+        if (!(await confirmClearAllPlans())) return;
 
         GvgPlans.clear();
     },
@@ -339,6 +335,64 @@ module.exports = {
 function bindClick(id, handler) {
     const element = document.getElementById(id);
     if (element) element.addEventListener('click', handler);
+}
+
+/** 清空全部作业时要求照抄的确认文字（会按当前语言显示，输入必须与它一致） */
+const CLEAR_ALL_PLANS_CONFIRM_TEXT = 'I confirm clearing all GVG plans';
+
+/**
+ * 「清空」按钮的确认弹窗：比普通二次确认更重 —— 必须先照着输入确认文字，
+ * 「清空」按钮才会从禁用变成可点；输入不对时按钮一直是灰的，点了也清不掉。
+ */
+async function confirmClearAllPlans() {
+    const phrase = i18next.t(CLEAR_ALL_PLANS_CONFIRM_TEXT);
+    let typed = '';
+
+    const result = await Swal.fire({
+        title: i18next.t('Delete all GVG plans?'),
+        html: `
+            <div class="gvgDangerConfirm">
+                <div>${escapeHtml(
+                    i18next.t('Please type this text to confirm')
+                )}</div>
+                <div id="gvgClearConfirmPhrase" class="gvgDangerConfirmPhrase">${escapeHtml(
+                    phrase
+                )}</div>
+            </div>`,
+        input: 'text',
+        inputValue: '',
+        inputAttributes: {
+            autocapitalize: 'off',
+            autocorrect: 'off',
+            spellcheck: 'false',
+        },
+        showCancelButton: true,
+        focusConfirm: false,
+        confirmButtonText: i18next.t('Clear'),
+        cancelButtonText: i18next.t('Cancel'),
+        didOpen: () => {
+            const input = Swal.getInput();
+            const confirmButton = Swal.getConfirmButton();
+
+            // 输入和确认文字完全一致（忽略首尾空格）才放开按钮
+            const syncConfirmButton = () => {
+                typed = input ? input.value : '';
+                if (confirmButton) {
+                    confirmButton.disabled = typed.trim() !== phrase;
+                }
+            };
+
+            syncConfirmButton();
+
+            if (input) {
+                input.addEventListener('input', syncConfirmButton);
+                input.focus();
+            }
+        },
+    });
+
+    // 双重保险：按钮虽然被禁用了，这里再比一次输入内容
+    return result.isConfirmed === true && typed.trim() === phrase;
 }
 
 /**

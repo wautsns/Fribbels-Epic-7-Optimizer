@@ -11,6 +11,9 @@ function check(name, condition, extra) {
 
 global.i18next = {t: (key) => key, language: 'zh'};
 
+/* 清空全部作业时要照抄的确认文字（i18next 桩直接返回 key） */
+const CLEAR_CONFIRM_PHRASE = 'I confirm clearing all GVG plans';
+
 const heroNames = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot'];
 global.HeroData = {
     getAllHeroData: () => Object.fromEntries(heroNames.map((n, i) => [n, {code: 'c' + (i + 1)}])),
@@ -49,6 +52,16 @@ let savedDialogOptions = null;
 let openFiles = [];
 let confirmAnswer = true;
 let swalValue = null;
+/* 「清空」的输入式确认：模拟输入框 + 确认按钮，记录 didOpen 期间的禁用状态 */
+let swalTypedText = '';
+let swalConfirmed = false;
+const swalConfirmButton = {disabled: false};
+const swalInput = {
+    value: '',
+    listener: null,
+    addEventListener(type, handler) { if (type === 'input') this.listener = handler; },
+    focus() {},
+};
 
 const stubs = {
     electron: {clipboard},
@@ -60,8 +73,18 @@ const stubs = {
         getCurrentWindow: () => ({}),
     },
     sweetalert2: {
-        fire: async () => ({value: swalValue}),
-        getConfirmButton: () => ({disabled: false}),
+        fire: async (options) => {
+            // 「清空」的输入式确认（唯一带 didOpen 的弹窗）：接线并回报按钮的禁用状态
+            if (options && typeof options.didOpen === 'function') {
+                swalConfirmButton.disabled = false;
+                swalInput.value = swalTypedText;
+                options.didOpen();
+                return {isConfirmed: swalConfirmed};
+            }
+            return {value: swalValue};
+        },
+        getConfirmButton: () => swalConfirmButton,
+        getInput: () => swalInput,
     },
 };
 
@@ -101,6 +124,7 @@ global.GvgGrid = {
     setFilter: (index, code) => gridCalls.push('filter:' + index + '=' + code),
     initialize: () => {},
 };
+global.GvgTeamTable = {initialize: () => {}, refresh: () => {}};
 const dialogCalls = [];
 global.GvgDialog = {
     editPlan: async (id) => dialogCalls.push('edit:' + id),
@@ -225,13 +249,27 @@ function seed() {
     await GvgTab.dedupePlans();
     check('无重复时提示未发现重复', notifications.some((n) => n[1] === 'No duplicated GVG plans found'), notifications);
 
-    confirmAnswer = false;
+    // 清空走「输入确认文字」的弹窗：输入不对时确认按钮一直是禁用的，点了也不清空
+    swalTypedText = '';
+    swalConfirmed = true;
     await GvgTab.clearPlans();
-    check('取消二次确认 → 不清空', GvgPlans.getAll().length > 0);
+    check('没有输入确认文字 → 不清空', GvgPlans.getAll().length > 0);
+    check('没有输入确认文字 → 确认按钮禁用', swalConfirmButton.disabled === true);
 
-    confirmAnswer = true;
+    swalTypedText = '随便写点什么';
     await GvgTab.clearPlans();
-    check('确认后清空', GvgPlans.getAll().length === 0);
+    check('输入内容不对 → 不清空', GvgPlans.getAll().length > 0);
+    check('输入内容不对 → 确认按钮仍禁用', swalConfirmButton.disabled === true);
+
+    swalTypedText = CLEAR_CONFIRM_PHRASE;
+    swalConfirmed = false;
+    await GvgTab.clearPlans();
+    check('输入正确但取消 → 不清空', GvgPlans.getAll().length > 0);
+    check('输入正确 → 确认按钮放开', swalConfirmButton.disabled === false);
+
+    swalConfirmed = true;
+    await GvgTab.clearPlans();
+    check('输入正确并确认 → 清空', GvgPlans.getAll().length === 0);
 
     seed();
     GvgTab.pinFirst('g1');

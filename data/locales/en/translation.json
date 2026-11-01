@@ -1206,6 +1206,8 @@
   "Removed duplicated GVG plans": "Removed duplicated GVG plans",
   "No duplicated GVG plans found": "No duplicated GVG plans found",
   "Delete all GVG plans?": "Delete all GVG plans?",
+  "Please type this text to confirm": "Type this text to continue",
+  "I confirm clearing all GVG plans": "I confirm clearing all GVG plans",
   "Imported GVG plans": "Imported GVG plans",
   "Already exists": "Already exists",
   "This GVG plan already exists": "This GVG plan already exists",

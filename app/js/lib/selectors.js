@@ -103,7 +103,8 @@ module.exports = {
         $('#inputHeroAdd').multipleSelect(Object.assign({}, heroSelectorOptions, {placeholder: i18next.t("Hero")}))
         $('#addHeroesSelector').multipleSelect(Object.assign({}, addHeroSelectorOptions, {placeholder: i18next.t("Hero")}))
 
-        $('#optionsExcludeGearFrom').multipleSelect(Object.assign({}, excludeEquippedSelectOptions, {placeholder: i18next.t("Exclude equipped"), selectAll: true},{formatSelectAll () {return i18next.t('[Select all]')}}));
+        // 「排除已穿上的装备」展开的列表要放得下「英雄名 #排名」（收起时还是 150px）
+        $('#optionsExcludeGearFrom').multipleSelect(Object.assign({}, excludeEquippedSelectOptions, {placeholder: i18next.t("Exclude equipped"), selectAll: true, dropWidth: 220},{formatSelectAll () {return i18next.t('[Select all]')}}));
         $('#optionsEnhanceLimit').multipleSelect(Object.assign({}, enhanceOptions, {placeholder: i18next.t("Minimum enhance"), selectAll: false}));
 
         $('#optionsS1').multipleSelect(Object.assign({}, excludeEquippedSelectOptions, {placeholder: i18next.t("Exclude equipped"), selectAll: true},{formatSelectAll () {return i18next.t('[Select all]')}}));

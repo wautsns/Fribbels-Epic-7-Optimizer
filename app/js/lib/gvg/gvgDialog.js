@@ -742,17 +742,17 @@ function searchableSelectIds() {
 }
 
 /**
- * 展开列表的期望高度上限：再用视口剩余空间裁剪（见 fitDropdownToViewport）。
- * 360 会把弹窗顶出屏幕，第 3 个进攻成员那几行尤其明显，所以统一收到 280。
+ * 展开列表的期望高度上限：再用剩余空间裁剪（见 fitDropdownToViewport）。
+ * 200 够用：选项一般靠输入筛选，列表太高反而把弹窗顶出滚动条。
  */
-const DROPDOWN_LIST_HEIGHT = 280;
+const DROPDOWN_LIST_HEIGHT = 200;
 /** 列表最小高度：再挤也留这么多，否则只剩一两行反而难选 */
 const DROPDOWN_LIST_MIN_HEIGHT = 140;
 /** 列表和视口边缘之间留的余量 */
 const DROPDOWN_VIEWPORT_GAP = 16;
 
 /**
- * 列表一律 280 高且只会向下展开的话，编辑弹窗里第 3 个进攻成员已经靠近弹窗底部，
+ * 列表一律 200 高且只会向下展开的话，编辑弹窗里第 3 个进攻成员已经靠近弹窗底部，
  * 展开就会撑出弹窗，让弹窗出现纵向滚动条。这里在每次展开时按剩余空间裁剪列表高度，
  * 下面放不下而上面更宽裕时改成向上展开（插件的 .ms-drop.top 就是向上定位）。
  * 注意必须在 onOpen 里做：插件 open() 每次都把 ul 的 max-height 重置成 options.maxHeight。

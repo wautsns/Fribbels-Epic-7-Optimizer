@@ -945,7 +945,10 @@ module.exports = {
             option.innerHTML = i18next.t(hero.name);
             option.label = hero.name;
             option.value = hero.id;
-            option2.innerHTML = i18next.t(hero.name);
+            // 同一个角色可以有多条条目，「排除已穿上的装备」里光看名字分不清是谁，
+            // 所以显示成「英雄名 #排名」（和 GVG 的「从英雄列表带入」一致）；
+            // option.label 仍存英雄名：redrawHeroImage() 是按 label 取名字的
+            option2.innerHTML = heroOptionText(hero);
             option2.label = hero.name;
             option2.value = hero.id;
 
@@ -1132,6 +1135,16 @@ function clearHeroOptions(id) {
     for (i = length-1; i >= 0; i--) {
       select.options[i] = null;
     }
+}
+
+/**
+ * 「排除已穿上的装备」下拉的显示文案：英雄名 + 英雄列表里的排名。
+ * 同一个角色可以有多条条目，只显示名字根本分不清是哪一条（下拉里的 value 是 hero.id）。
+ */
+function heroOptionText(hero) {
+    const name = i18next.t(hero.name);
+    const rank = Number(hero.index);
+    return Number.isFinite(rank) ? `${name} #${rank}` : name;
 }
 
 function setSort4Piece(sets, arr) {

@@ -13,8 +13,8 @@ const SCHEMA_VERSION = 1;
 const PACKAGE_SCHEMA = 'e7-gvg-plans';
 const CLIPBOARD_PREFIX = 'E7GVG1:';
 
-/* 一队 / 二队：本机状态，存在 localStorage 里。
-   不进作业数据、不随导出/粘贴走，作业的排序位置也不再决定谁是队伍（design.md 6.4）。 */
+/* 进攻阵容 1 / 2：本机状态，存在 localStorage 里。
+   不进作业数据、不随导出/粘贴走，作业的排序位置也不再决定归属哪个进攻阵容（design.md 6.4）。 */
 const TEAMS_STORAGE_KEY = 'e7gvg.teams';
 
 /* 站位展示顺序：前 → 下 → 上 → 后（design.md 6.2） */
@@ -25,7 +25,7 @@ const POSITIONS = ['front', 'bottom', 'top', 'back'];
  *
  * executionId 必须在这里：它是每次优化的执行 id，配装器每次跑都会换成新的 uuid
  * （optimizerTab 里 `currentExecutionId = await Api.prepareExecution()`），
- * 所以作业里存的和角色条目里存的永远不一样 —— 不剔除的话「置为一队」会一直判定
+ * 所以作业里存的和角色条目里存的永远不一样 —— 不剔除的话「置为进攻阵容 1」会一直判定
  * 条目缺失，重复弹新建。
  */
 const RUNTIME_REQUEST_KEYS = [
@@ -85,7 +85,7 @@ function asIntegerOrNull(value, min, max) {
 }
 
 /* ------------------------------------------------------------------ *
- * 一队 / 二队（本机状态）
+ * 进攻阵容 1 / 2（本机状态）
  * ------------------------------------------------------------------ */
 
 function teamStorage() {
@@ -128,7 +128,7 @@ function saveTeams() {
     }
 }
 
-/** 作业被删除 / 清空 / 整表替换后，清掉指向不存在作业的一队、二队引用 */
+/** 作业被删除 / 清空 / 整表替换后，清掉指向不存在作业的进攻阵容 1、2 的引用 */
 function pruneTeams() {
     const current = loadTeams();
     let changed = false;
@@ -200,7 +200,7 @@ module.exports = {
     getById: (id) => clone(plans.find((plan) => plan.id === id) || null),
 
     /**
-     * 当前的一队 / 二队。指向已删除作业的引用按"未设置"处理，不会返回脏 id。
+     * 当前的进攻阵容 1 / 2。指向已删除作业的引用按"未设置"处理，不会返回脏 id。
      * 这个状态只在本机（localStorage），不进作业、不进导出包。
      */
     getTeams: () => {
@@ -212,7 +212,7 @@ module.exports = {
         };
     },
 
-    /** 清掉一队 / 二队（作业数据里的排序位置不变） */
+    /** 清掉进攻阵容 1 / 2（作业数据里的排序位置不变） */
     clearTeams: () => {
         const current = loadTeams();
         current.first = null;
@@ -370,7 +370,7 @@ module.exports = {
         module.exports.commit();
     },
 
-    /* ---------------- 排序 / 一队二队（design.md 6.4） ---------------- */
+    /* ---------------- 排序 / 进攻阵容 1 / 2（design.md 6.4） ---------------- */
 
     sortPlans: (list) => {
         const byIdDesc = (a, b) => (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
@@ -397,10 +397,10 @@ module.exports = {
         const plan = plans.find((item) => item.id === id);
         if (!plan) return false;
 
-        // 位置仍然提到第一位（保留原来的排序行为），但它不再决定谁是队伍
+        // 位置仍然提到第一位（保留原来的排序行为），但它不再决定归属哪个进攻阵容
         plan.lastUsedAt = module.exports.nextUseTimestamp();
 
-        // 一队同时只能有一份：直接覆盖，原来的一队自然回到普通徽章
+        // 进攻阵容 1 同时只能有一份：直接覆盖，原来的进攻阵容 1 自然回到普通徽章
         const current = loadTeams();
         current.first = plan.id;
         if (current.second === plan.id) current.second = null;
@@ -425,7 +425,7 @@ module.exports = {
         }
         plan.lastUsedAt = timestamp - 1;
 
-        // 二队同样只能有一份
+        // 进攻阵容 2 同样只能有一份
         const current = loadTeams();
         current.second = plan.id;
         if (current.first === plan.id) current.first = null;

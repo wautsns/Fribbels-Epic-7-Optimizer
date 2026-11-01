@@ -27,11 +27,11 @@ var currentBuildsHero = null;
 
 var currentAggregate = {};
 
-/* 英雄列表的筛选状态（职业 / 属性 / GVG 一队二队），用外部过滤器实现 */
+/* 英雄列表的筛选状态（职业 / 属性 / GVG 进攻阵容），用外部过滤器实现 */
 var heroFilterState = {
     classFilter: null,
     elementFilter: null,
-    /* GVG 一队 / 二队存在时，只显示这些角色条目（hero id 集合），null = 不筛 */
+    /* GVG 进攻阵容存在时，只显示这些角色条目（hero id 集合），null = 不筛 */
     teamHeroIds: null,
 };
 
@@ -58,7 +58,7 @@ function matchesHeroFilters(hero) {
 }
 
 /*
- * 英雄列表左上角的提示：一队 / 二队筛选生效时显示「只看这 N 个角色」，
+ * 英雄列表左上角的提示：进攻阵容筛选生效时显示「只看这 N 个角色」，
  * 同时把「英雄下拉 + 添加英雄」藏起来 —— 筛选状态下加进来的角色马上会被筛掉，
  * 留着只会让人以为按钮坏了。
  */
@@ -147,7 +147,7 @@ module.exports = {
         heroesGrid.gridOptions.api.setRowData(heroes)
         heroesGrid.gridOptions.api.redrawRows();
 
-        // setRowData 之后外部过滤器不会自动重跑（GVG 一队/二队筛选靠它）
+        // setRowData 之后外部过滤器不会自动重跑（GVG 进攻阵容筛选靠它）
         if (heroFilterState.teamHeroIds) {
             heroesGrid.gridOptions.api.onFilterChanged();
         }
@@ -268,7 +268,7 @@ module.exports = {
     },
 
     /**
-     * GVG 一队 / 二队筛选：传 hero id 数组表示"只显示这些角色条目"，传 null 表示不筛。
+     * GVG 进攻阵容筛选：传 hero id 数组表示"只显示这些角色条目"，传 null 表示不筛。
      * 只改外部过滤器状态，不动 rowData（数据还是全量，取消筛选立刻恢复）。
      * hero.id 是 uuid 字符串（新建角色）/ 数字（旧数据），统一按字符串存。
      */
@@ -672,7 +672,7 @@ function buildGrid(localeText) {
         onRowDragLeave: onRowDragLeave,
         onSortChanged: onSortChanged,
         onFilterChanged: onFilterChanged,
-        // 职业 / 属性 / GVG 一队二队筛选：格子里是图片，用外部过滤器按数据字段筛选
+        // 职业 / 属性 / GVG 进攻阵容筛选：格子里是图片，用外部过滤器按数据字段筛选
         isExternalFilterPresent: () => !!(heroFilterState.classFilter || heroFilterState.elementFilter || heroFilterState.teamHeroIds),
         doesExternalFilterPass: (node) => matchesHeroFilters(node.data),
         suppressMoveWhenRowDragging: true,

@@ -215,7 +215,7 @@ function renderActions(params) {
     container.appendChild(
         glyphButton('fa-trash', 'Delete', () => GvgTab.deletePlan(id))
     );
-    // 一队 / 二队：本机字段（localStorage），当前被置为该队的那个用强调色
+    // 进攻阵容 1 / 2：本机字段（localStorage），当前被置为该进攻阵容的那个用强调色
     const teams = GvgPlans.getTeams();
     container.appendChild(
         pinButton('1', 'Set as first team', teams.first === id, () =>
@@ -256,7 +256,7 @@ function glyphButton(faIcon, titleKey, onClick) {
     return button;
 }
 
-/** 置队按钮：1 = 一队，2 = 二队；当前被置为该队时显示强调色 */
+/** 置队按钮：1 = 进攻阵容 1，2 = 进攻阵容 2；当前被置为该进攻阵容时显示强调色 */
 function pinButton(label, titleKey, active, onClick) {
     const button = document.createElement('button');
     button.className =

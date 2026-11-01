@@ -1462,7 +1462,7 @@ body.dark-theme input {
   width: 110px;
   margin: 0;
 }
-/* 一队 / 二队存在时的提示：「英雄列表只显示这些角色」 */
+/* 进攻阵容存在时的提示：「英雄列表只显示这些角色」 */
 .heroesTeamFilterNote {
   margin-left: 10px;
   font-size: 20px;
@@ -2288,7 +2288,7 @@ input:checked + .darkSlider:before {
   flex-direction: column;
   box-sizing: border-box;
   padding: 6px 8px;
-  /* 纵向内容（作业列表 + 一队/二队列表）可能超过面板高度：允许纵向滚动，横向仍然裁掉 */
+  /* 纵向内容（作业列表）可能超过面板高度：允许纵向滚动，横向仍然裁掉 */
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -2356,7 +2356,7 @@ input[type=submit].gvgFilterClear {
   margin-right: 2px;
   vertical-align: middle;
 }
-/* 「清除一队二队标记」在筛选行最右侧：margin-left:auto 推到右边，margin-right:0 贴着边框 */
+/* 「清除进攻阵容标记」在筛选行最右侧：margin-left:auto 推到右边，margin-right:0 贴着边框 */
 .gvgFilterRow .gvgClearTeamsButton {
   margin-left: auto;
   margin-right: 0;
@@ -2402,8 +2402,8 @@ input[type=submit].gvgFilterClear {
   display: inline-block;
   color: #333;
 }
-/* 置队按钮：数字徽章（1 = 一队，2 = 二队）。
-   当前被置为该队的那一份用强调色，其余是深灰实心（和行内图标同色系）。 */
+/* 置队按钮：数字徽章（1 = 进攻阵容 1，2 = 进攻阵容 2）。
+   当前被置为该进攻阵容的那一份用强调色，其余是深灰实心（和行内图标同色系）。 */
 .gvgPinButton {
   box-sizing: border-box;
   width: 17px;
@@ -2426,7 +2426,7 @@ input[type=submit].gvgFilterClear {
 .gvgPinButton:hover {
   background: #06c;
 }
-/* 当前的一队 / 二队 */
+/* 当前的进攻阵容 1 / 2 */
 .gvgPinButtonActive,
 .gvgPinButtonActive:hover {
   background: #06c;

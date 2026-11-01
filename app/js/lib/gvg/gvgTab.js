@@ -48,7 +48,7 @@ module.exports = {
         bindClick('clearGvgFilter', () => module.exports.clearFilters());
     },
 
-    /** 数据变了：重画筛选选项 + 表格 + 同步英雄列表的一队/二队筛选 */
+    /** 数据变了：重画筛选选项 + 表格 + 同步英雄列表的进攻阵容筛选 */
     redraw: () => {
         module.exports.redrawFilterOptions();
         GvgGrid.refresh();
@@ -132,7 +132,7 @@ module.exports = {
         GvgPlans.remove(id);
     },
 
-    /* ---------------- 置为一队 / 二队 ---------------- */
+    /* ---------------- 置为进攻阵容 1 / 2 ---------------- */
 
     pinFirst: async (id) => {
         if (!GvgPlans.pinFirst(id)) return;
@@ -300,8 +300,8 @@ module.exports = {
     },
 
     /**
-     * 清除一队 / 二队标记：清完 commit 会重画列表，蓝底的 1 / 2 徽章自然回到常规色，
-     * 英雄列表的「只显示一队二队角色」筛选也跟着解除。
+     * 清除进攻阵容标记：清完 commit 会重画列表，蓝底的 1 / 2 徽章自然回到常规色，
+     * 英雄列表的「只显示进攻阵容角色」筛选也跟着解除。
      */
     clearTeams: async () => {
         const teams = GvgPlans.getTeams();
@@ -376,7 +376,7 @@ function refreshFilterSelect(element, selected) {
 }
 
 /**
- * 置为一队 / 二队之后：检查这队的成员是否都还有对应的角色条目。
+ * 置为进攻阵容 1 / 2 之后：检查这队的成员是否都还有对应的角色条目。
  * 缺的先列出来问一次，用户确认才新建 —— 不静默往英雄列表里加东西。
  */
 async function confirmTeamEntries() {

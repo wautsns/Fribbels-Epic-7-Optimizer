@@ -1,10 +1,10 @@
 /**
- * 一队 / 二队对应的「角色条目」计算（不再画自己的表格）。
+ * 进攻阵容 1 / 2 对应的「角色条目」计算（不再画自己的表格）。
  *
- * 只认一队、二队进攻阵容的成员所对应的角色条目：
+ * 只认进攻阵容 1、2 的成员所对应的角色条目：
  *   - 条目的「配装器配置」（optimizationRequest）与作业成员的要求一致才算同一个条目
  *   - 神器的 code（等级是下限）、专属的有 / 无也要对得上
- *   - 没有这样的条目时不自动新建：pin 一队 / 二队时由 GvgTab 先提示，
+ *   - 没有这样的条目时不自动新建：pin 进攻阵容 1 / 2 时由 GvgTab 先提示，
  *     用户确认后再调用 createMissingEntries() 批量新建
  *     （神器 + 等级按作业填、阵型自阵取最高档、选专属时取最高数值、星级默认 6）
  *
@@ -30,8 +30,8 @@ const FLAT_STATS = ['max_hp', 'speed', 'att', 'def'];
 
 module.exports = {
     /**
-     * 把「一队 / 二队成员对应的角色条目」同步成英雄列表的筛选条件。
-     * 没有一队 / 二队时清除筛选（英雄列表恢复全量）。
+     * 把「进攻阵容成员对应的角色条目」同步成英雄列表的筛选条件。
+     * 没有进攻阵容 1 / 2 时清除筛选（英雄列表恢复全量）。
      */
     syncHeroFilter: async () => {
         const rows = await collectTeamRows();
@@ -46,14 +46,14 @@ module.exports = {
         return ids;
     },
 
-    /** 当前一队 / 二队命中的角色条目（调试 / 测试用） */
+    /** 当前进攻阵容 1 / 2 命中的角色条目（调试 / 测试用） */
     getTeamHeroIds: async () => {
         const rows = await collectTeamRows();
         return rows.map((row) => row.hero.id);
     },
 
     /**
-     * 当前一队 / 二队里还缺哪些角色条目（只查不建）。
+     * 当前进攻阵容 1 / 2 里还缺哪些角色条目（只查不建）。
      * 返回 [{ team, plan, member, heroName }]，同一份作业里重复的只保留一条。
      */
     findMissingEntries: async () => {
@@ -140,7 +140,7 @@ module.exports = {
  * 收集成员 → 找条目
  * ------------------------------------------------------------------ */
 
-/** 一队 / 二队的成员摊平成一个列表（同一份作业被两边同时选中时只算一次） */
+/** 进攻阵容 1 / 2 的成员摊平成一个列表（同一份作业被两边同时选中时只算一次） */
 function collectTeamMembers() {
     const teams = GvgPlans.getTeams();
     const members = [];

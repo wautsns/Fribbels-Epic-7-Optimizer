@@ -60,6 +60,7 @@ global.ItemsGrid = require('./grids/itemsGrid');
 global.GvgPlans = require('./gvg/gvgPlans');
 global.GvgGrid = require('./gvg/gvgGrid');
 global.GvgTeamGrid = require('./gvg/gvgTeamGrid');
+global.GvgTeamTable = require('./gvg/gvgTeamTable');
 global.GvgDialog = require('./gvg/gvgDialog');
 global.GvgTab = require('./gvg/gvgTab');
 

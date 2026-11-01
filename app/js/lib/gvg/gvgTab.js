@@ -16,6 +16,9 @@ module.exports = {
     initialize: () => {
         module.exports.redrawFilterOptions();
 
+        // 进攻阵容角色条目 / builds：heroTable 组件的第二个实例
+        GvgTeamTable.initialize();
+
         // 面板初始是 display:none，ag-grid 与筛选下拉在隐藏状态下都量不到尺寸：
         // 切到这个标签页时整体重画一次（选项 + 表格）
         const tabRadio = document.getElementById('tab9');
@@ -48,15 +51,13 @@ module.exports = {
         bindClick('clearGvgFilter', () => module.exports.clearFilters());
     },
 
-    /** 数据变了：重画筛选选项 + 表格 + 同步英雄列表的进攻阵容筛选 */
-    redraw: () => {
+    /** 数据变了：重画筛选选项 + 作业表 + 进攻阵容角色条目 / builds */
+    redraw: (heroes) => {
         module.exports.redrawFilterOptions();
         GvgGrid.refresh();
 
-        const teamGrid =
-            typeof GvgTeamGrid !== 'undefined' ? GvgTeamGrid : null;
-        if (teamGrid && typeof teamGrid.syncHeroFilter === 'function') {
-            teamGrid.syncHeroFilter();
+        if (typeof GvgTeamTable !== 'undefined') {
+            GvgTeamTable.refresh(heroes);
         }
     },
 
@@ -134,20 +135,28 @@ module.exports = {
 
     /* ---------------- 置为进攻阵容 1 / 2 ---------------- */
 
+    /*
+     * 一次点击只取一次英雄快照，后面「脱旧阵容装备 → 刷新表格 → 查缺失条目」都用它，
+     * 避免原来的 8~10 次 /heroes/getAllHeroes 全量请求（卡顿主因）。
+     */
     pinFirst: async (id) => {
         const before = GvgPlans.getTeams();
         if (!GvgPlans.pinFirst(id)) return;
 
-        await releaseLosingLineups(before, GvgPlans.getTeams());
-        await confirmTeamEntries();
+        const heroes = await GvgTeamGrid.fetchHeroes();
+        await releaseLosingLineups(before, GvgPlans.getTeams(), heroes);
+        await GvgTeamTable.refresh(heroes);
+        await confirmTeamEntries(heroes);
     },
 
     pinSecond: async (id) => {
         const before = GvgPlans.getTeams();
         if (!GvgPlans.pinSecond(id)) return;
 
-        await releaseLosingLineups(before, GvgPlans.getTeams());
-        await confirmTeamEntries();
+        const heroes = await GvgTeamGrid.fetchHeroes();
+        await releaseLosingLineups(before, GvgPlans.getTeams(), heroes);
+        await GvgTeamTable.refresh(heroes);
+        await confirmTeamEntries(heroes);
     },
 
     /* ---------------- 底部按钮 ---------------- */
@@ -306,15 +315,19 @@ module.exports = {
     },
 
     /**
-     * 清除进攻阵容标记：清完 commit 会重画列表，蓝底的 1 / 2 徽章自然回到常规色，
-     * 英雄列表的「只显示进攻阵容角色」筛选也跟着解除；原来两个阵容的角色条目装备会被脱掉。
+     * 清除进攻阵容标记：清完 commit 会重画列表，蓝底的 1 / 2 徽章自然回到常规色；
+     * 原来两个阵容的角色条目装备会被脱掉，下方角色条目表也会跟着刷新。
      */
     clearTeams: async () => {
         const before = GvgPlans.getTeams();
         if (!before.first && !before.second) return;
 
         GvgPlans.clearTeams();
-        await releaseLosingLineups(before, GvgPlans.getTeams());
+
+        const heroes = await GvgTeamGrid.fetchHeroes();
+        await releaseLosingLineups(before, GvgPlans.getTeams(), heroes);
+        await GvgTeamTable.refresh(heroes);
+
         Notifier.successRaw(i18next.t('Team markers cleared'));
     },
 };
@@ -385,8 +398,9 @@ function refreshFilterSelect(element, selected) {
 /**
  * 进攻阵容标记变化后：不再属于任何阵容的作业，把它进攻阵容成员对应的
  * 角色条目的装备全部脱掉（用户要求：被顶掉 / 清标记就等于这套阵容不用了）。
+ * heroes 是本次 pin 流程共用的英雄快照。
  */
-async function releaseLosingLineups(before, after) {
+async function releaseLosingLineups(before, after, heroes) {
     if (typeof GvgTeamGrid === 'undefined' || !GvgTeamGrid) return;
 
     const beforeIds = [before && before.first, before && before.second].filter(
@@ -399,7 +413,10 @@ async function releaseLosingLineups(before, after) {
 
     for (const planId of losingIds) {
         try {
-            const released = await GvgTeamGrid.releasePlanEntries(planId);
+            const released = await GvgTeamGrid.releasePlanEntries(
+                planId,
+                heroes
+            );
             if (released.length) {
                 Notifier.infoRaw(
                     `${i18next.t(
@@ -417,10 +434,10 @@ async function releaseLosingLineups(before, after) {
  * 置为进攻阵容 1 / 2 之后：检查这队的成员是否都还有对应的角色条目。
  * 缺的先列出来问一次，用户确认才新建 —— 不静默往英雄列表里加东西。
  */
-async function confirmTeamEntries() {
+async function confirmTeamEntries(heroes) {
     if (typeof GvgTeamGrid === 'undefined' || !GvgTeamGrid) return;
 
-    const missing = await GvgTeamGrid.findMissingEntries();
+    const missing = await GvgTeamGrid.findMissingEntries(heroes);
     if (!missing.length) return;
 
     const names = missing.map((entry) => i18next.t(entry.heroName));
@@ -439,6 +456,9 @@ async function confirmTeamEntries() {
     if (!confirmed) return;
 
     await GvgTeamGrid.createMissingEntries(missing);
+
+    // 新建完立刻重画角色条目表（新条目要出现在里面）
+    await GvgTeamTable.refresh();
 }
 
 function escapeHtml(text) {

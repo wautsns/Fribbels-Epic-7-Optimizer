@@ -113,6 +113,16 @@ window.jQuery = $;
           <input type="submit" value="Remove duplicates" class="gearPreviewButton" id="gvg-dedupe" data-t>
           <input type="submit" value="Clear" class="gearPreviewButton" id="gvg-clear" data-t>
         </div>
+
+        <!-- 进攻阵容 1 / 2 的 6 名角色条目（heroTable 组件的第二个实例） -->
+        <div class="gvgTeamHeroesContainer">
+          <div id="gvg-team-heroes" class="ag-theme-balham"></div>
+        </div>
+
+        <!-- 选中角色条目的 builds（与英雄页 builds 同高） -->
+        <div class="gvgTeamBuildsContainer">
+          <div id="gvg-team-builds" class="ag-theme-balham"></div>
+        </div>
       </div>
     </div>
 
@@ -123,9 +133,6 @@ window.jQuery = $;
             <select id="addHeroesSelector" class="gearPreviewButton"></select>
 
             <input type="submit" value="Add New Hero" class="gearPreviewButton" id="addHeroesSubmit" data-t>
-
-            <!-- 进攻阵容存在时，英雄列表只显示对应的角色条目 -->
-            <span id="heroesTeamFilterNote" class="heroesTeamFilterNote" style="display:none"></span>
           </div>
 
 

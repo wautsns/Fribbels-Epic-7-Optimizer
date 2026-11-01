@@ -11,6 +11,9 @@ const savesFolder = documentsPath + '/FribbelsOptimizerSaves';
 //                     (Files.getDataPath() + "/saves/").replace(/\//g, "\\");
 const defaultPath = savesFolder;
 
+/* autoSaveSoon 的合并计时器 */
+let autoSaveTimer = null;
+
 module.exports = {
 
     createFolder: () => {
@@ -20,6 +23,19 @@ module.exports = {
     autoSave: async () => {
         module.exports.createFolder();
         module.exports.saveData(Settings.getDefaultPath() + '/autosave.json');
+    },
+
+    /*
+     * 合并短时间内的多次自动存档请求（一次 GVG 置队会触发好几处 save 调用，
+     * 每次都要拉全量 heroes + items 再写 ~几 MB 的 JSON，是卡顿的主要来源之一）。
+     */
+    autoSaveSoon: (delay) => {
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+
+        autoSaveTimer = setTimeout(() => {
+            autoSaveTimer = null;
+            module.exports.autoSave();
+        }, delay == null ? 250 : delay);
     },
 
     saveData: async (filename) => {

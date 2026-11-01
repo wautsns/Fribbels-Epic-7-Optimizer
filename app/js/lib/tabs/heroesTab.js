@@ -291,39 +291,65 @@ async function removeHero(row) {
     });
 }
 
-function equipBuild(hero, build) {
+/*
+ * builds 的三个动作都支持可选的 onDone 回调：GVG 的表格复用同一套实现，
+ * 动作完成后再刷新它自己的表格（原来这些刷新都写死指向 HeroesGrid）。
+ */
+function runAfter(onDone, callback) {
+    if (typeof onDone !== 'function') return;
+    try {
+        Promise.resolve(callback && callback()).catch(() => {});
+    } catch (error) {
+        console.warn('[heroes] onDone callback failed', error);
+    }
+}
+
+function equipBuild(hero, build, onDone) {
     if (!hero || !build || !build.items) return;
     if (build.items.includes(undefined) || build.items.includes(null)) return;
 
     Api.equipItemsOnHero(hero.id, build.items).then(async () => {
         // 先刷新英雄列表（equipment 变了），再重画 builds，
         // 功能列才会把「穿上」图标换成「脱下」图标
-        await redrawGrid();
-        clearPreview();
-        HeroesGrid.refreshBuilds();
-        HeroesGrid.redrawPreview();
-        Saves.autoSave();
+        try {
+            await redrawGrid();
+            clearPreview();
+            HeroesGrid.refreshBuilds();
+            HeroesGrid.redrawPreview();
+            Saves.autoSave();
+        } catch (error) {
+            console.warn('[heroes] refresh after equip failed', error);
+        } finally {
+            // 不管英雄页刷新有没有出错，调用方（GVG 表格）都要刷新自己
+            runAfter(onDone);
+        }
     });
 }
 
 // 脱下这套配装的 6 件装备（效果和原来「脱下装备」按钮一致）
-function unequipBuild(hero, build) {
+function unequipBuild(hero, build, onDone) {
     const gearIds = (build && build.items ? build.items : []).filter(Boolean);
     const idsToUnequip = gearIds.length ? gearIds : getSelectedGearIds();
 
     if (!idsToUnequip || !idsToUnequip.length) return;
 
     Api.unequipItems(idsToUnequip).then(async () => {
-        await redrawGrid();
-        clearPreview();
-        // 重新拉一次英雄并重画 builds，功能列才会把「脱下」图标换回「装备」图标
-        HeroesGrid.refreshBuilds();
-        HeroesGrid.redrawPreview();
-        Saves.autoSave();
+        try {
+            await redrawGrid();
+            clearPreview();
+            // 重新拉一次英雄并重画 builds，功能列才会把「脱下」图标换回「装备」图标
+            HeroesGrid.refreshBuilds();
+            HeroesGrid.redrawPreview();
+            Saves.autoSave();
+        } catch (error) {
+            console.warn('[heroes] refresh after unequip failed', error);
+        } finally {
+            runAfter(onDone);
+        }
     });
 }
 
-async function removeBuild(hero, build) {
+async function removeBuild(hero, build, onDone) {
     if (!hero || !build) return;
 
     const confirmed = await Dialog.confirmation(
@@ -333,8 +359,14 @@ async function removeBuild(hero, build) {
     if (!confirmed) return;
 
     Api.removeBuild(hero.id, build).then(() => {
-        HeroesGrid.refreshBuilds();
-        Saves.autoSave();
+        try {
+            HeroesGrid.refreshBuilds();
+            Saves.autoSave();
+        } catch (error) {
+            console.warn('[heroes] refresh after remove build failed', error);
+        } finally {
+            runAfter(onDone);
+        }
     });
 }
 

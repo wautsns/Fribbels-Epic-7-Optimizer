@@ -1463,12 +1463,6 @@ body.dark-theme input {
   margin: 0;
 }
 /* 进攻阵容存在时的提示：「英雄列表只显示这些角色」 */
-.heroesTeamFilterNote {
-  margin-left: 10px;
-  font-size: 20px;
-  color: #06c;
-  white-space: nowrap;
-}
 
 .heroesTabTopButtonRowRight {
   /* 里面的图标按钮是 32px 高，盒子也按 32px 算，否则整行居中时图标会偏下、
@@ -2333,13 +2327,34 @@ input[type=submit].gvgFilterClear {
   line-height: 21px;
   margin: 0;
 }
-/* 6 行 * 36px 行高 + 32px 表头：列表不占满面板，下方留给其它功能 */
+/*
+ * 作业表高度：面板下面还要放「角色条目 6 行 + builds」，空间不够时优先压缩作业表
+ * （用户要求：宁可矮作业表，也不压 builds）。
+ * 上限沿用原来的 252px（6 行），窗口变矮时自动缩到 3 行（144px）。
+ */
 .gvgTableContainer {
-  height: 252px;
+  height: clamp(144px, calc(100vh - 610px), 252px);
   margin-top: 4px;
   overflow: hidden;
 }
 #gvg-plans-table {
+  height: 100%;
+  width: 100%;
+}
+/* 进攻阵容角色条目：6 行 × 36px + 外壳 36 ≈ 271px（固定，不参与压缩） */
+.gvgTeamHeroesContainer {
+  height: 271px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+/* builds：和英雄页的 builds 区域一样高（4 行 ≈ 172px） */
+.gvgTeamBuildsContainer {
+  height: 172px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+#gvg-team-heroes,
+#gvg-team-builds {
   height: 100%;
   width: 100%;
 }

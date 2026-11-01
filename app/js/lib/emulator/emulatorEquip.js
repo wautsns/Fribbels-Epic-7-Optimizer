@@ -190,22 +190,24 @@ module.exports = {
 
     // 6-piece flow: select all six pieces; the user presses 更换装备 once at the end
     // and the game applies all pending selections
-    equipHeroBuild: async () => {
+    // heroArg / itemEntriesArg：GVG 的表格调用时显式传入（默认仍取英雄页的选中项）
+    equipHeroBuild: async (heroArg, itemEntriesArg) => {
         if (busy) {
             return;
         }
 
-        const hero = HeroesGrid.getSelectedRow
-            ? HeroesGrid.getSelectedRow()
-            : null;
+        const hero = heroArg || (HeroesGrid.getSelectedRow ? HeroesGrid.getSelectedRow() : null);
         if (!hero) {
             Dialog.htmlError(i18next.t('Select a hero first'));
             return;
         }
 
-        const checked = HeroesTab.getSelectedGear
-            ? HeroesTab.getSelectedGear()
-            : [];
+        const checked =
+            Array.isArray(itemEntriesArg) && itemEntriesArg.length
+                ? itemEntriesArg
+                : HeroesTab.getSelectedGear
+                  ? HeroesTab.getSelectedGear()
+                  : [];
         if (checked.length !== 6) {
             Dialog.htmlError(
                 i18next.t('Need 6 items: check all six, or select a build row')

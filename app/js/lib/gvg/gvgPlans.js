@@ -703,9 +703,14 @@ module.exports = {
     /* ---------------- 副作用出口 ---------------- */
 
     commit: () => {
+        // 合并短时间内的多次存档：置队一次会触发好几处 save，每次都要拉全量
+        // heroes + items 再写 3~4MB JSON，是卡顿的主要来源之一
         try {
-            if (global.Saves && typeof Saves.autoSave === 'function')
+            if (global.Saves && typeof Saves.autoSaveSoon === 'function') {
+                Saves.autoSaveSoon();
+            } else if (global.Saves && typeof Saves.autoSave === 'function') {
                 Saves.autoSave();
+            }
         } catch (error) {
             console.warn('GVG: auto save failed', error);
         }

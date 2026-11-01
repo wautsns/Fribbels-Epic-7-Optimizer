@@ -15,8 +15,13 @@ module.exports = {
         return renderStar(value);
     },
 
-    arrowKeyNavigator: (binding, gridName, callback) => {
-        return navigateToNextCell(binding, gridName, callback);
+    /*
+     * 键盘上下切换行。
+     * gridProvider 可选：组件化之后同一个页面可能有多个实例（英雄页 / GVG），
+     * 不能只按名字去找全局单例，调用方可以直接把「本实例的 Grid」传进来。
+     */
+    arrowKeyNavigator: (binding, gridName, callback, gridProvider) => {
+        return navigateToNextCell(binding, gridName, callback, gridProvider);
     }
 }
 
@@ -87,10 +92,13 @@ var KEY_UP = 38;
 var KEY_RIGHT = 39;
 var KEY_DOWN = 40;
 
-function navigateToNextCell(params, gridName, callback) {
+function navigateToNextCell(params, gridName, callback, gridProvider) {
   return function(params) {
     var grid;
-    if (gridName == "heroesGrid") {
+    if (typeof gridProvider === 'function') {
+      // 组件实例自己给 Grid，不再依赖全局单例
+      grid = gridProvider();
+    } else if (gridName == "heroesGrid") {
       grid = heroesGrid;
     } else if (gridName == "optimizerGrid") {
       grid = optimizerGrid;

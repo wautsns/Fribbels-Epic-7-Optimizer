@@ -1,5 +1,5 @@
 /**
- * 进攻阵容 1 / 2 对应的「角色条目」计算（不再画自己的表格）。
+ * 进攻阵容 1 / 2 对应的「角色条目」计算 —— GVG 表格的数据源。
  *
  * 只认进攻阵容 1、2 的成员所对应的角色条目：
  *   - 条目的「配装器配置」（optimizationRequest）与作业成员的要求一致才算同一个条目
@@ -8,7 +8,8 @@
  *     用户确认后再调用 createMissingEntries() 批量新建
  *     （神器 + 等级按作业填、阵型自阵取最高档、选专属时取最高数值、星级默认 6）
  *
- * 算出来的条目 id 交给 HeroesGrid.setTeamFilter()，英雄列表就只显示这几个角色。
+ * 命中结果交给 GvgTeamTable（heroTable 组件的第二个实例）显示；
+ * 英雄列表本身不再做任何"只看阵容角色"的筛选。
  */
 /* e7 的属性 key → 英雄信息里的 aei* 字段（和 HeroesTab 的口径一致） */
 const E7_STAT_TO_BONUS = {
@@ -30,79 +31,70 @@ const FLAT_STATS = ['max_hp', 'speed', 'att', 'def'];
 
 module.exports = {
     /**
-     * 把「进攻阵容成员对应的角色条目」同步成英雄列表的筛选条件。
-     * 没有进攻阵容 1 / 2 时清除筛选（英雄列表恢复全量）。
+     * 一次英雄快照。pin 流程（脱装备 → 建条目 → 刷新表格）共用这一份，
+     * 避免重复的 /heroes/getAllHeroes 全量请求（那是卡顿的主因之一）。
      */
-    syncHeroFilter: async () => {
-        const rows = await collectTeamRows();
-        const ids = rows.map((row) => row.hero.id);
+    fetchHeroes: async () => loadHeroes(),
 
-        try {
-            HeroesGrid.setTeamFilter(ids.length ? ids : null);
-        } catch (error) {
-            console.warn('GVG: unable to filter the hero list', error);
-        }
-
-        return ids;
+    /** 进攻阵容 1 / 2 命中的角色条目（heroTable 组件的行数据） */
+    getTeamHeroes: async (heroes) => {
+        const rows = await collectTeamRows(heroes);
+        return rows.map((row) => row.hero);
     },
 
-    /** 当前进攻阵容 1 / 2 命中的角色条目（调试 / 测试用） */
-    getTeamHeroIds: async () => {
-        const rows = await collectTeamRows();
+    /** 命中条目的 id（调试 / 测试用） */
+    getTeamHeroIds: async (heroes) => {
+        const rows = await collectTeamRows(heroes);
         return rows.map((row) => row.hero.id);
     },
 
     /**
      * 某个作业不再是进攻阵容时（清除标记 / 被别的作业顶上），把它进攻阵容成员对应的
      * 角色条目的装备**全部脱下**。返回脱过装备的英雄名（调用方拿去提示 / 记日志）。
+     * heroes 可传外部快照，省掉一次全量请求。
      */
-    releasePlanEntries: async (planId) => {
+    releasePlanEntries: async (planId, heroes) => {
         const plan = GvgPlans.getById(planId);
         if (!plan) return [];
 
-        const heroes = await loadHeroes();
-        if (!heroes) return [];
+        const snapshot = heroes || (await loadHeroes());
+        if (!snapshot) return [];
 
-        const released = [];
-
+        const targets = [];
         for (const member of plan.offense.members) {
-            const hero = heroes.find((item) => matchesMember(item, member));
+            const hero = snapshot.find((item) => matchesMember(item, member));
             if (!hero || !hasEquipment(hero)) continue;
-
-            try {
-                await Api.unequipHeroById(hero.id);
-                released.push(hero.name);
-            } catch (error) {
-                console.warn(
-                    'GVG: unable to unequip the hero entry',
-                    hero.name,
-                    error
-                );
-            }
+            targets.push(hero);
         }
 
+        if (!targets.length) return [];
+
+        // 并行脱（原来是串行 await，每个角色一次 HTTP 往返）
+        const results = await Promise.all(
+            targets.map(async (hero) => {
+                try {
+                    await Api.unequipHeroById(hero.id);
+                    return hero.name;
+                } catch (error) {
+                    console.warn(
+                        'GVG: unable to unequip the hero entry',
+                        hero.name,
+                        error
+                    );
+                    return null;
+                }
+            })
+        );
+
+        const released = results.filter(Boolean);
         if (!released.length) return released;
 
         console.info('[GVG] unequipped hero entries:', released.join(', '));
 
-        // 装备变了：英雄列表 / builds / 存档都要跟着刷新
-        await module.exports.syncHeroFilter();
-
+        // 装备变了：存档合并成一次（GvgPlans.commit 也会排一次，debounce 会合掉）
         try {
-            if (typeof HeroesTab !== 'undefined' && HeroesTab.redraw) {
-                HeroesTab.redraw();
-            }
-            // builds 的「功能列」要按最新装备状态重画（已装备 / 未装备图标）
-            if (typeof HeroesGrid !== 'undefined' && HeroesGrid.refreshBuilds) {
-                Promise.resolve(HeroesGrid.refreshBuilds()).catch(() => {});
-            }
-        } catch (error) {
-            console.warn('GVG: unable to redraw the hero list', error);
-        }
-
-        try {
-            if (global.Saves && typeof Saves.autoSave === 'function') {
-                Saves.autoSave();
+            if (global.Saves && typeof Saves.autoSaveSoon === 'function') {
+                Saves.autoSaveSoon();
             }
         } catch (error) {
             console.warn('GVG: auto save failed', error);
@@ -115,18 +107,18 @@ module.exports = {
      * 当前进攻阵容 1 / 2 里还缺哪些角色条目（只查不建）。
      * 返回 [{ team, plan, member, heroName }]，同一份作业里重复的只保留一条。
      */
-    findMissingEntries: async () => {
+    findMissingEntries: async (heroes) => {
         const members = collectTeamMembers();
         if (!members.length) return [];
 
-        const heroes = await loadHeroes();
-        if (!heroes) return [];
+        const snapshot = heroes || (await loadHeroes());
+        if (!snapshot) return [];
 
         const missing = [];
         const seen = new Set();
 
         for (const entry of members) {
-            if (heroes.some((hero) => matchesMember(hero, entry.member)))
+            if (snapshot.some((hero) => matchesMember(hero, entry.member)))
                 continue;
 
             const key = `${heroNameOf(
@@ -141,7 +133,7 @@ module.exports = {
         return missing;
     },
 
-    /** 用户确认后批量新建缺失的角色条目，然后重新同步英雄列表筛选 */
+    /** 用户确认后批量新建缺失的角色条目 */
     createMissingEntries: async (missing) => {
         const created = [];
 
@@ -163,28 +155,6 @@ module.exports = {
             } catch (error) {
                 console.warn('GVG: unable to refresh the hero selector', error);
             }
-        }
-
-        await module.exports.syncHeroFilter();
-
-        // 新建的条目也要立刻出现在英雄列表里（否则筛选生效时列表还是旧数据）
-        if (created.length) {
-            try {
-                if (typeof HeroesTab !== 'undefined' && HeroesTab.redraw) {
-                    HeroesTab.redraw();
-                }
-            } catch (error) {
-                console.warn('GVG: unable to redraw the hero list', error);
-            }
-        }
-
-        // 兜底自查：建完还对不上说明字段口径有问题（正常不会出现）
-        const still = await module.exports.findMissingEntries();
-        if (still.length) {
-            console.warn(
-                '[GVG] hero entries still unmatched after creation:',
-                still.map((entry) => entry.heroName)
-            );
         }
 
         return created;
@@ -233,16 +203,16 @@ async function loadHeroes() {
     }
 }
 
-async function collectTeamRows() {
+async function collectTeamRows(heroes) {
     const members = collectTeamMembers();
     if (!members.length) return [];
 
-    const heroes = await loadHeroes();
-    if (!heroes) return [];
+    const snapshot = heroes || (await loadHeroes());
+    if (!snapshot) return [];
 
     const rows = [];
     for (const entry of members) {
-        const hero = heroes.find((item) => matchesMember(item, entry.member));
+        const hero = snapshot.find((item) => matchesMember(item, entry.member));
         if (!hero) continue;
 
         rows.push({

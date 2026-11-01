@@ -741,6 +741,56 @@ function searchableSelectIds() {
     return ids;
 }
 
+/**
+ * 展开列表的期望高度上限：再用视口剩余空间裁剪（见 fitDropdownToViewport）。
+ * 360 会把弹窗顶出屏幕，第 3 个进攻成员那几行尤其明显，所以统一收到 280。
+ */
+const DROPDOWN_LIST_HEIGHT = 280;
+/** 列表最小高度：再挤也留这么多，否则只剩一两行反而难选 */
+const DROPDOWN_LIST_MIN_HEIGHT = 140;
+/** 列表和视口边缘之间留的余量 */
+const DROPDOWN_VIEWPORT_GAP = 16;
+
+/**
+ * 列表一律 280 高且只会向下展开的话，编辑弹窗里第 3 个进攻成员已经靠近弹窗底部，
+ * 展开就会撑出弹窗，让弹窗出现纵向滚动条。这里在每次展开时按剩余空间裁剪列表高度，
+ * 下面放不下而上面更宽裕时改成向上展开（插件的 .ms-drop.top 就是向上定位）。
+ * 注意必须在 onOpen 里做：插件 open() 每次都把 ul 的 max-height 重置成 options.maxHeight。
+ */
+function fitDropdownToViewport(id) {
+    const element = document.getElementById(id);
+    const parent = element && element.nextElementSibling;
+    const drop = parent && parent.querySelector('.ms-drop');
+    if (!drop) return;
+
+    const list = drop.querySelector('ul');
+    const rect = parent.getBoundingClientRect();
+    // 边界优先取弹窗本身（swal2-popup 自己会 overflow-y: auto），
+    // 列表顶出弹窗的话滚动条还是会出现，所以别只按窗口算
+    const popup = parent.closest ? parent.closest('.swal2-popup') : null;
+    const bounds = popup
+        ? popup.getBoundingClientRect()
+        : { top: 0, bottom: window.innerHeight };
+    const spaceBelow = bounds.bottom - rect.bottom - DROPDOWN_VIEWPORT_GAP;
+    const spaceAbove = rect.top - bounds.top - DROPDOWN_VIEWPORT_GAP;
+    const openUp = spaceBelow < DROPDOWN_LIST_HEIGHT && spaceAbove > spaceBelow;
+    const available = openUp ? spaceAbove : spaceBelow;
+    // 搜索框和上下边框也算在展开高度里，用当前渲染高度反推，别让列表把它们挤出去
+    const dropRect = drop.getBoundingClientRect();
+    const listRect = list ? list.getBoundingClientRect() : null;
+    const chrome = listRect
+        ? Math.max(0, dropRect.height - listRect.height)
+        : 0;
+    const height = Math.max(
+        DROPDOWN_LIST_MIN_HEIGHT,
+        Math.min(DROPDOWN_LIST_HEIGHT, available - chrome)
+    );
+
+    drop.classList.toggle('top', openUp);
+    drop.classList.toggle('bottom', !openUp);
+    if (list) list.style.maxHeight = `${height}px`;
+}
+
 function upgradeSearchableSelects(validate) {
     if (typeof $ === 'undefined' || !$.fn || !$.fn.multipleSelect) return;
 
@@ -756,9 +806,11 @@ function upgradeSearchableSelects(validate) {
             filter: true,
             filterAcceptOnEnter: true,
             single: true,
-            maxHeight: 360,
+            maxHeight: DROPDOWN_LIST_HEIGHT,
             ...options,
             placeholder: i18next.t(placeholder),
+            // 展开时按视口剩余空间决定列表高度和展开方向
+            onOpen: () => fitDropdownToViewport(id),
             // 插件改的是原生 select 的 value，回调里补一次校验
             onSelect: validate,
             onUnselect: validate,

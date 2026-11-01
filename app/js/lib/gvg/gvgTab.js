@@ -440,7 +440,12 @@ async function confirmTeamEntries(heroes) {
     const missing = await GvgTeamGrid.findMissingEntries(heroes);
     if (!missing.length) return;
 
-    const names = missing.map((entry) => i18next.t(entry.heroName));
+    // 群阵的条目要求和同名的自阵条目不一样（不吃自阵加成），标出来免得用户以为已经建过
+    const names = missing.map((entry) =>
+        entry.member.imprintMode === 'team'
+            ? `${i18next.t(entry.heroName)} (${i18next.t('Team imprint')})`
+            : i18next.t(entry.heroName)
+    );
     const html = `
         <div style="text-align:left;font-size:14px">
             <div>${i18next.t('These heroes need a new hero entry')}:</div>

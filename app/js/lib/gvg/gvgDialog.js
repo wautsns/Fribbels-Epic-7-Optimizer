@@ -715,15 +715,15 @@ const SEARCHABLE_SELECTS = [
         options: {
             width: 140,
             textTemplate: entryTextTemplate,
-            dropWidth: 460,
+            dropWidth: 520,
             displayTitle: false,
         },
     },
     {
         pattern: 'gvgOffense%dArtifact',
         placeholder: 'Artifact',
-        // 神器名最长 33 个字符（如 Unleashed Axe of Heavenly Mandate），列表要 260 才放得下
-        options: { width: 140, dropWidth: 260 },
+        // 神器名最长 33 个字符（如 Unleashed Axe of Heavenly Mandate），14px 字号下要 300 才放得下
+        options: { width: 140, dropWidth: 300 },
     },
 ];
 

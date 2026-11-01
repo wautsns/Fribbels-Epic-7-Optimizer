@@ -121,9 +121,10 @@ module.exports = {
             if (snapshot.some((hero) => matchesMember(hero, entry.member)))
                 continue;
 
-            const key = `${heroNameOf(
-                entry.member
-            )}|${GvgPlans.requirementFingerprint(entry.member.requirement)}`;
+            // 阵型也要参与去重：同一个英雄的「群阵」和「自阵」需要两条条目（面板不同）
+            const key = `${heroNameOf(entry.member)}|${
+                entry.member.imprintMode === 'team' ? 'team' : 'self'
+            }|${GvgPlans.requirementFingerprint(entry.member.requirement)}`;
             if (seen.has(key)) continue;
             seen.add(key);
 
@@ -230,11 +231,12 @@ function heroNameOf(member) {
     return GvgPlans.heroNameForCode(member.heroCode);
 }
 
-/** 同名 + 神器 code 一致 + 专属有无一致 + 同一套配装器配置（没指定配置时只要求同名） */
+/** 同名 + 神器 code 一致 + 专属有无一致 + 阵型一致 + 同一套配装器配置（没指定配置时只要求同名） */
 function matchesMember(hero, member) {
     if (!hero || hero.name !== heroNameOf(member)) return false;
     if (!matchesArtifact(hero, member)) return false;
     if (!matchesEe(hero, member)) return false;
+    if (!matchesImprint(hero, member)) return false;
 
     const wanted = GvgPlans.requirementFingerprint(member.requirement);
     if (!wanted) return true;
@@ -273,6 +275,25 @@ function matchesEe(hero, member) {
 
 function heroHasEe(hero) {
     const raw = hero && hero.eeNumber;
+    if (raw == null || raw === '' || raw === 'None') return false;
+
+    return Number(raw) > 0;
+}
+
+/**
+ * 阵型：作业选「群阵」时不吃自阵加成，所以匹配的条目必须是没选自阵数值的
+ * （`imprintNumber` 为 None）——选了数值的条目多算了自阵加成，配置不是同一套。
+ * 自阵（默认）不反向限制：自阵档位没写进面板要求（`requirementFingerprint` 里没有它），
+ * 条目的档位高低不影响「就是这套配置」的判断。
+ */
+function matchesImprint(hero, member) {
+    if (member.imprintMode !== 'team') return true;
+
+    return !heroHasImprint(hero);
+}
+
+function heroHasImprint(hero) {
+    const raw = hero && hero.imprintNumber;
     if (raw == null || raw === '' || raw === 'None') return false;
 
     return Number(raw) > 0;

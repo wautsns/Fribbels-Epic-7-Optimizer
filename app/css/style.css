@@ -2475,7 +2475,7 @@ input[type=submit].gvgFilterClear {
 /* ===== GVG 编辑 / 详情弹窗 ===== */
 .gvgForm {
   text-align: left;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   color: #333;
 }
@@ -2488,13 +2488,13 @@ input[type=submit].gvgFilterClear {
 .gvgForm select,
 .gvgForm input[type='number'],
 .gvgForm input[type='text'] {
-  height: 26px;
+  height: 28px;
   padding: 0 4px;
   border: 1px solid #aab;
   border-radius: 4px;
   background-color: #fff;
   color: #444;
-  font-size: 12px;
+  font-size: 14px;
   font-family: inherit;
   box-sizing: border-box;
 }
@@ -2509,7 +2509,7 @@ input[type=submit].gvgFilterClear {
   background-color: #fff;
   color: #444;
   padding: 3px 4px;
-  font-size: 12px;
+  font-size: 14px;
   font-family: inherit;
   box-sizing: border-box;
 }
@@ -2530,16 +2530,16 @@ input[type=submit].gvgFilterClear {
   /* 不写死灰色：选中/悬停那一行是彩底，用 inherit + 半透明才看得清 */
   color: inherit;
   opacity: 0.75;
-  font-size: 11px;
+  font-size: 14px;
 }
 /* 神器下拉和英雄下拉同宽（140px）；收起时只显示名字，展开的列表宽度由插件 dropWidth 控制 */
 .gvgForm .ms-parent.gvgArtifactSelect {
   width: 140px;
 }
 .gvgForm .ms-parent .ms-choice {
-  height: 26px;
-  line-height: 24px;
-  font-size: 12px;
+  height: 28px;
+  line-height: 26px;
+  font-size: 14px;
 }
 .gvgFormSection {
   margin-bottom: 6px;
@@ -2559,9 +2559,9 @@ input[type=submit].gvgFilterClear {
 }
 .gvgFormLabel {
   flex: 0 0 auto;
-  min-width: 24px;
+  min-width: 28px;
   text-align: right;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: #2b2b2b;
   white-space: nowrap;
@@ -2573,8 +2573,8 @@ input[type=submit].gvgFilterClear {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 12px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 22px;
   color: #444;
 }
 .gvgShortInput {
@@ -2590,7 +2590,7 @@ input[type=submit].gvgFilterClear {
   flex: 1 1 auto;
   width: auto;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 14px;
 }
 .gvgTextArea {
   /* 默认一行，可纵向拉伸 */
@@ -2605,7 +2605,7 @@ input[type=submit].gvgFilterClear {
 }
 .gvgMemberHeader {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   color: #1f1f1f;
   margin-bottom: 4px;
 }
@@ -2613,17 +2613,17 @@ input[type=submit].gvgFilterClear {
   min-height: 16px;
   text-align: center;
   color: #c0392b;
-  font-size: 12px;
+  font-size: 14px;
 }
 .gvgDetail {
   text-align: left;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   color: #333;
 }
 .gvgDetailLabel {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   color: #1f1f1f;
   margin-bottom: 2px;
 }
@@ -2649,15 +2649,15 @@ input[type=submit].gvgFilterClear {
 }
 .gvgDetailPosition {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   color: #06c;
 }
 .gvgDetailMuted {
   color: #888;
-  font-size: 12px;
+  font-size: 14px;
 }
 .gvgDetailRequirement {
-  font-size: 12px;
+  font-size: 14px;
   padding: 2px 0 0 38px;
   word-break: break-word;
 }
@@ -2665,13 +2665,18 @@ input[type=submit].gvgFilterClear {
   margin-bottom: 6px;
 }
 .gvgDetailText {
-  font-size: 12px;
+  font-size: 14px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 .gvgDetailTags {
   flex-wrap: wrap;
   margin-bottom: 6px;
+}
+/* 标签沿用列表里的 .gvgTag（12px，给表格用），弹窗里放大到 14px */
+.gvgDetailTags .gvgTag {
+  font-size: 14px;
+  line-height: 18px;
 }
 .gvgDetailFooter {
   margin-top: 6px;

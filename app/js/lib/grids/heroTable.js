@@ -59,6 +59,7 @@ function createHeroTable(options) {
                 itemOwnerIndex.set(String(item.id), {
                     heroId: String(hero.id),
                     heroName: hero.name,
+                    slot,
                 });
             });
         });
@@ -312,6 +313,7 @@ function matchesHeroFilters(hero) {
 
             conflicts.push({
                 itemId: rawId,
+                slot: owner.slot,
                 heroId: owner.heroId,
                 heroName: owner.heroName,
             });
@@ -790,16 +792,6 @@ function buildGrid(localeText) {
             {headerName: i18next.t('s1'), field: 's1', width: 50},
             {headerName: i18next.t('s2'), field: 's2', width: 50},
             {headerName: i18next.t('s3'), field: 's3', width: 50},
-            // 冲突列：这条配装的装备里，有几件正被别的英雄穿着
-            {
-                headerName: '',
-                colId: 'conflicts',
-                width: 40,
-                sortable: false,
-                resizable: false,
-                suppressMovable: true,
-                cellRenderer: (params) => renderConflictBadge(params.data),
-            },
             // 功能列：装备这套配装 / 删除这套配装
             {
                 headerName: '',
@@ -812,6 +804,16 @@ function buildGrid(localeText) {
                     isBuildEquipped(params.data),
                     !!(global.EmulatorEquip && EmulatorEquip.isBusy && EmulatorEquip.isBusy())
                 ),
+            },
+            // 冲突列：放在功能按钮右边，显示这条配装有几件装备正被别的英雄穿着
+            {
+                headerName: '',
+                colId: 'conflicts',
+                width: 44,
+                sortable: false,
+                resizable: false,
+                suppressMovable: true,
+                cellRenderer: (params) => renderConflictBadge(params.data),
             },
         ],
         rowHeight: 27,
@@ -1109,7 +1111,7 @@ function renderConflictBadge(build) {
         if (!owners.includes(name)) owners.push(name);
     });
 
-    const title = `${i18next.t('Gear already in use')}: ${owners.join(' / ')}`;
+    const title = `${i18next.t('Gear conflict')}: ${owners.join(' / ')}`;
 
     return `<span class="buildConflictBadge" title="${escapeHtmlText(
         title

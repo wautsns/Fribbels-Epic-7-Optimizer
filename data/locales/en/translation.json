@@ -1255,9 +1255,9 @@
   "An emulator command is already in progress": "An emulator command is already in progress",
   "A screen capture is already in progress": "A screen capture is already in progress",
   "Raw screen capture is not supported by this device": "Raw screen capture is not supported by this device",
-  "Gear already in use": "Gear already in use",
   "These items are already equipped by other heroes": "These items are already equipped by other heroes",
   "Continuing will unequip them from those heroes": "Continuing will unequip them from those heroes",
   "Equip this build": "Equip this build",
-  "Equip this build first": "Equip this build first"
+  "Equip this build first": "Equip this build first",
+  "Gear conflict": "Gear conflict"
 }

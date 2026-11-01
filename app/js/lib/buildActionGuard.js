@@ -5,7 +5,7 @@
  * 所以两套配装抢同一件装备时，前一晚穿好的角色会被悄悄扒光。
  *
  * 这里在装备前查一次：这条配装的 6 件里有没有正被**任何英雄**穿着的，
- * 有就列出「装备名 — 穿着者」，让用户决定要不要继续（可能是有意让后面的人穿）。
+ * 有就列出「部位 — 穿着者」，让用户决定要不要继续（可能是有意让后面的人穿）。
  */
 
 function escapeHtml(text) {
@@ -14,22 +14,6 @@ function escapeHtml(text) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
-}
-
-/** 尽量把装备 id 换成名字（拿不到就退回 'Item'） */
-async function itemNamesById(itemIds) {
-    const names = {};
-
-    try {
-        const response = await Api.getItemsByIds(itemIds);
-        ((response && response.items) || []).forEach((item) => {
-            if (item && item.id != null) names[String(item.id)] = item.name;
-        });
-    } catch (error) {
-        console.warn('[buildActionGuard] unable to load item names', error);
-    }
-
-    return names;
 }
 
 /**
@@ -46,19 +30,14 @@ async function confirmEquip(instance, hero, build) {
     const conflicts = instance.getBuildConflicts(hero.id, build);
     if (!conflicts.length) return true;
 
-    const names = await itemNamesById(
-        conflicts.map((conflict) => conflict.itemId)
-    );
-
+    // 只显示部位（武器 / 头盔 / …）+ 穿着者，不显示具体装备名
     const rows = conflicts
-        .map((conflict) => {
-            const itemName = i18next.t(
-                names[String(conflict.itemId)] || 'Item'
-            );
-            return `<li>${escapeHtml(itemName)} — ${escapeHtml(
-                i18next.t(conflict.heroName)
-            )}</li>`;
-        })
+        .map(
+            (conflict) =>
+                `<li>${escapeHtml(i18next.t(conflict.slot || 'Gear'))} — ${escapeHtml(
+                    i18next.t(conflict.heroName)
+                )}</li>`
+        )
         .join('');
 
     const html = `

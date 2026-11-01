@@ -2356,14 +2356,10 @@ input[type=submit].gvgFilterClear {
   margin-right: 2px;
   vertical-align: middle;
 }
-/* 「清除一队二队标记」放在作业表格右上角、贴着右侧边框 */
-.gvgTableHeaderRow {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 2px;
-}
-.gvgTableHeaderRow .gvgClearTeamsButton {
-  margin: 0;
+/* 「清除一队二队标记」在筛选行最右侧：margin-left:auto 推到右边，margin-right:0 贴着边框 */
+.gvgFilterRow .gvgClearTeamsButton {
+  margin-left: auto;
+  margin-right: 0;
 }
 .gvgTagRow {
   display: flex;

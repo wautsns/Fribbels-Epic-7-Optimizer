@@ -20,12 +20,23 @@ const TEAMS_STORAGE_KEY = 'e7gvg.teams';
 /* 站位展示顺序：前 → 下 → 上 → 后（design.md 6.2） */
 const POSITIONS = ['front', 'bottom', 'top', 'back'];
 
-/* 运行期字段：不是「面板要求」的一部分，跨账号/跨设备会算错（design.md 4.3） */
+/*
+ * 运行期字段：不是「面板要求」的一部分，跨账号/跨设备会算错（design.md 4.3）。
+ *
+ * executionId 必须在这里：它是每次优化的执行 id，配装器每次跑都会换成新的 uuid
+ * （optimizerTab 里 `currentExecutionId = await Api.prepareExecution()`），
+ * 所以作业里存的和角色条目里存的永远不一样 —— 不剔除的话「置为一队」会一直判定
+ * 条目缺失，重复弹新建。
+ */
 const RUNTIME_REQUEST_KEYS = [
     'excludeFilter',
     'inputAllowEquippedItems',
     'inputPredictReforges',
     'excludedGearIds',
+    'executionId',
+    // 配装器每跑一次都会填的新值 / 后端保存时会被置空的两个内部字段
+    'items',
+    'boolArr',
 ];
 
 let plans = [];
@@ -446,7 +457,12 @@ module.exports = {
                     : null,
                 imprintMode: member.imprintMode,
                 ee: member.ee,
-                requirement: member.requirement || null,
+                // 用指纹而不是原始 request：executionId 等运行期字段每次都不一样，
+                // 直接用原对象会让「同一份作业」判不出重复
+                requirement:
+                    module.exports.requirementFingerprint(
+                        member.requirement
+                    ) || null,
             }));
 
         return stableStringify({

@@ -37,6 +37,19 @@ const RUNTIME_REQUEST_KEYS = [
     // 配装器每跑一次都会填的新值 / 后端保存时会被置空的两个内部字段
     'items',
     'boolArr',
+    // 搜索偏好，不是「面板要求」：换了也不该判定为另一个角色条目
+    // （优先级滑块会被「按过滤器自动推导」改值，Top% 也会随界面默认值变化）
+    'inputFilterPriority',
+    'inputAtkPriority',
+    'inputHpPriority',
+    'inputDefPriority',
+    'inputSpdPriority',
+    'inputCrPriority',
+    'inputCdPriority',
+    'inputEffPriority',
+    'inputResPriority',
+    'resultPriority',
+    'resultDislike',
 ];
 
 let plans = [];
@@ -73,6 +86,28 @@ function stableStringify(value) {
 
 function asString(value) {
     return value == null ? '' : String(value);
+}
+
+/* 后端「上限」的默认最大值：等于它就说明这条上限没启用 */
+const DEFAULT_MAX_LIMIT = 2147483647;
+
+/*
+ * 归一化「下限 / 上限是否启用」的标记：
+ *   - 下限 <= 0（含没填）→ 等于没有下限，标记删掉；
+ *   - 上限 >= 后端默认最大值（或没填）→ 等于没有上限，标记删掉。
+ * 否则「输入框留空」和「填了 0 再清空」这类等价配置会让指纹对不上：
+ * 实测作业里 inputSpdMinConfigured=true + 0，条目里 false，明明没设速度下限却判定为不同配置。
+ */
+function normalizeLimitFlags(copy) {
+    for (const key of Object.keys(copy)) {
+        if (key.endsWith('MinConfigured')) {
+            const value = Number(copy[key.slice(0, -'Configured'.length)]);
+            if (!(value > 0)) delete copy[key];
+        } else if (key.endsWith('MaxConfigured')) {
+            const value = Number(copy[key.slice(0, -'Configured'.length)]);
+            if (!(value < DEFAULT_MAX_LIMIT)) delete copy[key];
+        }
+    }
 }
 
 function asIntegerOrNull(value, min, max) {
@@ -539,7 +574,7 @@ module.exports = {
     },
 
     /**
-     * 「配装器配置」指纹：剔除运行期字段后做键顺序无关序列化。
+     * 「配装器配置」指纹：剔除运行期字段 + 搜索偏好后做键顺序无关序列化。
      * 用来判断某个角色条目是不是就是作业里指定的那套配置（GVG 页下方列表 / 自动建条目）。
      */
     requirementFingerprint: (request) => {
@@ -550,6 +585,7 @@ module.exports = {
         for (const key of RUNTIME_REQUEST_KEYS) delete copy[key];
         delete copy.hero;
         delete copy.heroId;
+        normalizeLimitFlags(copy);
 
         return Object.keys(copy).length ? stableStringify(copy) : '';
     },

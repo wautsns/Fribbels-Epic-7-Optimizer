@@ -10,6 +10,7 @@
  */
 
 const heroTable = require('../grids/heroTable');
+const buildActionGuard = require('../buildActionGuard');
 
 let instance = null;
 
@@ -21,6 +22,8 @@ module.exports = {
             heroesTableId: 'gvg-team-heroes',
             buildsTableId: 'gvg-team-builds',
             enableRowDrag: false,
+            /* 行数据只有 6 条，但"谁穿着什么"要按全量英雄算 → 由 refresh 显式喂 */
+            ownershipSource: 'external',
             hooks: {
                 getUseReforgedStats: () => HeroesTab.getUseReforgedStats(),
 
@@ -41,7 +44,15 @@ module.exports = {
                     console.info('[GVG][build]', action, hero && hero.name);
 
                     if (action === 'equip') {
-                        HeroesTab.equipBuild(hero, build, refresh);
+                        // 装备前检查：这 6 件里有没有正被任何英雄穿着（后端会静默抢走）
+                        buildActionGuard
+                            .confirmEquip(instance, hero, build)
+                            .then((ok) => {
+                                if (ok) HeroesTab.equipBuild(hero, build, refresh);
+                            })
+                            .catch((error) =>
+                                console.warn('[GVG] equip guard failed', error)
+                            );
                     } else if (action === 'unequip') {
                         HeroesTab.unequipBuild(hero, build, refresh);
                     } else if (action === 'oneClick') {
@@ -79,7 +90,11 @@ module.exports = {
     refresh: async (heroes) => {
         if (!instance) return;
 
-        const rows = await GvgTeamGrid.getTeamHeroes(heroes);
+        // 一次拉全量英雄：既当"谁穿着什么"的索引，也用来筛出阵容里的 6 条
+        const universe = heroes || (await GvgTeamGrid.fetchHeroes());
+        instance.setHeroUniverse(universe);
+
+        const rows = await GvgTeamGrid.getTeamHeroes(universe);
         await instance.refresh(rows);
         await instance.refreshSelectedBuilds();
 

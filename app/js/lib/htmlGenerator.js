@@ -376,9 +376,18 @@ module.exports = {
             ? `<i class="fas fa-undo-alt buildGlyph buildUnequipIcon" title="${i18next.t('Unequip Items')}"></i>`
             : `<i class="fas fa-tshirt buildGlyph buildEquipIcon" title="${i18next.t('Equip Build')}"></i>`;
 
-        const oneClickIcon = isRunning
-            ? `<i class="fas fa-spinner fa-spin buildGlyph buildOneClickEquipIcon buildRunningIcon" title="${i18next.t('Cancel operation')}"></i>`
-            : `<i class="fas fa-robot buildGlyph buildOneClickEquipIcon" title="${i18next.t('One-Click Equip')}"></i>`;
+        /*
+         * 一键换装只在「这条配装就是英雄身上穿的」时可点：游戏里复刻的就是身上这套，
+         * 没装备时点了没意义，做成灰色禁用。
+         */
+        let oneClickIcon;
+        if (!isEquipped) {
+            oneClickIcon = `<i class="fas fa-robot buildGlyph buildOneClickEquipIcon buildActionDisabled" title="${i18next.t('Equip this build first')}"></i>`;
+        } else if (isRunning) {
+            oneClickIcon = `<i class="fas fa-spinner fa-spin buildGlyph buildOneClickEquipIcon buildRunningIcon" title="${i18next.t('Cancel operation')}"></i>`;
+        } else {
+            oneClickIcon = `<i class="fas fa-robot buildGlyph buildOneClickEquipIcon" title="${i18next.t('One-Click Equip')}"></i>`;
+        }
 
         return equipIcon
             + oneClickIcon

@@ -734,6 +734,28 @@ input[type=number]::-webkit-outer-spin-button {
   opacity: 1;
   color: #06c;
 }
+/* 一键换装只在「这条配装就是身上穿的」时可点，否则灰色禁用 */
+.buildActionDisabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.buildActionDisabled:hover {
+  opacity: 0.3;
+  color: inherit;
+}
+/* builds 表「冲突」列：这条配装有 N 件装备正被别的英雄穿着 */
+.buildConflictBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #c47f00;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+}
+.buildConflictBadge .fas {
+  font-size: 12px;
+}
 .shrinkSets {
   height: 26px;
   vertical-align: middle;

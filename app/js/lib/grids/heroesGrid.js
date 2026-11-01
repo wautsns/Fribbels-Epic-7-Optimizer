@@ -10,6 +10,7 @@
 
 const heroTable = require('./heroTable');
 const HtmlGenerator = require('../htmlGenerator');
+const buildActionGuard = require('../buildActionGuard');
 
 /* 把 6 件装备画到英雄页底部的装备卡里（原来写在 heroesGrid.js 里的那段） */
 function renderEquipmentCards(items, baseStats, mods) {
@@ -135,7 +136,15 @@ const instance = heroTable.createHeroTable({
         // builds 功能列：装备 / 脱下 / 一键换装（运行中 = 中断）/ 删除
         onBuildAction: (action, hero, build) => {
             if (action === 'equip') {
-                HeroesTab.equipBuild(hero, build);
+                // 装备前检查：这 6 件里有没有正被别的英雄穿着（后端会静默抢走）
+                buildActionGuard
+                    .confirmEquip(instance, hero, build)
+                    .then((ok) => {
+                        if (ok) HeroesTab.equipBuild(hero, build);
+                    })
+                    .catch((error) =>
+                        console.warn('[heroes] equip guard failed', error)
+                    );
             } else if (action === 'unequip') {
                 HeroesTab.unequipBuild(hero, build);
             } else if (action === 'oneClick') {

@@ -38,6 +38,40 @@ function createHeroTable(options) {
     let currentBuildsHero = null;
     let currentAggregate = {};
 
+    /*
+     * 「这件装备现在穿在谁身上」索引：
+     *   - 英雄页实例：refresh() 拿到的就是全量英雄，自动建索引
+     *   - GVG 实例：只有 6 条行数据，需要调用方 setHeroUniverse(全量英雄)
+     * itemId -> { heroId, heroName }
+     */
+    let heroUniverse = [];
+    let itemOwnerIndex = null;
+
+    function rebuildItemOwnerIndex() {
+        itemOwnerIndex = new Map();
+
+        heroUniverse.forEach((hero) => {
+            const equipment = (hero && hero.equipment) || {};
+            Object.keys(equipment).forEach((slot) => {
+                const item = equipment[slot];
+                if (!item || item.id == null) return;
+
+                itemOwnerIndex.set(String(item.id), {
+                    heroId: String(hero.id),
+                    heroName: hero.name,
+                });
+            });
+        });
+    }
+
+    function escapeHtmlText(text) {
+        return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     /* 筛选状态（职业 / 属性），每个实例一份 */
     let heroFilterState = {
         classFilter: null,
@@ -108,6 +142,13 @@ function matchesHeroFilters(hero) {
         const selectedNode = heroesGrid.gridOptions.api.getSelectedNodes()[0]
 
         currentHeroes = heroes;
+
+        // 英雄页 / 自托管实例：这里的 heroes 就是全量英雄，直接拿来建"谁穿着什么"索引。
+        // GVG 实例只拿到 6 条，需要调用方用 setHeroUniverse() 喂全量。
+        if (options.ownershipSource !== 'external') {
+            api.setHeroUniverse(heroes);
+        }
+
         heroesGrid.gridOptions.api.setRowData(heroes)
         heroesGrid.gridOptions.api.redrawRows();
 
@@ -180,7 +221,7 @@ function matchesHeroFilters(hero) {
         buildsGrid.gridOptions.api.setRowData(hero.builds == null ? [] : hero.builds)
 
         // 换上/脱下以后，功能列（穿上 <-> 脱下）必须整列按最新数据重画
-        buildsGrid.gridOptions.api.refreshCells({ columns: ['buildActions'], force: true });
+        buildsGrid.gridOptions.api.refreshCells({ columns: ['buildActions', 'conflicts'], force: true });
 
         // 再把刚才选中的那套配装选回来（保留蓝色高亮）
         let newSelectedNode = null;
@@ -240,6 +281,55 @@ function matchesHeroFilters(hero) {
         if (!buildsApi) return;
 
         buildsApi.setRowData([]);
+    },
+
+    /**
+     * 喂一份「全量英雄」（判断某件装备现在穿在谁身上）。
+     * 英雄页实例在 refresh() 里自动喂；GVG 实例需要调用方显式喂。
+     */
+    setHeroUniverse: (heroes) => {
+        heroUniverse = heroes || [];
+        rebuildItemOwnerIndex();
+
+        api.refreshBuildConflicts();
+    },
+
+    /**
+     * 这条配装的 6 件装备里，当前正被别人穿着的有哪些。
+     * 返回 [{ itemId, heroId, heroName }]，排除这条配装所属英雄自己身上的。
+     */
+    getBuildConflicts: (heroId, build) => {
+        if (!build || !Array.isArray(build.items) || !itemOwnerIndex) return [];
+
+        const selfId = heroId == null ? null : String(heroId);
+        const conflicts = [];
+
+        build.items.forEach((rawId) => {
+            if (rawId == null) return;
+
+            const owner = itemOwnerIndex.get(String(rawId));
+            if (!owner || owner.heroId === selfId) return;
+
+            conflicts.push({
+                itemId: rawId,
+                heroId: owner.heroId,
+                heroName: owner.heroName,
+            });
+        });
+
+        return conflicts;
+    },
+
+    /** builds 表「冲突」列按当前选中的英雄重画（自己的装备不算冲突） */
+    refreshBuildConflicts: () => {
+        const buildsApi = buildsGrid && buildsGrid.gridOptions && buildsGrid.gridOptions.api;
+        if (!buildsApi) return;
+
+        try {
+            buildsApi.refreshCells({ columns: ['buildActions', 'conflicts'], force: true });
+        } catch (error) {
+            console.warn('[heroTable] refresh conflicts failed', error);
+        }
     },
 
     /**
@@ -700,6 +790,16 @@ function buildGrid(localeText) {
             {headerName: i18next.t('s1'), field: 's1', width: 50},
             {headerName: i18next.t('s2'), field: 's2', width: 50},
             {headerName: i18next.t('s3'), field: 's3', width: 50},
+            // 冲突列：这条配装的装备里，有几件正被别的英雄穿着
+            {
+                headerName: '',
+                colId: 'conflicts',
+                width: 40,
+                sortable: false,
+                resizable: false,
+                suppressMovable: true,
+                cellRenderer: (params) => renderConflictBadge(params.data),
+            },
             // 功能列：装备这套配装 / 删除这套配装
             {
                 headerName: '',
@@ -955,6 +1055,9 @@ function onHeroRowSelected(event) {
 
         redrawPreviewHero(heroId);
     }
+
+    // 冲突列排除"自己身上穿的"，所以选中行变化后要重算
+    api.refreshBuildConflicts();
 }
 
 // builds 列表「功能列」的点击：装备这套配装 / 脱下这套配装 / 一键换装（运行中=中断）/ 删除
@@ -983,10 +1086,34 @@ function onBuildCellClicked(params) {
     } else if (target.classList.contains('buildUnequipIcon')) {
         hooks.onBuildAction('unequip', hero, params.data);
     } else if (target.classList.contains('buildOneClickEquipIcon')) {
+        // 一键换装只在「这条配装就是身上穿的」时可用（图标也是灰的）
+        if (!isBuildEquipped(params.data)) return;
         hooks.onBuildAction('oneClick', hero, params.data);
     } else if (target.classList.contains('buildDeleteIcon')) {
         hooks.onBuildAction('remove', hero, params.data);
     }
+}
+
+/*
+ * builds 表的「冲突」列：这条配装有几件装备正被别的英雄穿着。
+ * 鼠标悬停显示"被谁穿着"，方便决定让谁来穿。
+ */
+function renderConflictBadge(build) {
+    const hero = api.getSelectedRow();
+    const conflicts = api.getBuildConflicts(hero && hero.id, build);
+    if (!conflicts.length) return '';
+
+    const owners = [];
+    conflicts.forEach((conflict) => {
+        const name = i18next.t(conflict.heroName);
+        if (!owners.includes(name)) owners.push(name);
+    });
+
+    const title = `${i18next.t('Gear already in use')}: ${owners.join(' / ')}`;
+
+    return `<span class="buildConflictBadge" title="${escapeHtmlText(
+        title
+    )}"><i class="fas fa-exclamation-triangle"></i>${conflicts.length}</span>`;
 }
 
 /* 这条配装是否就是英雄当前身上穿的（按 6 件装备的 id 比较，与顺序无关） */
@@ -1020,7 +1147,7 @@ function redrawPreviewHero(heroId) {
         // 先更新「这一行英雄」，setRowData 渲染功能列时才会判断对“已装备/未装备”
         currentBuildsHero = hero;
         buildsGrid.gridOptions.api.setRowData(hero.builds == null ? [] : hero.builds)
-        buildsGrid.gridOptions.api.refreshCells({ columns: ['buildActions'], force: true });
+        buildsGrid.gridOptions.api.refreshCells({ columns: ['buildActions', 'conflicts'], force: true });
 
         api.refreshBuilds(response);
 

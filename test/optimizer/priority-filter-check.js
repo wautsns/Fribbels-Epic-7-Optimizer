@@ -34,11 +34,11 @@ const baseStats = { atk: 1000, hp: 5000, def: 400, spd: 100 };
 const SLOTS = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
 const COMBO_BUDGET = 2e8;
 
-/** 造一件装备：只关心速度（副属性 + 主属性），其它属性为 0 */
-function item(id, gear, set, spdSub, spdMain) {
+/** 造一件装备：关心速度（副属性 + 主属性）和攻击%，其它属性为 0 */
+function item(id, gear, set, spdSub, spdMain, atkPercent) {
     const stats = {
         Attack: 0,
-        AttackPercent: 0,
+        AttackPercent: atkPercent || 0,
         Health: 0,
         HealthPercent: 0,
         Defense: 0,
@@ -201,6 +201,72 @@ realLog('\n[7] 各部位保留数接近（不会偏袒某个部位）');
     const { bySlotSet } = countsBy(kept);
     const values = SLOTS.map((slot) => bySlotSet[slot + '/SpeedSet']);
     check('各部位速度套保留数差异 ≤ 1', Math.max(...values) - Math.min(...values) <= 1, values);
+}
+
+/*
+ * 同分时的取舍：按结果优先级（resultPriority 依次比较，disliked 反向）→ 未加权 roll → id。
+ * 用「速度相同、攻击% 不同」的追击套构造同分块，quota = 1、同分补到 2 件。
+ */
+function tiePool(pursuitAtk) {
+    const items = [];
+    for (const slot of SLOTS) {
+        for (let i = 0; i < 50; i++) {
+            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + i * 0.5, 0));
+        }
+        for (let i = 0; i < 10; i++) {
+            items.push(item(`${slot}-pursuit-${i}`, slot, 'PursuitSet', 0, 45, pursuitAtk[i]));
+        }
+    }
+    return items;
+}
+
+function keptPursuitAtk(overrides) {
+    const kept = run(tiePool([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]), overrides);
+    return kept
+        .filter((it) => it.gear === 'Boots' && it.set === 'PursuitSet')
+        .map((it) => it.augmentedStats.AttackPercent)
+        .sort((a, b) => a - b);
+}
+
+realLog('\n[8] 同分时按结果优先级取舍（spd → atk，越高越好）');
+
+{
+    check(
+        '同分块里留下攻击最高的两件（100 / 90）',
+        JSON.stringify(keptPursuitAtk({ resultPriority: ['spd', 'atk'] })),
+        JSON.stringify([90, 100])
+    );
+}
+
+realLog('\n[9] disliked 字段反向：同分时留攻击最低的两件');
+
+{
+    check(
+        'dislike atk 时留下 10 / 20',
+        JSON.stringify(
+            keptPursuitAtk({ resultPriority: ['spd', 'atk'], resultDislike: ['atk'] })
+        ),
+        JSON.stringify([10, 20])
+    );
+}
+
+realLog('\n[10] 所有属性都相同时按 id 升序（结果可复现）');
+
+{
+    const items = [];
+    for (const slot of SLOTS) {
+        for (let i = 0; i < 50; i++) {
+            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + i * 0.5, 0));
+        }
+        // id 故意乱序传入，看是否按 id 升序取
+        for (const id of [930, 130, 560, 220, 870, 340, 780, 410, 660, 510]) {
+            items.push(item(`${slot}-pursuit-${id}`, slot, 'PursuitSet', 0, 45));
+        }
+    }
+    const kept = run(items, { resultPriority: ['spd'] })
+        .filter((it) => it.gear === 'Boots' && it.set === 'PursuitSet')
+        .map((it) => it.id);
+    check('留 id 最小的两件', JSON.stringify(kept.sort()), JSON.stringify(['130', '220']));
 }
 
 realLog(failures ? `\nFAILURES: ${failures}` : '\nALL PASS');

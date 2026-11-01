@@ -1,3 +1,5 @@
+const DominanceFilter = require('./dominanceFilter');
+
 module.exports = {
 
     calculatePriorityScores: (params, items, baseStats, reforge) => {
@@ -16,7 +18,8 @@ module.exports = {
      *   3. 候选池 = 「每个 (部位 × 套装) 各自的 Top%」 ∪ 「每个部位整体的 Top%」，
      *      也就是：每个套装在每个部位都至少按 Top% 保留，同时该部位整体分数最高的那批也在，
      *      允许最终件数超过 Top%（实测：少了套装代表时，极限一速只能搜到 310，改完 315）；
-     *   4. 还有预算余量时，把各组的边界同分补回来（见 addTiesWithinBudget）。
+     *   4. 还有预算余量时，把各组的边界同分补回来（见 addTiesWithinBudget）；
+     *   5. 同分的先后由结果优先级决定（见 buildComparator），不是"存档里靠前的先留"。
      */
     applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
         if (!items || items.length === 0) {
@@ -30,10 +33,12 @@ module.exports = {
 
         module.exports.calculatePriorityScores(params, items, baseStats, reforge);
 
+        const compare = buildComparator(params, baseStats, reforge);
+
         const groups = buildGroups(items);
         const allGroupCounts = countGroups(allItems);
         for (const group of groups.values()) {
-            group.items.sort((a, b) => b.score - a.score);
+            group.items.sort(compare);
             group.total = groupTotal(group, allGroupCounts, inputSubstatMods);
         }
 
@@ -48,7 +53,7 @@ module.exports = {
         console.log("Priority filter: " + items.length + " candidates " + JSON.stringify(candidates) +
             " -> " + formatCount(candidateCombos) + " combinations, over budget " + formatCount(COMBO_BUDGET));
 
-        const slots = buildSlots(groups);
+        const slots = buildSlots(groups, compare);
         const percentages = candidatePercentages(params.inputFilterPriority);
         let fallback = null;
 
@@ -65,7 +70,7 @@ module.exports = {
             }
 
             // 名额之内还有余量：把边界同分的装备按预算尽量补回来
-            const filled = addTiesWithinBudget(pools, COMBO_BUDGET);
+            const filled = addTiesWithinBudget(pools, COMBO_BUDGET, compare);
             console.log("Priority filter: Top " + percentage + "% -> " + JSON.stringify(countSlots(pools)) +
                 " -> " + formatCount(filled) + " combinations");
             return flattenPools(pools);
@@ -91,6 +96,97 @@ const PCT_STEPS = [25, 14, 7, 3, 1];
 const SCORE_EPSILON = 1e-9;
 
 const GEAR_SET_SEPARATOR = '\u0000';
+
+/* 结果优先级里的字段 → 装备上可比较的属性（派生属性 ehp/dmg/s1… 在搜索前算不出来，跳过） */
+const RESULT_STAT_KEYS = {
+    atk: 'Attack',
+    hp: 'Health',
+    def: 'Defense',
+    spd: 'Speed',
+    cr: 'CriticalHitChancePercent',
+    cd: 'CriticalHitDamagePercent',
+    eff: 'EffectivenessPercent',
+    res: 'EffectResistancePercent',
+};
+
+/*
+ * 候选装备的排序：加权分数降序；**同分时按结果优先级依次比较**（disliked 的字段反向），
+ * 再比未加权 roll 总和，最后比 id —— 保证同分谁被保留是确定的、且偏向你要的结果，
+ * 而不是“存档里靠前的先留”。
+ */
+function buildComparator(params, baseStats, reforge) {
+    const fields = (Array.isArray(params.resultPriority) ? params.resultPriority : [])
+        .filter((field) => RESULT_STAT_KEYS[field])
+        .map((field) => ({
+            key: RESULT_STAT_KEYS[field],
+            sign: Array.isArray(params.resultDislike) && params.resultDislike.includes(field) ? -1 : 1,
+        }));
+
+    const cache = new Map();
+    const tiebreak = (item) => {
+        let values = cache.get(item);
+        if (!values) {
+            const stats = DominanceFilter.getComparableStats(item, baseStats, reforge) || {};
+            values = {
+                fields: fields.map((field) => (Number(stats[field.key]) || 0) * field.sign),
+                rolls: unweightedRolls(stats),
+            };
+            cache.set(item, values);
+        }
+        return values;
+    };
+
+    return (left, right) => {
+        if (left.score !== right.score) {
+            return right.score - left.score;
+        }
+
+        const a = tiebreak(left);
+        const b = tiebreak(right);
+
+        for (let i = 0; i < a.fields.length; i++) {
+            if (a.fields[i] !== b.fields[i]) {
+                return a.fields[i] > b.fields[i] ? -1 : 1;
+            }
+        }
+
+        if (a.rolls !== b.rolls) {
+            return a.rolls > b.rolls ? -1 : 1;
+        }
+
+        return compareIds(left.id, right.id);
+    };
+}
+
+/* 未加权 roll 总和（和 dominanceFilter 的口径一致） */
+function unweightedRolls(stats) {
+    return (
+        (stats.Attack || 0) / 8 +
+        (stats.Health || 0) / 8 +
+        (stats.Defense || 0) / 8 +
+        (stats.Speed || 0) / 4 +
+        (stats.CriticalHitChancePercent || 0) / 5 +
+        (stats.CriticalHitDamagePercent || 0) / 7 +
+        (stats.EffectivenessPercent || 0) / 8 +
+        (stats.EffectResistancePercent || 0) / 8
+    );
+}
+
+function compareIds(leftId, rightId) {
+    const left = String(leftId == null ? '' : leftId);
+    const right = String(rightId == null ? '' : rightId);
+    if (left === right) {
+        return 0;
+    }
+
+    const leftNumber = Number(left);
+    const rightNumber = Number(right);
+    if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+        return leftNumber < rightNumber ? -1 : 1;
+    }
+
+    return left < right ? -1 : 1;
+}
 
 /** 分组键：一律按「部位 × 套装」—— 即使没选套装，也要让每个套装都有机会被选中（套装效果可能更值） */
 function groupKey(item) {
@@ -173,7 +269,7 @@ function candidatePercentages(value) {
 }
 
 /* 把「部位 × 套装」的分组再聚合成部位：部位自己的候选排序 + 各套装分组 */
-function buildSlots(groups) {
+function buildSlots(groups, compare) {
     const slots = new Map();
 
     for (const group of groups.values()) {
@@ -192,7 +288,7 @@ function buildSlots(groups) {
     }
 
     for (const slot of slots.values()) {
-        slot.items.sort((a, b) => b.score - a.score);
+        slot.items.sort(compare);
     }
 
     return slots;
@@ -265,7 +361,7 @@ function flattenPools(pools) {
  * 约束：补到名额的 2 倍为止；分数为 0 的那一档不补；整体不超过组合数预算。
  * 返回补完之后的总组合数。
  */
-function addTiesWithinBudget(pools, budget) {
+function addTiesWithinBudget(pools, budget, compare) {
     const counts = countSlots(pools);
     let combos = combinationCount(counts);
 
@@ -302,7 +398,7 @@ function addTiesWithinBudget(pools, budget) {
             keptItems.add(item);
         }
 
-        kept.sort((a, b) => b.score - a.score);
+        kept.sort(compare);
     }
 
     return combos;

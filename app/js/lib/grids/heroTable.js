@@ -65,14 +65,6 @@ function createHeroTable(options) {
         });
     }
 
-    function escapeHtmlText(text) {
-        return String(text == null ? '' : text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
     /* 筛选状态（职业 / 属性），每个实例一份 */
     let heroFilterState = {
         classFilter: null,
@@ -814,10 +806,16 @@ function buildGrid(localeText) {
                 resizable: false,
                 suppressMovable: true,
                 cellRenderer: (params) => renderConflictBadge(params.data),
+                // 用 ag-grid 自带的 tooltip（原生 title 的延迟是浏览器/系统的，改不了）
+                tooltipValueGetter: (params) => buildConflictTitle(params.data),
             },
         ],
         rowHeight: 27,
         rowSelection: 'single',
+        // 冲突提示要快：100ms 就弹（默认 500ms 太慢，原生 title 更慢）
+        tooltipShowDelay: 100,
+        tooltipHideDelay: 8000,
+        tooltipMouseTrack: true,
         onRowSelected: onBuildRowSelected,
         onCellClicked: onBuildCellClicked,
         suppressScrollOnNewData: true,
@@ -1098,12 +1096,12 @@ function onBuildCellClicked(params) {
 
 /*
  * builds 表的「冲突」列：这条配装有几件装备正被别的英雄穿着。
- * 鼠标悬停显示"被谁穿着"，方便决定让谁来穿。
+ * 鼠标悬停显示"被谁穿着"，方便决定让谁来穿（tooltip 由列上的
+ * tooltipValueGetter 提供，原生 title 的延迟太高）。
  */
-function renderConflictBadge(build) {
+function buildConflictOwners(build) {
     const hero = api.getSelectedRow();
     const conflicts = api.getBuildConflicts(hero && hero.id, build);
-    if (!conflicts.length) return '';
 
     const owners = [];
     conflicts.forEach((conflict) => {
@@ -1111,11 +1109,21 @@ function renderConflictBadge(build) {
         if (!owners.includes(name)) owners.push(name);
     });
 
-    const title = `${i18next.t('Gear conflict')}: ${owners.join(' / ')}`;
+    return { count: conflicts.length, owners };
+}
 
-    return `<span class="buildConflictBadge" title="${escapeHtmlText(
-        title
-    )}"><i class="fas fa-exclamation-triangle"></i>${conflicts.length}</span>`;
+function buildConflictTitle(build) {
+    const { count, owners } = buildConflictOwners(build);
+    if (!count) return '';
+
+    return `${i18next.t('Gear conflict')}: ${owners.join(' / ')}`;
+}
+
+function renderConflictBadge(build) {
+    const { count } = buildConflictOwners(build);
+    if (!count) return '';
+
+    return `<span class="buildConflictBadge"><i class="fas fa-exclamation-triangle"></i>${count}</span>`;
 }
 
 /* 这条配装是否就是英雄当前身上穿的（按 6 件装备的 id 比较，与顺序无关） */

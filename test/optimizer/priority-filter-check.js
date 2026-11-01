@@ -1,48 +1,40 @@
 /*
  * 配装器「属性优先级过滤（Top %）」自测 —— 纯 Node，不依赖 Electron / Jest。
  *
- * 覆盖的是截断规则：按滑块加权分数排序后，逐部位保留 ceil(Top% × 该部位全部装备数) 件。
- * 这里验证两点（都是实际踩过的坑）：
- *   1. 边界上的「同分装备」要一起留下，否则同分里谁被丢掉完全取决于原始顺序。
- *      实测：利纳柯只要速度 8 分时，一堆「速度主属性 45、没有速度副属性」的靴子都是 90 分，
- *      极限一速要用的那双排名靠后被切掉 → 最高只能搜到 310；加攻击 1 / 命中 1 打破平局
- *      才能搜到 315。
- *   2. 同分扩张有上限（名额的 2 倍），分数为 0 的那一档照旧严格截断，避免候选池爆炸。
+ * 现行规则（背景见 README.md）：
+ *   1. 组合数（各部位候选数的乘积）≤ 预算（1e8）时完全不截断；
+ *   2. 超预算时从宽到紧试百分比（25 → 14 → 7 → 3 → 1，滑块值只是上限），取第一个落进预算的；
+ *   3. 有套装约束（4 件套 + 2 件套 / 2+2+2）时按「部位 × 套装」分组，**每组至少留 1 件**
+ *      —— 否则某个套装会在某个部位被整体淘汰，套装搭配只能去别的部位凑，极限速度被拉低；
+ *   4. 没有套装约束时按部位分组（和改造前一致）；
+ *   5. 两种模式都保留边界同分（上限为名额的 2 倍），分数为 0 的一档严格截断。
  *
  * 用法（仓库根目录）：node test/optimizer/priority-filter-check.js
  */
 const path = require('path');
 
 const ROOT = process.argv[2] || process.cwd();
-const PriorityFilter = require(path.join(
-    ROOT,
-    'app',
-    'js',
-    'lib',
-    'priorityFilter.js'
-));
+const PriorityFilter = require(path.join(ROOT, 'app', 'js', 'lib', 'priorityFilter.js'));
 
-// 模块里有大量调试日志，测试时静音
 const realLog = console.log;
 console.log = () => {};
 
 let failures = 0;
-function check(name, actual, expected) {
-    const ok = JSON.stringify(actual) === JSON.stringify(expected);
-    if (!ok) {
+function check(name, condition, extra) {
+    if (!condition) {
         failures++;
     }
     realLog(
-        `  ${ok ? 'ok  ' : 'FAIL'} ${name}${
-            ok ? '' : ' -> ' + JSON.stringify(actual) + ' (expected ' + JSON.stringify(expected) + ')'
-        }`
+        `  ${condition ? 'ok  ' : 'FAIL'} ${name}` +
+            (condition || extra === undefined ? '' : ' -> ' + JSON.stringify(extra))
     );
 }
 
 const baseStats = { atk: 1000, hp: 5000, def: 400, spd: 100 };
+const SLOTS = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
 
-/** 造一件装备：只关心速度副属性 + 主属性，其它都为 0 */
-function item(id, gear, spdSub, mainType, mainValue) {
+/** 造一件装备：只关心速度（副属性 + 主属性），其它属性为 0 */
+function item(id, gear, set, spdSub, spdMain) {
     const stats = {
         Attack: 0,
         AttackPercent: 0,
@@ -55,131 +47,183 @@ function item(id, gear, spdSub, mainType, mainValue) {
         CriticalHitDamagePercent: 0,
         EffectivenessPercent: 0,
         EffectResistancePercent: 0,
-        mainType,
-        mainValue,
+        mainType: spdMain ? 'Speed' : 'AttackPercent',
+        mainValue: spdMain || 60,
     };
     return {
         id,
         gear,
-        set: 'SpeedSet',
-        main: { type: mainType, value: mainValue },
+        set,
+        main: { type: spdMain ? 'Speed' : 'AttackPercent', value: spdMain || 60 },
         augmentedStats: stats,
         reforgedStats: stats,
     };
 }
 
-/** 只给速度 8 分、Top 20% */
-const params = {
-    inputAtkPriority: 0,
-    inputHpPriority: 0,
-    inputDefPriority: 0,
-    inputSpdPriority: 8,
-    inputCrPriority: 0,
-    inputCdPriority: 0,
-    inputEffPriority: 0,
-    inputResPriority: 0,
-    inputFilterPriority: 20,
-};
-
-function run(items, allItems) {
-    return PriorityFilter.applyPriorityFilters(
-        params,
-        items,
-        baseStats,
-        allItems || items,
-        true,
-        false
-    ).map((x) => x.id);
-}
-
-function fillers(count, gear) {
-    return Array.from({ length: count }, (_, i) =>
-        item(`filler${i}`, gear, 0, 'Attack', 100)
+function params(overrides) {
+    return Object.assign(
+        {
+            inputAtkPriority: 0,
+            inputHpPriority: 0,
+            inputDefPriority: 0,
+            inputSpdPriority: 8,
+            inputCrPriority: 0,
+            inputCdPriority: 0,
+            inputEffPriority: 0,
+            inputResPriority: 0,
+            inputFilterPriority: 7,
+        },
+        overrides || {}
     );
 }
 
-realLog('\n[1] 边界同分：整块保留');
-{
-    // 5 双靴子同分（速度主属性 45、没有速度副属性 → 90 分），名额只有 1 个
-    const items = [
-        item('a', 'Boots', 0, 'Speed', 45),
-        item('b', 'Boots', 0, 'Speed', 45),
-        item('c', 'Boots', 0, 'Speed', 45),
-        item('d', 'Boots', 0, 'Speed', 45),
-        item('e', 'Boots', 0, 'Speed', 45),
-    ];
-    check('同分按名额的 2 倍扩张（1 → 2）', run(items).sort(), ['a', 'b']);
+function run(items, overrides, setConstrained) {
+    return PriorityFilter.applyPriorityFilters(
+        params(overrides),
+        items,
+        baseStats,
+        items,
+        true,
+        false,
+        setConstrained
+    );
 }
 
-realLog('\n[2] 分数为 0 的一档：照旧严格截断');
-{
-    const items = [
-        item('zero1', 'Boots', 0, 'Attack', 100),
-        item('zero2', 'Boots', 0, 'Attack', 100),
-        item('zero3', 'Boots', 0, 'Attack', 100),
-        item('zero4', 'Boots', 0, 'Attack', 100),
-        item('zero5', 'Boots', 0, 'Attack', 100),
-    ];
-    check('只留名额内的一条', run(items).sort(), ['zero1']);
+function countsBy(kept) {
+    const bySlot = {};
+    const bySlotSet = {};
+    for (const it of kept) {
+        bySlot[it.gear] = (bySlot[it.gear] || 0) + 1;
+        const key = it.gear + '/' + it.set;
+        bySlotSet[key] = (bySlotSet[key] || 0) + 1;
+    }
+    return { bySlot, bySlotSet };
 }
 
-realLog('\n[3] 分数不同：按分数取前 N');
-{
-    const items = [
-        item('top', 'Boots', 20, 'Speed', 45), // 130 分
-        item('mid', 'Boots', 8, 'Speed', 45), // 106 分
-        item('low', 'Boots', 0, 'Speed', 45), // 90 分
-    ];
-    check('只留最高分', run(items), ['top']);
+function combos(bySlot) {
+    return Object.values(bySlot).reduce((n, v) => n * (v || 1), 1);
 }
 
-realLog('\n[4] 名额边界落在同分块中间：整块留下');
-{
-    const items = [
-        item('first', 'Boots', 24, 'Speed', 45), // 138 分
-        item('tie1', 'Boots', 20, 'Speed', 45), // 130 分
-        item('tie2', 'Boots', 20, 'Speed', 45), // 130 分
-        item('tie3', 'Boots', 20, 'Speed', 45), // 130 分
-        item('last', 'Boots', 0, 'Speed', 45), // 90 分
-    ];
-    // 该部位共 15 件装备 → 名额 = ceil(20% × 15) = 3，第 3 名是 130 分 → 130 分的都留下
-    const allItems = items.concat(fillers(10, 'Boots'));
-    check('138 + 3×130', run(items, allItems).sort(), ['first', 'tie1', 'tie2', 'tie3']);
+/* 6 部位 × 每部位 32 件（28 速度套 + 4 追击套）→ 32^6 ≈ 1.07e9，超过 1e8 预算 */
+function bigPool() {
+    const items = [];
+    for (const slot of SLOTS) {
+        for (let i = 0; i < 28; i++) {
+            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + (i % 8) * 4, i % 3 === 0 ? 45 : 0));
+        }
+        for (let i = 0; i < 4; i++) {
+            items.push(item(`${slot}-pursuit-${i}`, slot, 'PursuitSet', 0, 45));
+        }
+    }
+    return items;
 }
 
-realLog('\n[5] 名额超过候选数：原样返回');
+realLog('\n[1] 组合数在预算内：完全不截断（两种模式都一样）');
+
 {
-    const items = [item('x', 'Boots', 4, 'Speed', 45), item('y', 'Boots', 0, 'Speed', 45)];
-    check('两件都留', run(items, items.concat(fillers(20, 'Boots'))).length, 2);
+    const items = [];
+    for (const slot of SLOTS) {
+        items.push(item(`${slot}-a`, slot, 'SpeedSet', 8, 45));
+        items.push(item(`${slot}-b`, slot, 'PursuitSet', 0, 0));
+    }
+    check('有套装约束：原样返回', run(items, {}, true).length === items.length);
+    check('无套装约束：原样返回', run(items, {}, false).length === items.length);
 }
 
-realLog('\n[6] 逐部位独立截断');
+realLog('\n[2] 有套装约束：逐 (部位 × 套装) 截断，每个组都有代表');
+
 {
-    const items = [
-        item('b1', 'Boots', 8, 'Speed', 45),
-        item('b2', 'Boots', 8, 'Speed', 45),
-        item('w1', 'Weapon', 8, 'Attack', 100),
-        item('w2', 'Weapon', 4, 'Attack', 100),
-        item('w3', 'Weapon', 0, 'Attack', 100),
-    ];
-    check('同分靴子都留、武器只留最高分', run(items).sort(), ['b1', 'b2', 'w1']);
+    const items = bigPool();
+    const kept = run(items, {}, true);
+    const { bySlot, bySlotSet } = countsBy(kept);
+
+    check('确实做了截断', kept.length < items.length);
+    check('每个部位都有候选', SLOTS.every((slot) => bySlot[slot] > 0), bySlot);
+    check(
+        '速度套与追击套在每个部位都保留',
+        SLOTS.every((slot) => bySlotSet[slot + '/SpeedSet'] > 0 && bySlotSet[slot + '/PursuitSet'] > 0),
+        bySlotSet
+    );
+    check('落在预算内（≤ 1e8）', combos(bySlot) <= 1e8, combos(bySlot));
+}
+
+realLog('\n[3] 有套装约束：同分一起保留（追击套 4 件同分，名额 1 → 留 2）');
+
+{
+    const kept = run(bigPool(), {}, true);
+    const pursuit = kept.filter((it) => it.gear === 'Boots' && it.set === 'PursuitSet');
+    check('Boots/追击套 4 件同为 90 分 → 保留 2 件', pursuit.length === 2, pursuit.length);
+}
+
+realLog('\n[4] 无套装约束：按部位截断，不保证每个套装都有代表');
+
+{
+    // Weapon 里 40 件速度套（有速度）+ 1 件追击套（没有速度，分数垫底）
+    const items = [];
+    items.push(item('weapon-pursuit-weak', 'Weapon', 'PursuitSet', 0, 0));
+    for (let i = 0; i < 40; i++) {
+        items.push(item(`weapon-speed-${i}`, 'Weapon', 'SpeedSet', 4 + (i % 8) * 4, 0));
+    }
+    for (const slot of ['Helmet', 'Armor', 'Necklace', 'Ring', 'Boots']) {
+        for (let i = 0; i < 32; i++) {
+            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + (i % 8) * 4, 0));
+        }
+    }
+
+    const unconstrained = run(items, {}, false);
+    check(
+        '无约束：垫底的追击套武器被裁掉（允许）',
+        !unconstrained.some((it) => it.id === 'weapon-pursuit-weak'),
+        unconstrained.filter((it) => it.gear === 'Weapon').length
+    );
+
+    const constrained = run(items, {}, true);
+    check(
+        '有约束：同一件被保留（每组至少 1 件）',
+        constrained.some((it) => it.id === 'weapon-pursuit-weak')
+    );
+}
+
+realLog('\n[5] 滑块只是上限：给 3% 时不会放宽到 7%');
+
+{
+    const items = bigPool();
+    const at3 = run(items, { inputFilterPriority: 3 }, true);
+    const at7 = run(items, { inputFilterPriority: 7 }, true);
+    check('3% 的候选数少于 7%', at3.length < at7.length, { at3: at3.length, at7: at7.length });
+}
+
+realLog('\n[6] 分数为 0 的组：严格截断（不整组扩张）');
+
+{
+    // 每个部位 1 件有速度的（速度套）+ 30 件 0 分的（追击套）
+    const items = [];
+    for (const slot of SLOTS) {
+        items.push(item(`${slot}-good`, slot, 'SpeedSet', 20, 45));
+        for (let i = 0; i < 30; i++) {
+            items.push(item(`${slot}-zero-${i}`, slot, 'PursuitSet', 0, 0));
+        }
+    }
+    const kept = run(items, { inputFilterPriority: 1 }, true);
+    const zeroKept = kept.filter((it) => it.set === 'PursuitSet');
+    check('0 分档每组只留 1 件', zeroKept.length === SLOTS.length, zeroKept.length);
 }
 
 realLog('\n[7] 关闭过滤（Top 100%）时原样返回');
+
 {
-    const items = [item('a', 'Boots', 0, 'Attack', 100), item('b', 'Boots', 0, 'Attack', 100)];
-    const disabled = Object.assign({}, params, { inputFilterPriority: 100 });
-    const result = PriorityFilter.applyPriorityFilters(
-        disabled,
-        items,
-        baseStats,
-        items,
-        true,
-        false
-    );
-    check('一件都不少', result.length, 2);
+    const items = bigPool();
+    check('一件都不少', run(items, { inputFilterPriority: 100 }, true).length === items.length);
 }
 
-console.log = realLog;
+realLog('\n[8] 有套装约束时各部位保留数接近（不会偏袒某个部位）');
+
+{
+    const kept = run(bigPool(), {}, true);
+    const { bySlotSet } = countsBy(kept);
+    const values = SLOTS.map((slot) => bySlotSet[slot + '/SpeedSet']);
+    check('各部位速度套保留数差异 ≤ 2', Math.max(...values) - Math.min(...values) <= 2, values);
+}
+
 realLog(failures ? `\nFAILURES: ${failures}` : '\nALL PASS');
 process.exit(failures ? 1 : 0);

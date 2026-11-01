@@ -415,7 +415,10 @@ module.exports = {
         //     items = items.filter(x => x.enhance == 15 && !Reforge.isReforgeable(x));
         // }
 
-        if (isFourAndTwoPieceSets(params.inputSets) || isTwoAndTwoAndTwoPieceSets(params.inputSets)) {
+        // 4 件套 + 2 件套 / 2+2+2 时套装是有硬约束的：候选先筛到这些套装，
+        // 优先级过滤也要按「部位 × 套装」分组，保证每个套装在每个部位都有代表
+        const setConstrained = isFourAndTwoPieceSets(params.inputSets) || isTwoAndTwoAndTwoPieceSets(params.inputSets);
+        if (setConstrained) {
             const possibleSets = params.inputSets.flat();
             items = items.filter(x => possibleSets.includes(x.set));
         }
@@ -518,7 +521,7 @@ module.exports = {
             dominanceRemovedCounts[gear] = dominanceInputCounts[gear] - dominanceOutputCounts[gear];
         }
 
-        items = PriorityFilter.applyPriorityFilters(params, items, baseStats, allItems, params.inputPredictReforges, params.inputSubstatMods)
+        items = PriorityFilter.applyPriorityFilters(params, items, baseStats, allItems, params.inputPredictReforges, params.inputSubstatMods, setConstrained)
 
         items = items.sort((a, b) => {
             return a.set-b.set;

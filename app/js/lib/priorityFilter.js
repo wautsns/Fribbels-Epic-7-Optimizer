@@ -6,45 +6,196 @@ module.exports = {
         }
     },
 
-    applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
-        var passed = [];
+    /*
+     * 候选装备预筛。
+     *
+     * 后端要把 6 个部位的候选两两组合全部过一遍，所以真正的成本是「各部位候选数的乘积」。
+     * 规则：
+     *   1. 组合数 ≤ 预算（COMBO_BUDGET）就完全不截断，保证结果是最优解；
+     *   2. 超预算时从宽到紧试百分比（滑块值只作为上限），取第一个落进预算的；
+     *   3. 有套装约束时（4 件套 + 2 件套 / 2+2+2）按「部位 × 套装」分组，每组至少留 1 件，
+     *      否则某个套装在某部位被整体淘汰，搭配就只能去别的部位凑，白白丢掉速度
+     *      （实测：速度 8 只能搜到 310，改了之后 315）；
+     *   4. 没有套装约束时按部位分组（和改造前一致）；两种模式都保留边界同分（见 sliceWithTies）。
+     */
+    applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods, setConstrained) => {
+        if (!items || items.length === 0) {
+            return items;
+        }
 
         if (filterDisabled(params)) {
             console.log("Priority filter disabled")
             return items;
         }
 
-        console.log("Priority filter enabled", items)
-
-        const groups = groupBy(items, 'gear');
-        const allItemsGroups = groupBy(allItems, 'gear');
-
-        console.log("Grouped gears", groups);
-        console.log("AllItems grouped gears", allItemsGroups);
+        const groupBySet = setConstrained === true;
 
         module.exports.calculatePriorityScores(params, items, baseStats, reforge);
 
-        for (var key of Object.keys(groups)) {
-            var gearArr = groups[key];
-
-            gearArr.sort((a, b) => b.score - a.score);
-
-            // console.log("SORTED", key, gearArr);
-
-            var groupLength = allItemsGroups[key].length
-            if (inputSubstatMods) {
-                groupLength = Math.max(groups[key].length, allItemsGroups[key].length);
-            }
-
-            const index = Math.ceil(params.inputFilterPriority / 100 * groupLength);
-            passed = passed.concat(sliceWithTies(gearArr, index));
+        const groups = buildGroups(items, groupBySet);
+        const allGroupCounts = countGroups(allItems, groupBySet);
+        for (const group of groups.values()) {
+            group.items.sort((a, b) => b.score - a.score);
+            group.total = groupTotal(group, allGroupCounts, inputSubstatMods);
         }
 
-        return passed;
+        const candidates = countSlots(groups);
+        const candidateCombos = combinationCount(candidates);
+        if (candidateCombos <= COMBO_BUDGET) {
+            console.log("Priority filter: " + items.length + " candidates " + JSON.stringify(candidates) +
+                " -> " + formatCount(candidateCombos) + " combinations, no truncation needed");
+            return items;
+        }
+
+        console.log("Priority filter: " + items.length + " candidates " + JSON.stringify(candidates) +
+            " -> " + formatCount(candidateCombos) + " combinations, over budget " + formatCount(COMBO_BUDGET));
+
+        const percentages = candidatePercentages(params.inputFilterPriority);
+        let fallback = null;
+
+        for (const percentage of percentages) {
+            const pools = buildPools(groups, percentage, groupBySet);
+            const counts = countSlots(pools);
+            const combos = combinationCount(counts);
+            console.log("Priority filter: Top " + percentage + "% -> " + JSON.stringify(counts) +
+                " -> " + formatCount(combos) + " combinations");
+
+            fallback = pools;
+            if (combos <= COMBO_BUDGET) {
+                return flattenPools(pools);
+            }
+        }
+
+        return flattenPools(fallback);
     },
 }
 
+/*
+ * 组合数预算：6 个部位候选数的乘积超过这个量级就收紧候选。
+ * 1e8 大致对应「GPU 通道几十秒内能跑完」的量级；调大 = 更准更慢，调小 = 更快但更容易漏解。
+ */
+const COMBO_BUDGET = 1e8;
+
+/* 收紧时试的百分比，从宽到紧；滑块上的值只作为上限，不会超过它 */
+const PCT_STEPS = [25, 14, 7, 3, 1];
+
 const SCORE_EPSILON = 1e-9;
+
+const GEAR_SET_SEPARATOR = '\u0000';
+
+/** 分组键：有套装约束时按「部位 × 套装」，否则只按部位（和改造前的口径一致） */
+function groupKey(item, groupBySet) {
+    return groupBySet
+        ? item.gear + GEAR_SET_SEPARATOR + (item.set || '')
+        : String(item.gear);
+}
+
+function buildGroups(items, groupBySet) {
+    const groups = new Map();
+
+    for (const item of items) {
+        const key = groupKey(item, groupBySet);
+        let group = groups.get(key);
+        if (!group) {
+            group = { key, slot: item.gear, set: item.set, items: [], total: 0 };
+            groups.set(key, group);
+        }
+        group.items.push(item);
+    }
+
+    return groups;
+}
+
+/* 全量装备里每个分组的件数，用来算名额基数 */
+function countGroups(items, groupBySet) {
+    const counts = new Map();
+
+    for (const item of items || []) {
+        const key = groupKey(item, groupBySet);
+        counts.set(key, (counts.get(key) || 0) + 1);
+    }
+
+    return counts;
+}
+
+/* 名额基数：全量装备里同组的件数（和改造前的口径一致） */
+function groupTotal(group, allGroupCounts, inputSubstatMods) {
+    const total = allGroupCounts.get(group.key) || group.items.length;
+
+    if (inputSubstatMods) {
+        return Math.max(group.items.length, total);
+    }
+
+    return total;
+}
+
+function countSlots(collection) {
+    const counts = {};
+    const list = collection instanceof Map ? collection.values() : collection;
+
+    for (const entry of list) {
+        const size = entry.items ? entry.items.length : entry.kept.length;
+        counts[entry.slot] = (counts[entry.slot] || 0) + size;
+    }
+
+    return counts;
+}
+
+function combinationCount(counts) {
+    return Object.values(counts).reduce((product, count) => product * (count || 1), 1);
+}
+
+function formatCount(value) {
+    return value >= 1e6 ? value.toExponential(2) : String(Math.round(value));
+}
+
+/* 候选百分比：滑块值封顶，后面跟一串更紧的档位（去重、降序） */
+function candidatePercentages(value) {
+    const configured = Number(value);
+    const cap = Number.isFinite(configured) && configured > 0 ? configured : 7;
+    const list = [Math.min(cap, PCT_STEPS[0])];
+
+    for (const step of PCT_STEPS) {
+        if (step < list[0] && !list.includes(step)) {
+            list.push(step);
+        }
+    }
+
+    return list;
+}
+
+function buildPools(groups, percentage, groupBySet) {
+    const pools = [];
+    // 有套装约束时每个组至少留 1 件（见 applyPriorityFilters 的注释）
+    const minimum = groupBySet ? 1 : 0;
+
+    for (const group of groups.values()) {
+        if (!group.items.length) {
+            continue;
+        }
+
+        const index = Math.max(minimum, Math.ceil((percentage / 100) * group.total));
+        if (index <= 0) {
+            continue;
+        }
+
+        pools.push({ slot: group.slot, set: group.set, kept: sliceWithTies(group.items, index) });
+    }
+
+    return pools;
+}
+
+function flattenPools(pools) {
+    const passed = [];
+
+    for (const pool of pools) {
+        for (const item of pool.kept) {
+            passed.push(item);
+        }
+    }
+
+    return passed;
+}
 
 /*
  * 截断候选装备时，把「和最后一条同分」的装备一起留下。
@@ -82,13 +233,6 @@ function sliceWithTies(sorted, index) {
 
     return kept;
 }
-
-var groupBy = function(xs, key) {
-  return xs.reduce(function(rv, x) {
-    (rv[x[key]] = rv[x[key]] || []).push(x);
-    return rv;
-  }, {});
-};
 
 function mainTypeValue(stats, statType) {
     if (statType == stats.mainType) {

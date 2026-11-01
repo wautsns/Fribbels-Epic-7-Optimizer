@@ -4,10 +4,10 @@
  * 现行规则（背景见 README.md）：
  *   1. 组合数（各部位候选数的乘积）≤ 预算（2e8）时完全不截断；
  *   2. 超预算时从宽到紧试百分比（25 → 14 → 7 → 3 → 1，滑块值只是上限），取第一个落进预算的；
- *   3. 候选池 = 「每个 (部位 × 套装) 各自的 Top%」 ∪ 「每个部位整体的 Top%」，
- *      也就是每个套装在每个部位都至少按 Top% 保留，同时该部位整体分数最高的那批也在；
- *      允许最终件数超过 Top%；
- *   4. 还有预算余量时把边界同分补回来（补到名额 2 倍 / 预算用尽）；0 分档不补。
+ *   3. 每个 (部位 × 套装) 取自己的前 Top%，件数下限：**选中的套装 3 件、未选中的套装 1 件**；
+ *   4. 加起来不足该部位前 Top% 时，再从该部位全套装里按排序补足（正常情况下各套装名额之和本来
+ *      就不低于部位 Top%，所以这一步基本不触发，只是兜底）；
+ *   5. 排序：加权分数 → 结果优先级 → 未加权 roll → id（同分也能确定顺序）。
  *
  * 用法（仓库根目录）：node test/optimizer/priority-filter-check.js
  */
@@ -73,6 +73,8 @@ function params(overrides) {
             inputEffPriority: 0,
             inputResPriority: 0,
             inputFilterPriority: 7,
+            // 默认：只选了速度套（4 件套）
+            inputSets: [['SpeedSet'], [], []],
         },
         overrides || {}
     );
@@ -104,21 +106,16 @@ function combos(bySlot) {
     return Object.values(bySlot).reduce((n, v) => n * (v || 1), 1);
 }
 
-/*
- * 每个部位 60 件（50 速度套 + 10 追击套）→ 60^6 ≈ 4.7e10，超过预算。
- * speedSpd / pursuitSpd 控制两边分数高低：
- *   - 速度套分数更高时：部位 Top% 会被速度套占满，追击套只按自己的 Top% 留
- *   - 追击套分数更高且全部同分时：追击套靠「同分保留」整批留下（允许超过 Top%）
- */
-function pool(speedSpd, pursuitSpd) {
+/* 每部位 100 速度套（选中）+ 4 追击套（未选中）→ 7% 名额：速度 7、追击 1 */
+function bigPool(pursuitAtk) {
     const items = [];
     for (const slot of SLOTS) {
-        for (let i = 0; i < 50; i++) {
-            const spd = typeof speedSpd === 'function' ? speedSpd(i) : speedSpd;
-            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', spd, 0));
+        for (let i = 0; i < 100; i++) {
+            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + i * 0.25, 0));
         }
-        for (let i = 0; i < 10; i++) {
-            items.push(item(`${slot}-pursuit-${i}`, slot, 'PursuitSet', pursuitSpd, 0));
+        for (let i = 0; i < 4; i++) {
+            const atk = pursuitAtk ? pursuitAtk[i] : 0;
+            items.push(item(`${slot}-pursuit-${i}`, slot, 'PursuitSet', 0, 45, atk));
         }
     }
     return items;
@@ -132,141 +129,124 @@ realLog('\n[1] 组合数在预算内：完全不截断');
         items.push(item(`${slot}-a`, slot, 'SpeedSet', 8, 45));
         items.push(item(`${slot}-b`, slot, 'PursuitSet', 0, 0));
     }
-    check('小池子（6 部位 × 2 件 = 64 组合）原样返回', run(items).length === items.length);
+    check('小池子（6 部位 × 2 件）原样返回', run(items).length === items.length);
 }
 
-realLog('\n[2] 每个套装按自己的 Top% 保留，同时部位 Top% 也在（取并集）');
+realLog('\n[2] 名额：选中的套装每部位 7 件（ceil(7% × 100)），未选中的 1 件');
 
 {
-    // 速度套分数高且互不相同（部位 Top% = 5 件全是速度套），追击套分数 0（自己 Top% = 1 件）
-    const kept = run(pool((i) => 4 + i * 0.5, 0));
+    const kept = run(bigPool());
     const { bySlot, bySlotSet } = countsBy(kept);
-
     check(
-        '速度套每部位 5 件（部位 Top% = ceil(7% × 60) = 5）',
-        SLOTS.every((slot) => bySlotSet[slot + '/SpeedSet'] === 5),
+        '速度套每部位 7 件',
+        SLOTS.every((slot) => bySlotSet[slot + '/SpeedSet'] === 7),
         bySlotSet
     );
     check(
-        '追击套每部位 1 件（自己 Top% = ceil(7% × 10) = 1）',
+        '追击套每部位 1 件（未选中，下限 1）',
         SLOTS.every((slot) => bySlotSet[slot + '/PursuitSet'] === 1),
         bySlotSet
     );
-    check('每部位 6 件（并集，允许超过 Top%）', SLOTS.every((slot) => bySlot[slot] === 6), bySlot);
+    check('每部位 8 件', SLOTS.every((slot) => bySlot[slot] === 8), bySlot);
+}
+
+realLog('\n[3] 选中套装的下限是 3 件（即使 7% 只算出 1 件）');
+
+{
+    // 每部位：选中套装 10 件（7% → 1 件，但下限 3）、未选中套装 4 件、其它套装 90 件
+    const items = [];
+    for (const slot of SLOTS) {
+        for (let i = 0; i < 10; i++) {
+            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + i * 2, 0));
+        }
+        for (let i = 0; i < 4; i++) {
+            items.push(item(`${slot}-pursuit-${i}`, slot, 'PursuitSet', 0, 45));
+        }
+        for (let i = 0; i < 90; i++) {
+            items.push(item(`${slot}-hit-${i}`, slot, 'HitSet', 0, 0));
+        }
+    }
+    const kept = run(items);
+    const { bySlotSet } = countsBy(kept);
+    check(
+        '选中套装每部位 3 件（下限）',
+        SLOTS.every((slot) => bySlotSet[slot + '/SpeedSet'] === 3),
+        bySlotSet
+    );
+    check(
+        '未选中套装：小套装（4 件）1 件、大套装（90 件）按 7% → 7 件',
+        SLOTS.every(
+            (slot) => bySlotSet[slot + '/PursuitSet'] === 1 && bySlotSet[slot + '/HitSet'] === 7
+        ),
+        bySlotSet
+    );
+}
+
+realLog('\n[4] 每部位保留数不低于该部位的 Top%');
+
+{
+    const kept = run(bigPool());
+    const { bySlot } = countsBy(kept);
+    check('每部位 ≥ ceil(7% × 104) = 8', SLOTS.every((slot) => bySlot[slot] >= 8), bySlot);
     check('落在预算内', combos(bySlot) <= COMBO_BUDGET, combos(bySlot));
 }
 
-realLog('\n[3] 同分一起保留：追击套 10 件同分 → 全部留下（超过 Top%）');
+realLog('\n[5] 同分时按结果优先级取舍（未选中套装名额 1 → 留攻击最高的那件）');
 
 {
-    // 追击套分数更高且 10 件同分，速度套分数更低且也同分
-    const kept = run(pool(4, 8));
-    const { bySlotSet } = countsBy(kept);
-    check(
-        '追击套每部位 10 件全留',
-        SLOTS.every((slot) => bySlotSet[slot + '/PursuitSet'] === 10),
-        bySlotSet
-    );
-    check('落在预算内', combos(countsBy(kept).bySlot) <= COMBO_BUDGET);
-}
-
-realLog('\n[4] 分数为 0 的组：只按名额保留，不参与同分扩张');
-
-{
-    const kept = run(pool((i) => 4 + i * 0.5, 0));
-    const zero = kept.filter((it) => it.set === 'PursuitSet');
-    check('0 分档每部位只留 1 件', zero.length === SLOTS.length, zero.length);
-}
-
-realLog('\n[5] 滑块只是上限：给 3% 时不会放宽到 7%');
-
-{
-    const items = pool((i) => 4 + i * 0.5, 0);
-    const at3 = run(items, { inputFilterPriority: 3 });
-    const at7 = run(items, { inputFilterPriority: 7 });
-    check('3% 的候选数少于 7%', at3.length < at7.length, { at3: at3.length, at7: at7.length });
-}
-
-realLog('\n[6] 关闭过滤（Top 100%）时原样返回');
-
-{
-    const items = pool((i) => 4 + i * 0.5, 0);
-    check('一件都不少', run(items, { inputFilterPriority: 100 }).length === items.length);
-}
-
-realLog('\n[7] 各部位保留数接近（不会偏袒某个部位）');
-
-{
-    const kept = run(pool((i) => 4 + i * 0.5, 0));
-    const { bySlotSet } = countsBy(kept);
-    const values = SLOTS.map((slot) => bySlotSet[slot + '/SpeedSet']);
-    check('各部位速度套保留数差异 ≤ 1', Math.max(...values) - Math.min(...values) <= 1, values);
-}
-
-/*
- * 同分时的取舍：按结果优先级（resultPriority 依次比较，disliked 反向）→ 未加权 roll → id。
- * 用「速度相同、攻击% 不同」的追击套构造同分块，quota = 1、同分补到 2 件。
- */
-function tiePool(pursuitAtk) {
-    const items = [];
-    for (const slot of SLOTS) {
-        for (let i = 0; i < 50; i++) {
-            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + i * 0.5, 0));
-        }
-        for (let i = 0; i < 10; i++) {
-            items.push(item(`${slot}-pursuit-${i}`, slot, 'PursuitSet', 0, 45, pursuitAtk[i]));
-        }
-    }
-    return items;
-}
-
-function keptPursuitAtk(overrides) {
-    const kept = run(tiePool([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]), overrides);
-    return kept
+    const kept = run(bigPool([10, 40, 70, 100]), { resultPriority: ['spd', 'atk'] });
+    const atk = kept
         .filter((it) => it.gear === 'Boots' && it.set === 'PursuitSet')
-        .map((it) => it.augmentedStats.AttackPercent)
-        .sort((a, b) => a - b);
+        .map((it) => it.augmentedStats.AttackPercent);
+    check('留攻击 100 的那件', JSON.stringify(atk), JSON.stringify([100]));
 }
 
-realLog('\n[8] 同分时按结果优先级取舍（spd → atk，越高越好）');
+realLog('\n[6] disliked 字段反向：同分时留攻击最低的');
 
 {
-    check(
-        '同分块里留下攻击最高的两件（100 / 90）',
-        JSON.stringify(keptPursuitAtk({ resultPriority: ['spd', 'atk'] })),
-        JSON.stringify([90, 100])
-    );
+    const kept = run(bigPool([10, 40, 70, 100]), {
+        resultPriority: ['spd', 'atk'],
+        resultDislike: ['atk'],
+    });
+    const atk = kept
+        .filter((it) => it.gear === 'Boots' && it.set === 'PursuitSet')
+        .map((it) => it.augmentedStats.AttackPercent);
+    check('留攻击 10 的那件', JSON.stringify(atk), JSON.stringify([10]));
 }
 
-realLog('\n[9] disliked 字段反向：同分时留攻击最低的两件');
-
-{
-    check(
-        'dislike atk 时留下 10 / 20',
-        JSON.stringify(
-            keptPursuitAtk({ resultPriority: ['spd', 'atk'], resultDislike: ['atk'] })
-        ),
-        JSON.stringify([10, 20])
-    );
-}
-
-realLog('\n[10] 所有属性都相同时按 id 升序（结果可复现）');
+realLog('\n[7] 所有属性都相同时按 id 升序（结果可复现）');
 
 {
     const items = [];
     for (const slot of SLOTS) {
-        for (let i = 0; i < 50; i++) {
-            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + i * 0.5, 0));
+        for (let i = 0; i < 100; i++) {
+            items.push(item(`${slot}-speed-${i}`, slot, 'SpeedSet', 4 + i * 0.25, 0));
         }
-        // id 故意乱序传入，看是否按 id 升序取
-        for (const id of [930, 130, 560, 220, 870, 340, 780, 410, 660, 510]) {
+        // id 乱序传入，看是否按 id 升序取
+        for (const id of [930, 130, 560, 220]) {
             items.push(item(`${slot}-pursuit-${id}`, slot, 'PursuitSet', 0, 45));
         }
     }
     const kept = run(items, { resultPriority: ['spd'] })
         .filter((it) => it.gear === 'Boots' && it.set === 'PursuitSet')
         .map((it) => it.id);
-    check('留 id 最小的两件', JSON.stringify(kept.sort()), JSON.stringify(['130', '220']));
+    check('留 id 最小的那件', JSON.stringify(kept), JSON.stringify(['130']));
+}
+
+realLog('\n[8] 滑块只是上限：给 3% 时名额更少');
+
+{
+    const items = bigPool();
+    const at3 = run(items, { inputFilterPriority: 3 });
+    const at7 = run(items, { inputFilterPriority: 7 });
+    check('3% 的候选数少于 7%', at3.length < at7.length, { at3: at3.length, at7: at7.length });
+}
+
+realLog('\n[9] 关闭过滤（Top 100%）时原样返回');
+
+{
+    const items = bigPool();
+    check('一件都不少', run(items, { inputFilterPriority: 100 }).length === items.length);
 }
 
 realLog(failures ? `\nFAILURES: ${failures}` : '\nALL PASS');

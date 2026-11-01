@@ -1465,7 +1465,7 @@ body.dark-theme input {
 /* 一队 / 二队存在时的提示：「英雄列表只显示这些角色」 */
 .heroesTeamFilterNote {
   margin-left: 10px;
-  font-size: 12px;
+  font-size: 20px;
   color: #06c;
   white-space: nowrap;
 }

@@ -2,12 +2,12 @@
  * 配装器「属性优先级过滤（Top %）」自测 —— 纯 Node，不依赖 Electron / Jest。
  *
  * 现行规则（背景见 README.md）：
- *   1. 组合数（各部位候选数的乘积）≤ 预算（2e8）时完全不截断；
- *   2. 超预算时从宽到紧试百分比（25 → 14 → 7 → 3 → 1，滑块值只是上限），取第一个落进预算的；
- *   3. 每个 (部位 × 套装) 取自己的前 Top%，件数下限：**选中的套装 3 件、未选中的套装 1 件**；
- *   4. 加起来不足该部位前 Top% 时，再从该部位全套装里按排序补足（正常情况下各套装名额之和本来
+ *   1. 滑块上的 Top% **原样生效**，不会被自动下调；
+ *   2. 每个 (部位 × 套装) 组的名额 = max(下限, ceil(Top% × 该组件数))，
+ *      下限：**选中的套装 3 件、未选中的套装 1 件**；
+ *   3. 各组件加起来不足该部位 Top% 时，再从该部位全套装里按排序补足（各组件名额之和本来
  *      就不低于部位 Top%，所以这一步基本不触发，只是兜底）；
- *   5. 排序：加权分数 → 结果优先级 → 未加权 roll → id（同分也能确定顺序）。
+ *   4. 排序：加权分数 → 结果优先级 → 未加权 roll → id（同分也能确定顺序）。
  *
  * 用法（仓库根目录）：node test/optimizer/priority-filter-check.js
  */
@@ -32,7 +32,6 @@ function check(name, condition, extra) {
 
 const baseStats = { atk: 1000, hp: 5000, def: 400, spd: 100 };
 const SLOTS = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
-const COMBO_BUDGET = 2e8;
 
 /** 造一件装备：关心速度（副属性 + 主属性）和攻击%，其它属性为 0 */
 function item(id, gear, set, spdSub, spdMain, atkPercent) {
@@ -121,7 +120,7 @@ function bigPool(pursuitAtk) {
     return items;
 }
 
-realLog('\n[1] 组合数在预算内：完全不截断');
+realLog('\n[1] 候选很少时：名额足够，全部保留');
 
 {
     const items = [];
@@ -188,7 +187,7 @@ realLog('\n[4] 每部位保留数不低于该部位的 Top%');
     const kept = run(bigPool());
     const { bySlot } = countsBy(kept);
     check('每部位 ≥ ceil(7% × 104) = 8', SLOTS.every((slot) => bySlot[slot] >= 8), bySlot);
-    check('落在预算内', combos(bySlot) <= COMBO_BUDGET, combos(bySlot));
+    check('组合数 = 各部位名额的乘积', combos(bySlot) === 8 ** SLOTS.length, combos(bySlot));
 }
 
 realLog('\n[5] 同分时按结果优先级取舍（未选中套装名额 1 → 留攻击最高的那件）');
@@ -233,7 +232,7 @@ realLog('\n[7] 所有属性都相同时按 id 升序（结果可复现）');
     check('留 id 最小的那件', JSON.stringify(kept), JSON.stringify(['130']));
 }
 
-realLog('\n[8] 滑块只是上限：给 3% 时名额更少');
+realLog('\n[8] 滑块直接决定名额：给 3% 时名额更少');
 
 {
     const items = bigPool();

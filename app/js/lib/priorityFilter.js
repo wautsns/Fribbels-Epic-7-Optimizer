@@ -11,15 +11,13 @@ module.exports = {
     /*
      * 候选装备预筛。
      *
-     * 后端要把 6 个部位的候选两两组合全部过一遍，所以真正的成本是「各部位候选数的乘积」。
-     * 规则：
-     *   1. 组合数 ≤ 预算（COMBO_BUDGET）就完全不截断，保证结果是最优解；
-     *   2. 超预算时从宽到紧试百分比（滑块值只作为上限），取第一个落进预算的；
-     *   3. 每个 (部位 × 套装) 取自己的前 Top%，件数下限：用户选中的套装至少 3 件、
+     * 规则（滑块上的 Top% 原样生效，不会被自动下调）：
+     *   1. 每个 (部位 × 套装) 取自己的前 Top%，件数下限：用户选中的套装至少 3 件、
      *      没选中的套装至少 1 件（套装效果可能更强，不能整体淘汰）；
-     *   4. 这些加起来还不够该部位的前 Top% 时，再从该部位全套装里按排序补足到 Top%
-     *      （补的就是该部位整体分数最高的那些）；
-     *   5. 同分的先后由结果优先级决定（见 buildComparator），不是"存档里靠前的先留"。
+     *   2. 这些加起来还不够该部位的前 Top% 时，再从该部位全套装里按排序补足到 Top%
+     *      （各套装名额之和本来就不低于部位 Top%，所以这一步基本只是兜底）；
+     *   3. 同分的先后由结果优先级决定（见 buildComparator），不是"存档里靠前的先留"。
+     * 组合数只用于打日志提醒（搜得慢不慢），不改变候选。
      */
     applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
         if (!items || items.length === 0) {
@@ -42,66 +40,30 @@ module.exports = {
             group.total = groupTotal(group, allGroupCounts, inputSubstatMods);
         }
 
-        const candidates = countSlots(groups);
-        const candidateCombos = combinationCount(candidates);
-        const sliderPercent = humanPercent(params.inputFilterPriority);
-
-        if (candidateCombos <= COMBO_BUDGET) {
-            console.log("Priority filter: " + items.length + " candidates " + JSON.stringify(candidates) +
-                " -> " + formatCount(candidateCombos) + " combinations <= budget " + formatCount(COMBO_BUDGET) +
-                ", no truncation (slider Top " + sliderPercent + "% has nothing to cut)");
-            return items;
-        }
-
-        console.log("Priority filter: " + items.length + " candidates " + JSON.stringify(candidates) +
-            " -> " + formatCount(candidateCombos) + " combinations, over budget " + formatCount(COMBO_BUDGET));
-
         const slots = buildSlots(groups, compare);
         const selectedSets = selectedSetNames(params);
-        const percentages = candidatePercentages(params.inputFilterPriority);
-        let fallback = null;
+        const percentage = humanPercent(params.inputFilterPriority);
 
-        for (const percentage of percentages) {
-            const pools = buildPools(slots, percentage, selectedSets);
-            const counts = countSlots(pools);
-            const combos = combinationCount(counts);
-            fallback = pools;
+        const pools = buildPools(slots, percentage, selectedSets);
+        const counts = countSlots(pools);
+        const combos = combinationCount(counts);
 
-            if (combos > COMBO_BUDGET) {
-                console.log("Priority filter: Top " + percentage + "% -> " + JSON.stringify(counts) +
-                    " -> " + formatCount(combos) + " combinations, still over budget");
-                continue;
-            }
+        console.log("Priority filter: Top " + percentage + "% -> " + JSON.stringify(counts) +
+            " -> " + formatCount(combos) + " combinations" +
+            (combos > LARGE_COMBO_WARNING ? " (很多，搜索会比较慢)" : ""));
 
-            console.log("Priority filter: Top " + percentage + "%" +
-                (percentage === sliderPercent ? "" : " (slider " + sliderPercent + "%)") +
-                " -> " + JSON.stringify(counts) +
-                " -> " + formatCount(combos) + " combinations");
-            return flattenPools(pools);
-        }
-
-        const fallbackCounts = countSlots(fallback);
-        console.log("Priority filter: tightest percentage " + JSON.stringify(fallbackCounts) +
-            " -> " + formatCount(combinationCount(fallbackCounts)) + " combinations (over budget)");
-        return flattenPools(fallback);
+        return flattenPools(pools);
     },
 }
 
-/*
- * 组合数预算：6 个部位候选数的乘积超过这个量级就收紧候选。
- * 2e8 大致对应「GPU 通道几十秒内能跑完」的量级；调大 = 更准更慢，调小 = 更快但更容易漏解。
- * （每组至少留 1 件的下限本身就会占掉一部分：套装越分散，这个下限越高。）
- */
-const COMBO_BUDGET = 2e8;
-
-/* 收紧时试的百分比，从宽到紧；滑块上的值只作为上限，不会超过它 */
-const PCT_STEPS = [25, 14, 7, 3, 1];
+const GEAR_SET_SEPARATOR = '\u0000';
 
 /* 每个 (部位 × 套装) 的件数下限：用户选中的套装 3 件，其它套装 1 件 */
 const SELECTED_SET_MIN_KEEP = 3;
 const OTHER_SET_MIN_KEEP = 1;
 
-const GEAR_SET_SEPARATOR = '\u0000';
+/* 组合数超过这个量级只打一条"会比较慢"的提示，不改变候选 */
+const LARGE_COMBO_WARNING = 1e9;
 
 /* 结果优先级里的字段 → 装备上可比较的属性（派生属性 ehp/dmg/s1… 在搜索前算不出来，跳过） */
 const RESULT_STAT_KEYS = {
@@ -259,25 +221,10 @@ function formatCount(value) {
     return value >= 1e6 ? value.toExponential(2) : String(Math.round(value));
 }
 
-/* 滑块上的百分比（只用于日志/对比，实际生效的可能更小） */
+/* 滑块上的百分比：原样使用（不会被自动下调） */
 function humanPercent(value) {
     const configured = Number(value);
     return Number.isFinite(configured) && configured > 0 ? configured : 100;
-}
-
-/* 候选百分比：滑块值封顶，后面跟一串更紧的档位（去重、降序） */
-function candidatePercentages(value) {
-    const configured = Number(value);
-    const cap = Number.isFinite(configured) && configured > 0 ? configured : 7;
-    const list = [Math.min(cap, PCT_STEPS[0])];
-
-    for (const step of PCT_STEPS) {
-        if (step < list[0] && !list.includes(step)) {
-            list.push(step);
-        }
-    }
-
-    return list;
 }
 
 /* 把「部位 × 套装」的分组再聚合成部位：部位自己的候选排序 + 各套装分组 */

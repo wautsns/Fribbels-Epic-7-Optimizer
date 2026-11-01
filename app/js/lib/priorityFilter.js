@@ -37,11 +37,50 @@ module.exports = {
             }
 
             const index = Math.ceil(params.inputFilterPriority / 100 * groupLength);
-            passed = passed.concat(gearArr.slice(0, index));
+            passed = passed.concat(sliceWithTies(gearArr, index));
         }
 
         return passed;
     },
+}
+
+const SCORE_EPSILON = 1e-9;
+
+/*
+ * 截断候选装备时，把「和最后一条同分」的装备一起留下。
+ *
+ * 优先级分数很粗（比如只给速度 8 分时，一堆「速度主属性 45、没有速度副属性」的靴子
+ * 全是 90 分），如果按位置硬切，同分里谁能留下完全取决于原始顺序 —— 极限一速要用的
+ * 那双靴子就可能被这样丢掉（实测：速度 8 只能搜到 310，加个攻击 1/命中 1 打破平局
+ * 就能搜到 315）。
+ *
+ * 两点收紧，避免候选池爆掉：
+ *   - 分数为 0 的那一档照旧严格截断（否则整份装备池都会被放进来）；
+ *   - 同分扩张最多放到名额的 2 倍，极端情况下同分特别多时仍然只多留一层。
+ */
+function sliceWithTies(sorted, index) {
+    if (index <= 0) {
+        return [];
+    }
+    if (index >= sorted.length) {
+        return sorted;
+    }
+
+    const kept = sorted.slice(0, index);
+    const boundary = kept[kept.length - 1].score;
+    if (!(Math.abs(boundary) > SCORE_EPSILON)) {
+        return kept;
+    }
+
+    const limit = Math.min(sorted.length, index * 2);
+    for (var i = index; i < limit; i++) {
+        if (Math.abs(sorted[i].score - boundary) > SCORE_EPSILON) {
+            break;
+        }
+        kept.push(sorted[i]);
+    }
+
+    return kept;
 }
 
 var groupBy = function(xs, key) {

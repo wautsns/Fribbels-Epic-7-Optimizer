@@ -442,8 +442,8 @@ const REFERENCE_SIZE = { width: 1280, height: 720 };
 async function requireReferenceSize() {
     const size = await deviceSize();
     if (
-        size.width === REFERENCE_SIZE.width &&
-        size.height === REFERENCE_SIZE.height
+        (size.width === REFERENCE_SIZE.width && size.height === REFERENCE_SIZE.height)
+        || (size.width === REFERENCE_SIZE.height && size.height === REFERENCE_SIZE.width)
     ) {
         return size;
     }

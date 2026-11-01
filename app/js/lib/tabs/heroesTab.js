@@ -295,10 +295,12 @@ async function removeHero(row) {
  * builds 的三个动作都支持可选的 onDone 回调：GVG 的表格复用同一套实现，
  * 动作完成后再刷新它自己的表格（原来这些刷新都写死指向 HeroesGrid）。
  */
-function runAfter(onDone, callback) {
+function runAfter(onDone) {
     if (typeof onDone !== 'function') return;
     try {
-        Promise.resolve(callback && callback()).catch(() => {});
+        Promise.resolve(onDone()).catch((error) =>
+            console.warn('[heroes] onDone callback failed', error)
+        );
     } catch (error) {
         console.warn('[heroes] onDone callback failed', error);
     }
@@ -306,7 +308,12 @@ function runAfter(onDone, callback) {
 
 function equipBuild(hero, build, onDone) {
     if (!hero || !build || !build.items) return;
-    if (build.items.includes(undefined) || build.items.includes(null)) return;
+
+    // 空槽位的配装不处理，但要留日志，否则点上去像“没反应”
+    if (build.items.includes(undefined) || build.items.includes(null)) {
+        console.warn('[heroes] build has empty item slots, equip skipped', build);
+        return;
+    }
 
     Api.equipItemsOnHero(hero.id, build.items).then(async () => {
         // 先刷新英雄列表（equipment 变了），再重画 builds，

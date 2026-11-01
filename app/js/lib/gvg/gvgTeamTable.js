@@ -38,6 +38,8 @@ module.exports = {
                 onBuildAction: (action, hero, build) => {
                     const refresh = () => module.exports.refresh();
 
+                    console.info('[GVG][build]', action, hero && hero.name);
+
                     if (action === 'equip') {
                         HeroesTab.equipBuild(hero, build, refresh);
                     } else if (action === 'unequip') {
@@ -80,6 +82,21 @@ module.exports = {
         const rows = await GvgTeamGrid.getTeamHeroes(heroes);
         await instance.refresh(rows);
         await instance.refreshSelectedBuilds();
+
+        /* 排查「装了但图标没变」时把 global.__GVG_DEBUG 打开，会打印刷新后的数据快照 */
+        if (global.__GVG_DEBUG) {
+            const selected = instance.getSelectedRow();
+            console.info('[GVG][refresh]', {
+                rows: rows.length,
+                selected: selected ? selected.name : null,
+                equippedSlots: selected
+                    ? Object.keys(selected.equipment || {}).filter(
+                          (slot) => selected.equipment[slot]
+                      ).length
+                    : 0,
+                builds: selected && selected.builds ? selected.builds.length : 0,
+            });
+        }
     },
 
     /** 组件实例（调试用） */

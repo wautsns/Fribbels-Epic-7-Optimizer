@@ -1,4 +1,4 @@
-/* global Files */
+/* global Files, HeroesTab, Api, OptimizerTab, Saves */
 const fs = require('fs');
 const path = require('path');
 const Swal = require('sweetalert2');
@@ -10,16 +10,48 @@ const bundledData = require('../data/rtaStats.json');
 const CACHE_FILE = 'cache/rtastats.json';
 const CONFIG_FILE = 'rtaStatsConfig.json';
 
-// 属性 -> 中文 / 优化器输入框 id
+// 属性 -> 中文 / 优化器输入框 id / 保存到英雄优化器请求时的字段名
 const STAT_META = {
-    spd: { zh: '速度', inputId: 'inputMinSpdLimit' },
-    cr: { zh: '暴击率', inputId: 'inputMinCrLimit' },
-    cd: { zh: '暴击伤害', inputId: 'inputMinCdLimit' },
-    atk: { zh: '攻击', inputId: 'inputMinAtkLimit' },
-    hp: { zh: '生命', inputId: 'inputMinHpLimit' },
-    def: { zh: '防御', inputId: 'inputMinDefLimit' },
-    eff: { zh: '效果命中', inputId: 'inputMinEffLimit' },
-    res: { zh: '效果抗性', inputId: 'inputMinResLimit' },
+    spd: {
+        zh: '速度',
+        inputId: 'inputMinSpdLimit',
+        requestKey: 'inputSpdMinLimit',
+    },
+    cr: {
+        zh: '暴击率',
+        inputId: 'inputMinCrLimit',
+        requestKey: 'inputCrMinLimit',
+    },
+    cd: {
+        zh: '暴击伤害',
+        inputId: 'inputMinCdLimit',
+        requestKey: 'inputCdMinLimit',
+    },
+    atk: {
+        zh: '攻击',
+        inputId: 'inputMinAtkLimit',
+        requestKey: 'inputAtkMinLimit',
+    },
+    hp: {
+        zh: '生命',
+        inputId: 'inputMinHpLimit',
+        requestKey: 'inputHpMinLimit',
+    },
+    def: {
+        zh: '防御',
+        inputId: 'inputMinDefLimit',
+        requestKey: 'inputDefMinLimit',
+    },
+    eff: {
+        zh: '效果命中',
+        inputId: 'inputMinEffLimit',
+        requestKey: 'inputEffMinLimit',
+    },
+    res: {
+        zh: '效果抗性',
+        inputId: 'inputMinResLimit',
+        requestKey: 'inputResMinLimit',
+    },
 };
 
 const CONFIDENCE_TEXT = {
@@ -253,6 +285,93 @@ function buildContentHtml(preset) {
     `;
 }
 
+/**
+ * 把一个英雄的 RTAStats 预设转成优化器请求。
+ * 这个请求会存到英雄上，选中英雄时 loadPreviousHeroFilters 会自动还原。
+ */
+function buildOptimizationRequest(heroId, preset) {
+    const candidate = (preset.sets || [])[0] || null;
+    const inputSets =
+        candidate && candidate.inputSets ? candidate.inputSets : [[], [], []];
+
+    const request = {
+        hero: { id: heroId },
+        setFormat: candidate ? candidate.setFormat : 0,
+        inputSets,
+        inputSetsOne: inputSets[0] || [],
+        inputSetsTwo: inputSets[1] || [],
+        inputSetsThree: inputSets[2] || [],
+        inputExcludeSet: [],
+        inputNecklaceStat: [],
+        inputRingStat: [],
+        inputBootsStat: [],
+    };
+
+    const minimums = preset.statMinimums || {};
+    Object.keys(STAT_META).forEach((stat) => {
+        const key = STAT_META[stat].requestKey;
+        const value = minimums[stat];
+        request[key] = value == null ? null : value;
+    });
+
+    return request;
+}
+
+/**
+ * 把数据集里的英雄一次性加进英雄列表，并把各自的套装/属性下限写进优化器配置。
+ * 只应在英雄列表为空时调用（按钮那边负责校验）。
+ */
+async function importHeroes(onProgress) {
+    const presets = Object.values((data && data.heroes) || {});
+    const created = [];
+
+    presets.forEach((preset) => {
+        const newHero = HeroesTab.getNewHeroByName(preset.name);
+        if (!newHero) return;
+        newHero.rarity = newHero.data.rarity;
+        newHero.attribute = newHero.data.attribute;
+        newHero.role = newHero.data.role;
+        newHero.path = preset.name;
+        newHero.stars = 6;
+        created.push({ hero: newHero, preset });
+    });
+
+    if (!created.length) return { total: 0, imported: 0, failed: [] };
+
+    await Api.addHeroes(created.map((entry) => entry.hero));
+
+    // 逐个写配置：故意串行，避免一次打 98 个请求给后端
+    /* eslint-disable no-await-in-loop */
+    const failed = [];
+    let imported = 0;
+    for (let i = 0; i < created.length; i += 1) {
+        const { hero, preset } = created[i];
+        try {
+            await Api.saveOptimizationRequest(
+                buildOptimizationRequest(hero.id, preset)
+            );
+            imported += 1;
+        } catch (e) {
+            failed.push(preset.name);
+        }
+        if (typeof onProgress === 'function') onProgress(i + 1, created.length);
+    }
+    /* eslint-enable no-await-in-loop */
+
+    // 配置已经写进英雄了，自动套用就没必要再覆盖用户后来的调整
+    module.exports.setAutoApply(false);
+
+    try {
+        await HeroesTab.redraw();
+        OptimizerTab.redrawHeroSelector();
+        Saves.autoSave();
+    } catch (e) {
+        console.warn('RTAStats: 导入后刷新英雄列表失败', e && e.message);
+    }
+
+    return { total: created.length, imported, failed };
+}
+
 module.exports = {
     /** 启动时调用：读配置 + 选一份最新的数据 */
     initialize: () => {
@@ -265,8 +384,13 @@ module.exports = {
         );
     },
 
-    /** 数据加载区「加载 RTAStats 数据」按钮用：重新读盘并返回概况 */
+    /** 数据加载区按钮用：重新读盘并返回概况 */
     reload,
+
+    /** 导入全部英雄 + 各自的配装配置（调用前请确认英雄列表为空） */
+    importHeroes,
+
+    buildOptimizationRequest,
 
     getForHero,
 

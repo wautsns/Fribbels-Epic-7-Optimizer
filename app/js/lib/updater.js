@@ -82,7 +82,15 @@ module.exports = {
         document.getElementById('pullLatestDataSubmit').addEventListener("click", async () => {
             Notifier.info(i18next.t("Pull Latest Data") + "...");
             await HeroData.refreshData();
+            RtaStats.reload();
             Notifier.info(i18next.t("Pull Latest Data") + " " + i18next.t("Complete"));
+        });
+
+        // 加载 RTAStats 预设数据（国服官方战绩站 -> app/js/data/rtaStats.json）
+        document.getElementById('loadRtaStatsSubmit').addEventListener("click", async () => {
+            const summary = RtaStats.reload();
+            const date = summary.generatedAt ? summary.generatedAt.slice(0, 10) : '未知';
+            Notifier.success(`RTAStats 数据已加载：${summary.count} 个英雄，${date}（${summary.source}）`);
         });
 
         // 检查更新

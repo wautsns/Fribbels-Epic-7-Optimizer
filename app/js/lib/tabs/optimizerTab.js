@@ -110,6 +110,61 @@ function calculatePlaceholderRatings(index) {
     }
 }
 
+// 目标属性 -> 优化器的最小值输入框
+const RTA_STATS_LIMIT_INPUTS = {
+    atk: 'inputMinAtkLimit',
+    hp: 'inputMinHpLimit',
+    def: 'inputMinDefLimit',
+    spd: 'inputMinSpdLimit',
+    cr: 'inputMinCrLimit',
+    cd: 'inputMinCdLimit',
+    eff: 'inputMinEffLimit',
+    res: 'inputMinResLimit',
+};
+
+/**
+ * 把 RTAStats 预设写进优化器表单。
+ * 套装走 inputSet1/2/3 的 multipleSelect；目标属性只填下限（先清掉原来的上下限，
+ * 避免上一个英雄留下的约束继续生效）。
+ */
+function applyRtaStatsPreset(preset, options) {
+    options = options || {};
+    const candidate = (preset.sets || [])[options.setIndex || 0];
+
+    if (candidate && candidate.inputSets) {
+        const toOptionValue = (setName) => String(setName).replace(/Set$/, '');
+        for (let slot = 0; slot < 3; slot++) {
+            const values = (candidate.inputSets[slot] || []).map(toOptionValue);
+            $('#inputSet' + (slot + 1)).multipleSelect('setSelects', values);
+        }
+    }
+
+    Object.values(RTA_STATS_LIMIT_INPUTS).forEach(id => {
+        $('#' + id).val('');
+        $('#' + id.replace('Min', 'Max')).val('');
+    });
+
+    if (options.applyStats) {
+        Object.keys(RTA_STATS_LIMIT_INPUTS).forEach(stat => {
+            const value = (preset.statMinimums || {})[stat];
+            if (value != null && value !== '') {
+                $('#' + RTA_STATS_LIMIT_INPUTS[stat]).val(value);
+            }
+        });
+    }
+
+    recalculateFilters();
+}
+
+/**
+ * 切换英雄时应该自动套用的预设（没开启自动应用 / 英雄没数据时返回 null）。
+ */
+function getAutoApplyPreset(heroResponse) {
+    if (!RtaStats.isAutoApplyEnabled()) return null;
+    const heroName = heroResponse && heroResponse.hero ? heroResponse.hero.name : null;
+    return RtaStats.getForHero(heroName);
+}
+
 module.exports = {
 
     initialize: () => {
@@ -146,6 +201,25 @@ module.exports = {
             const heroResponse = await Api.getHeroById(heroId, $('#inputPredictReforges').prop('checked'));
             electron.shell.openExternal('https://fribbels.github.io/e7/hero-library.html?hero=' + heroResponse.hero.name);
         });
+
+        document.getElementById('submitOptimizerRtaStats').addEventListener("click", async () => {
+            const heroId = document.getElementById('inputHeroAdd').value;
+            if (!heroId) {
+                Dialog.error('请先选择一个英雄');
+                return;
+            }
+            const heroResponse = await Api.getHeroById(heroId, $('#inputPredictReforges').prop('checked'));
+            const heroName = heroResponse && heroResponse.hero ? heroResponse.hero.name : null;
+            const applied = await RtaStats.openForHero(heroName, (preset, options) => {
+                applyRtaStatsPreset(preset, options);
+                if (preset.artifact) {
+                    Notifier.info('神器建议：' + (preset.artifact.zh || preset.artifact.name) + '（需要在「英雄」页设置）');
+                }
+            });
+            if (applied) {
+                Notifier.success('已应用 RTAStats 预设');
+            }
+        });
         document.getElementById('submitOptimizerReset').addEventListener("click", () => {
             clearStats();
             calculatePlaceholderRatings();
@@ -177,11 +251,16 @@ module.exports = {
         $('#inputHeroAdd').change(async () => {
             const heroId = document.getElementById('inputHeroAdd').value;
             const heroResponse = await Api.getHeroById(heroId, $('#inputPredictReforges').prop('checked'));
+            const autoPreset = getAutoApplyPreset(heroResponse);
 
             recalculateFilters();
             redrawHeroImage();
             module.exports.redrawHeroSelector();
-            module.exports.loadPreviousHeroFilters(heroResponse, null, true);
+            // 先还原英雄上次保存的过滤器；如果马上要套 RTAStats，就让预设那边统一做一次重算
+            await module.exports.loadPreviousHeroFilters(heroResponse, null, !autoPreset);
+            if (autoPreset) {
+                applyRtaStatsPreset(autoPreset, { setIndex: 0, applyStats: true });
+            }
             // the pinned row doubles as the "before" panel: use the hero's real (equipped)
             // numbers, and only fall back to the bare base stats when those are all zero.
             // baseStats 里没有 equipment/sets，必须显式带回，否则套装图标和结果表第一列都是空的

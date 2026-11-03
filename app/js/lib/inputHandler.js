@@ -67,6 +67,7 @@ global.GvgTab = require('./gvg/gvgTab');
 global.ModificationFilter = require('./modificationFilter');
 global.Subprocess = require('./subprocess');
 global.Selectors = require('./selectors');
+global.RtaStats = require('./rtaStats');
 global.Settings = require('./settings');
 global.ForceFilter = require('./forceFilter');
 global.PriorityFilter = require('./priorityFilter');
@@ -119,6 +120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     Subprocess.initialize(async () => {
         await HeroData.initialize();
+        RtaStats.initialize();
 
         Notifier.initialize();
         Dialog.initialize();

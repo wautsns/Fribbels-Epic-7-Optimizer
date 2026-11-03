@@ -22,17 +22,31 @@ const OUT = path.join(ROOT, 'app', 'js', 'data', 'rtaStats.json');
 const STAT_ORDER = ['spd', 'cr', 'cd', 'atk', 'hp', 'def', 'eff', 'res'];
 
 /**
- * 把分布摘要(">= 290" / "230-250" / "<= 12100") 转成优化器能用的"下限"。
- * 只有存在下界时才给值; "<= X" 这类上界不给, 避免把用户装备卡死。
+ * 从 10 段分布里取"目标值"：
+ *   1. 找人数最多的那一段 (maxCount)
+ *   2. 只保留 count >= 0.8 * maxCount 的段
+ *   3. 每段取该段的最大值 = 该段的上界
+ *      （顶段的上界就是站点给的范围上限，比如速度 290-310 取 310）
+ *   4. 这些值里取最大的，向上取整
  */
-function lowerBound(label) {
-    if (!label) return null;
-    const text = String(label).trim();
-    let m = /^>=\s*([\d.]+)/.exec(text);
-    if (m) return Math.ceil(Number(m[1]));
-    m = /^([\d.]+)\s*[~-]\s*([\d.]+)/.exec(text);
-    if (m) return Math.ceil(Number(m[1]));
-    return null;
+function targetFromBands(bands) {
+    if (!Array.isArray(bands) || !bands.length) return null;
+
+    const counts = bands.map((band) => Number(band.count) || 0);
+    const maxCount = Math.max(...counts);
+    if (!(maxCount > 0)) return null;
+
+    const threshold = maxCount * 0.8;
+    let best = null;
+
+    bands.forEach((band) => {
+        if ((Number(band.count) || 0) < threshold) return;
+        const edge = Number(band.to);
+        if (!Number.isFinite(edge)) return;
+        if (best == null || edge > best) best = edge;
+    });
+
+    return best == null ? null : Math.ceil(best);
 }
 
 function main() {
@@ -62,8 +76,8 @@ function main() {
             const entry = targets[stat];
             if (!entry) continue;
             targetSummary[stat] = { p50: entry.p50, p75: entry.p75, p90: entry.p90 };
-            const min = lowerBound(entry.p50);
-            if (min != null) statMinimums[stat] = min;
+            const target = targetFromBands(entry.bands);
+            if (target != null) statMinimums[stat] = target;
         }
 
         if (sets.length) withSets++;
@@ -115,4 +129,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { lowerBound };
+module.exports = { targetFromBands };

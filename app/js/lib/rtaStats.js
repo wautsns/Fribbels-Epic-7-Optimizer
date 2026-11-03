@@ -1,9 +1,9 @@
-/* global Files, HeroesTab, Api, OptimizerTab, Saves */
+/* global Files, HeroesTab, Api, OptimizerTab, Saves, Artifact, HeroData, Utils */
 const fs = require('fs');
 const path = require('path');
 const Swal = require('sweetalert2');
 
-// 随包发布的预设数据（scripts/meta/build-app-presets.js 生成）
+// 随包发布的预设数据（scripts/rtastats/build-app-presets.js 生成）
 const bundledData = require('../data/rtaStats.json');
 
 // 本地缓存 / 配置放在 userData 目录下（和 herodata.json 一个地方）
@@ -196,6 +196,10 @@ function buildContentHtml(preset) {
         .map((stat) => {
             const meta = STAT_META[stat];
             const target = preset.targets[stat];
+            const minimum =
+                preset.statMinimums && preset.statMinimums[stat] != null
+                    ? preset.statMinimums[stat]
+                    : '—';
             return `<tr>
                     <td style="text-align: left; padding: 2px 8px; color: ${color};">${escapeHtml(
                 meta.zh
@@ -205,6 +209,9 @@ function buildContentHtml(preset) {
             )}</td>
                     <td style="padding: 2px 8px; ${muted};">${escapeHtml(
                 target.p75
+            )}</td>
+                    <td style="padding: 2px 8px; color: ${color}; font-weight: 600;">${escapeHtml(
+                minimum
             )}</td>
                 </tr>`;
         })
@@ -253,13 +260,14 @@ function buildContentHtml(preset) {
 
             ${artifactBlock}
 
-            <div style="font-weight: 600; margin: 12px 0 2px;">目标属性（主流 / 偏上）</div>
+            <div style="font-weight: 600; margin: 12px 0 2px;">目标属性（主流 / 偏上 / 目标下限）</div>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
                     <tr style="${muted}; font-size: 12px;">
                         <th style="text-align: left; padding: 0 8px; font-weight: 400;">属性</th>
                         <th style="text-align: left; padding: 0 8px; font-weight: 400;">P50</th>
                         <th style="text-align: left; padding: 0 8px; font-weight: 400;">P75</th>
+                        <th style="text-align: left; padding: 0 8px; font-weight: 400;">目标</th>
                     </tr>
                 </thead>
                 <tbody>${
@@ -318,6 +326,120 @@ function buildOptimizationRequest(heroId, preset) {
 }
 
 /**
+ * 英雄加成配置：神器固定 +30、阵型满级、专属装备拉满。
+ * 返回的对象结构和 Dialog.editHeroDialog -> Api.setBonusStats 一致。
+ */
+const FLAT_IMPRINT_TYPES = ['max_hp', 'speed', 'att', 'def'];
+
+const BONUS_STAT_KEY = {
+    att_rate: 'aeiAttackPercent',
+    max_hp_rate: 'aeiHealthPercent',
+    def_rate: 'aeiDefensePercent',
+    att: 'aeiAttack',
+    max_hp: 'aeiHealth',
+    def: 'aeiDefense',
+    speed: 'aeiSpeed',
+    res: 'aeiEffectResistance',
+    cri: 'aeiCritChance',
+    cri_dmg: 'aeiCritDamage',
+    acc: 'aeiEffectiveness',
+};
+
+function buildBonusStats(heroName, preset) {
+    const bonus = {
+        attack: 0,
+        defense: 0,
+        health: 0,
+        attackPercent: 0,
+        defensePercent: 0,
+        healthPercent: 0,
+        speed: 0,
+        critChance: 0,
+        critDamage: 0,
+        effectiveness: 0,
+        effectResistance: 0,
+        finalAtkMultiplier: 1,
+        finalDefMultiplier: 1,
+        finalHpMultiplier: 1,
+        aeiAttack: 0,
+        aeiDefense: 0,
+        aeiHealth: 0,
+        aeiAttackPercent: 0,
+        aeiDefensePercent: 0,
+        aeiHealthPercent: 0,
+        aeiSpeed: 0,
+        aeiCritChance: 0,
+        aeiCritDamage: 0,
+        aeiEffectiveness: 0,
+        aeiEffectResistance: 0,
+        artifactName: 'None',
+        artifactLevel: 'None',
+        imprintNumber: 'None',
+        eeNumber: 'None',
+        stars: 6,
+    };
+
+    // 神器：选推荐的，直接 +30
+    if (preset.artifact && preset.artifact.name) {
+        const level = 30;
+        try {
+            const stats = Artifact.getStats(preset.artifact.name, level);
+            bonus.artifactName = preset.artifact.name;
+            bonus.artifactLevel = String(level);
+            bonus.artifactHealth = stats.health;
+            bonus.artifactAttack = stats.attack;
+            bonus.artifactDefense = stats.defense;
+            bonus.aeiHealth += stats.health;
+            bonus.aeiAttack += stats.attack;
+            bonus.aeiDefense += stats.defense;
+        } catch (e) {
+            console.warn(
+                'RTAStats: 神器数据缺失',
+                preset.artifact.name,
+                e && e.message
+            );
+        }
+    }
+
+    const heroInfo = HeroData.getAllHeroData()[heroName];
+    if (!heroInfo) return bonus;
+
+    // 阵型：取最高档
+    const devotion = heroInfo.self_devotion;
+    if (devotion && devotion.grades && devotion.type) {
+        const values = Object.values(devotion.grades)
+            .map(Number)
+            .filter((value) => Number.isFinite(value));
+        if (values.length) {
+            const maxValue = Math.max(...values);
+            const imprint = FLAT_IMPRINT_TYPES.includes(devotion.type)
+                ? maxValue
+                : Utils.round10ths(maxValue * 100);
+            bonus.imprintNumber = String(imprint);
+            const key = BONUS_STAT_KEY[devotion.type];
+            if (key) bonus[key] += imprint;
+        }
+    }
+
+    // 专属装备：有就拉满（基础值 x2）
+    const ee = Array.isArray(heroInfo.ex_equip) ? heroInfo.ex_equip[0] : null;
+    if (ee && ee.stat && ee.stat.type) {
+        const isFlat = FLAT_IMPRINT_TYPES.includes(ee.stat.type);
+        const baseValue = isFlat
+            ? Number(ee.stat.value)
+            : Math.round(Number(ee.stat.value) * 100);
+        if (Number.isFinite(baseValue)) {
+            const maxValue = baseValue * 2;
+            bonus.eeNumber = String(maxValue);
+            const key = BONUS_STAT_KEY[ee.stat.type];
+            if (key) bonus[key] += maxValue;
+        }
+    }
+
+    return bonus;
+}
+
+/**
  * 把数据集里的英雄一次性加进英雄列表，并把各自的套装/属性下限写进优化器配置。
  * 只应在英雄列表为空时调用（按钮那边负责校验）。
  */
@@ -347,6 +469,12 @@ async function importHeroes(onProgress) {
     for (let i = 0; i < created.length; i += 1) {
         const { hero, preset } = created[i];
         try {
+            // 神器 +30 / 阵型满级 / 专属拉满
+            await Api.setBonusStats(
+                buildBonusStats(preset.name, preset),
+                hero.id
+            );
+            // 套装 + 属性目标
             await Api.saveOptimizationRequest(
                 buildOptimizationRequest(hero.id, preset)
             );
@@ -391,6 +519,8 @@ module.exports = {
     importHeroes,
 
     buildOptimizationRequest,
+
+    buildBonusStats,
 
     getForHero,
 

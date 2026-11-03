@@ -96,6 +96,13 @@ function main() {
             confidence: preset.confidence,
             sampleCount: preset.sampleCount,
             winRate: record.official && record.official.winRate ? record.official.winRate.value : null,
+            // 排序/展示用的热度指标（导入时按 usage 降序，也就是"选出率/出场量"）
+            usage: record.official && record.official.sampleTotal ? record.official.sampleTotal.spd : null,
+            firstPickRate: record.official && record.official.pick && record.official.pick[0]
+                ? record.official.pick[0].rate : null,
+            banRate: record.official && record.official.ban && record.official.ban[0]
+                ? record.official.ban[0].rate : null,
+            rtaGames: record.rta ? record.rta.sampleGames : null,
             sets,
             artifact: preset.artifact ? {
                 name: preset.artifact.name,

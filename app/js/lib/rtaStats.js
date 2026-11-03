@@ -245,6 +245,8 @@ function buildContentHtml(preset) {
         preset.season || '',
         `数据 ${dataDate}`,
         preset.winRate == null ? '' : `胜率 ${preset.winRate}%`,
+        preset.usage == null ? '' : `出场量 ${preset.usage}`,
+        preset.firstPickRate == null ? '' : `首抢 ${preset.firstPickRate}%`,
     ].filter(Boolean);
 
     return `
@@ -440,11 +442,38 @@ function buildBonusStats(heroName, preset) {
 }
 
 /**
+ * 导入顺序：默认按「国服大师出场量」降序（也就是选出率），
+ * 出场量相同再按首抢率、最后按中文名。
+ * 想换排序只改这里即可（比如改成按 firstPickRate 或 banRate）。
+ */
+function sortPresetsByPopularity(presets) {
+    const num = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    return presets.slice().sort((a, b) => {
+        const usageDiff = num(b.usage) - num(a.usage);
+        if (usageDiff !== 0) return usageDiff;
+
+        const pickDiff = num(b.firstPickRate) - num(a.firstPickRate);
+        if (pickDiff !== 0) return pickDiff;
+
+        return String(a.zh || a.name || '').localeCompare(
+            String(b.zh || b.name || ''),
+            'zh-Hans-CN'
+        );
+    });
+}
+
+/**
  * 把数据集里的英雄一次性加进英雄列表，并把各自的套装/属性下限写进优化器配置。
  * 只应在英雄列表为空时调用（按钮那边负责校验）。
  */
 async function importHeroes(onProgress) {
-    const presets = Object.values((data && data.heroes) || {});
+    const presets = sortPresetsByPopularity(
+        Object.values((data && data.heroes) || {})
+    );
     const created = [];
 
     presets.forEach((preset) => {

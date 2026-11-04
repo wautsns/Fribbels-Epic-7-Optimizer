@@ -68,6 +68,7 @@ global.ModificationFilter = require('./modificationFilter');
 global.Subprocess = require('./subprocess');
 global.Selectors = require('./selectors');
 global.RtaStats = require('./rtaStats');
+global.HeroBuilds = require('./heroBuilds');
 global.Settings = require('./settings');
 global.ForceFilter = require('./forceFilter');
 global.PriorityFilter = require('./priorityFilter');

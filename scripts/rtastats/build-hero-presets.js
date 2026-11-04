@@ -8,8 +8,9 @@
  *
  * 用法:
  *   node scripts/rtastats/build-hero-presets.js \
- *     --official data/rtastats/e7stats-master-scope.json \
+ *     --official data/rtastats/e7stats-all-master.json \
  *     --rta data/rtastats/e7rta-scope.json \
+ *     --scope data/rtastats/scope.json \
  *     --out data/rtastats/hero-presets.json
  */
 
@@ -22,9 +23,10 @@ const ROOT = path.resolve(__dirname, '..', '..');
 
 function parseArgs(argv) {
     const args = {
-        official: path.join(ROOT, 'data', 'rtastats', 'e7stats-master-scope.json'),
+        official: path.join(ROOT, 'data', 'rtastats', 'e7stats-all-master.json'),
         rta: path.join(ROOT, 'data', 'rtastats', 'e7rta-scope.json'),
         skill: path.join(ROOT, 'docs', 'rtastats', 'skill_priority.json'),
+        scope: path.join(ROOT, 'data', 'rtastats', 'scope.json'),
         out: path.join(ROOT, 'data', 'rtastats', 'hero-presets.json'),
         csv: path.join(ROOT, 'data', 'rtastats', 'hero-presets.csv'),
     };
@@ -34,6 +36,7 @@ function parseArgs(argv) {
         if (a === '--official') args.official = path.resolve(next());
         else if (a === '--rta') args.rta = path.resolve(next());
         else if (a === '--skill') args.skill = path.resolve(next());
+        else if (a === '--scope') args.scope = path.resolve(next());
         else if (a === '--out') args.out = path.resolve(next());
         else if (a === '--csv') args.csv = path.resolve(next());
         else if (a === '-h' || a === '--help') {
@@ -67,9 +70,10 @@ function main() {
         if (typeof zh === 'string' && !zhToEn[zh]) zhToEn[zh] = en;
     }
 
-    // skill_priority.json 里偶尔用国服译名, 这里补别名 (值是 herodata 里的英文名)
+    // skill_priority.json 里偶尔用别的译名, 这里补别名 (值是 herodata 里的英文名)
     const SKILL_NAME_ALIASES = {
-        '海洋猎手芙兰': 'Pirate Captain Flan', // 国服译名 -> 海盗船长芙兰 c2110
+        // 海洋猎手芙兰 是 translation.json 里的正式译名，这里给她另一个叫法也指同一个英雄
+        '海盗船长芙兰': 'Pirate Captain Flan',
     };
 
     const skillPlans = {};
@@ -99,11 +103,18 @@ function main() {
         skillPlans[hero.code] = { zh: zhName, plan: skill[zhName] };
     }
 
-    const codes = new Set([
-        ...Object.keys(skillPlans),
-        ...Object.keys((official && official.heroes) || {}),
-        ...Object.keys((rta && rta.heroes) || {}),
-    ]);
+    // 导入范围：优先用 scope.json（国服大师出场量 >= 阈值 ∪ 技能名单）
+    const scope = readJson(args.scope);
+    let codes;
+    if (scope && Array.isArray(scope.heroes) && scope.heroes.length) {
+        codes = new Set(scope.heroes.map(hero => hero.code));
+    } else {
+        codes = new Set([
+            ...Object.keys(skillPlans),
+            ...Object.keys((official && official.heroes) || {}),
+            ...Object.keys((rta && rta.heroes) || {}),
+        ]);
+    }
 
     const out = {
         generatedAt: new Date().toISOString(),
@@ -111,6 +122,7 @@ function main() {
             official: official ? { season: official.season, scope: official.source.scope, fetchedAt: official.source.fetchedAt, tier: args.official.includes('master') ? 'master' : undefined } : null,
             rta: rta ? { season: rta.season, scope: 'RTA Champion+ (global)', fetchedAt: rta.source.fetchedAt } : null,
             skillPriority: 'docs/rtastats/skill_priority.json',
+            scope: scope ? { file: 'data/rtastats/scope.json', minUsage: scope.minUsage, total: scope.total } : null,
         },
         unresolvedSkillHeroes: unresolved,
         duplicateSkillHeroes: duplicates,

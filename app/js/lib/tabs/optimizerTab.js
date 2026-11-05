@@ -288,10 +288,7 @@ module.exports = {
             clearStats();
             recalculateFilters();
         });
-        document.getElementById('skillsLabel').addEventListener("click", async () => {
-            clearSkills();
-            recalculateFilters();
-        });
+        // 技能伤害过滤面板已移除，技能下限不再有输入框
         document.getElementById('optionsLabel').addEventListener("click", async () => {
             clearOptions();
             recalculateFilters();
@@ -1085,9 +1082,6 @@ function clearSubstatPriority() {
     document.querySelector('#filterSliderInput').setAttribute('value', 4)
 }
 
-function clearSkills() {
-    $(".skill-number-input").val("")
-}
 function clearStats() {
     $(".stat-number-input").val("")
     calculatePlaceholderRatings();
@@ -1648,7 +1642,13 @@ function hasTwoPieceSet(set) {
 }
 
 function readNumber(id) {
-    var possibleNaN = parseInt(document.getElementById(id).value);
+    const element = document.getElementById(id);
+    // 面板可能已经删掉了对应的输入框（比如技能伤害过滤），返回 undefined 让后端用默认值
+    if (!element) {
+        return undefined;
+    }
+
+    var possibleNaN = parseInt(element.value);
 
     return isNaN(possibleNaN) ? undefined : possibleNaN;
 }

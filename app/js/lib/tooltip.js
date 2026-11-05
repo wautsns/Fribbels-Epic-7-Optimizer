@@ -74,10 +74,8 @@ module.exports = {
                 +'<p>'+i18next.t("Without a maximum: an empty minimum prefers higher values (lower for stats marked as dislike), a minimum of 0 ignores the stat, and a positive minimum prefers higher values (exactly equal values for stats marked as dislike).")+'</p>'
                 +'<p>'+i18next.t("With a maximum: values must match exactly for dominance, except for stats marked as dislike with an empty or 0 minimum, which prefer lower values.")+'</p>'
                 +'<p>'+i18next.t("<b>Ehp - </b> Effective Hp, for comparing how much damage a unit can take. Formula: HP * (Defense/300 + 1).")+'</p>'
-                +'<p>'+i18next.t("<b>Upg - </b> Number of items to upgrade - including reforges and enhances. When substat mods are enabled, modified gear is considered upgradable.")+'</p>'});
-
-        tippy('#filterSkillsTooltip', {
-            content: '<p>'+i18next.t("Select skill damage filters. Skill options can be changed through the Change skill options menu. Heroes with extra procs on S1 and no S2 damage will have their S2 replaced with the S1 proc value.")+'</p>'});
+                +'<p>'+i18next.t("<b>Upg - </b> Number of items to upgrade - including reforges and enhances. When substat mods are enabled, modified gear is considered upgradable.")+'</p>'
+                +'<p>'+i18next.t("<b>Eq - </b> Number of items that must be replaced - the results where nothing changes are filtered out.")+'</p>'});
 
         tippy('#substatPriorityTooltip', {
             content:

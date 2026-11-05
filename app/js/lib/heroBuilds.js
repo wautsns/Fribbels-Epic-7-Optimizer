@@ -469,7 +469,8 @@ function normalizeStat(stat, value) {
  *   3. 子集内按 gs 取 p10~p70
  *   4. >=50 条用密度法取最密点的 6 维数值作为中心，否则取中位数
  *   5. 每个属性都取密度中心再按 normalizeStat 归化成整数值
- *   6. 目标和英雄基础值差不多的属性跳过
+ *   6. 目标和英雄基础值差不多、或者归化成 0 的属性，下限一律填 0
+ *      （0 + configured 在支配过滤里等于"忽略这个属性"，不会参与压制比较）
  *
  * options.artifactCode：固定用这个神器筛 build
  */
@@ -541,37 +542,31 @@ function computePanel(rows, baseStats, options) {
     const targets = {};
     const skipped = [];
     STATS.forEach((stat) => {
+        // 没堆的属性一律写 0：min=0 且 configured 时，支配过滤会直接忽略这个属性
+        let target = 0;
         const anchorValue = Number(anchor[stat.key]);
-        if (!Number.isFinite(anchorValue)) {
-            skipped.push(stat.key);
-            return;
+        const usable =
+            Number.isFinite(anchorValue) &&
+            !(stat.min != null && anchorValue < stat.min);
+        if (usable) {
+            // 取密度中心后归化到常见整数目标（归化成 0 也照样写 0）
+            const value = normalizeStat(stat, anchorValue);
+            const baseValue = Number(base[stat.key] || 0);
+            const tolerance =
+                stat.snap && stat.snap >= 50
+                    ? Math.max(5, baseValue * 0.02)
+                    : 5;
+            const worthFilling =
+                value != null &&
+                value > 0 &&
+                !(stat.min != null && value < stat.min) &&
+                value > baseValue + tolerance;
+            if (worthFilling) {
+                target = value;
+            }
         }
-        // 低于阈值就认为这个属性不需要
-        if (stat.min != null && anchorValue < stat.min) {
-            skipped.push(stat.key);
-            return;
-        }
-
-        // 取密度中心后归化到常见整数目标
-        const value = normalizeStat(stat, anchorValue);
-        // 归化成 0 表示这个属性没堆，直接跳过
-        if (!value) {
-            skipped.push(stat.key);
-            return;
-        }
-        if (stat.min != null && value < stat.min) {
-            skipped.push(stat.key);
-            return;
-        }
-
-        const baseValue = Number(base[stat.key] || 0);
-        const tolerance =
-            stat.snap && stat.snap >= 50 ? Math.max(5, baseValue * 0.02) : 5;
-        if (value <= baseValue + tolerance) {
-            skipped.push(stat.key);
-            return;
-        }
-        targets[stat.key] = value;
+        if (!target) skipped.push(stat.key);
+        targets[stat.key] = target;
     });
 
     return {

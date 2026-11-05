@@ -620,6 +620,9 @@ module.exports = {
         request.inputMaxEhpLimit = readNumber('inputMaxEhpLimit' + index);
         request.inputMinUpgradesLimit = readNumber('inputMinUpgradesLimit' + index);
         request.inputMaxUpgradesLimit = readNumber('inputMaxUpgradesLimit' + index);
+        // 需更换件数过滤（后端字段名是 Equipped，不是 Eq）
+        request.inputMinEquippedLimit = readNumber('inputMinEqLimit' + index);
+        request.inputMaxEquippedLimit = readNumber('inputMaxEqLimit' + index);
 
         request.inputMinS1Limit = readNumber('inputMinS1Limit' + index);
         request.inputMaxS1Limit = readNumber('inputMaxS1Limit' + index);
@@ -767,6 +770,8 @@ module.exports = {
         $("#inputMaxEhpLimit" + index).val(inputDisplayNumber(request.inputMaxEhpLimit));
         $("#inputMinUpgradesLimit" + index).val(inputDisplayNumber(request.inputMinUpgradesLimit));
         $("#inputMaxUpgradesLimit" + index).val(inputDisplayNumber(request.inputMaxUpgradesLimit));
+        $("#inputMinEqLimit" + index).val(inputDisplayNumber(request.inputMinEquippedLimit));
+        $("#inputMaxEqLimit" + index).val(inputDisplayNumber(request.inputMaxEquippedLimit));
 
         $("#inputMinS1Limit" + index).val(inputDisplayNumber(request.inputMinS1Limit));
         $("#inputMaxS1Limit" + index).val(inputDisplayNumber(request.inputMaxS1Limit));

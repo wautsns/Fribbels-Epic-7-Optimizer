@@ -14,12 +14,14 @@ const REQUEST_TIMEOUT = 90000;
 //   density : 参与 6 维密度计算
 //   snap    : 取整粒度（攻击/防御/生命用）
 //   picks   : 只允许取这组"常见阈值"里最接近的一个
+//   zeroBelow : 低于这个值就归化成 0（"这个属性不用堆"，下限填 0 让支配过滤忽略它）
 //   requestKey / configuredKey : 保存到英雄 optimizationRequest 时的字段名
 const STATS = [
     {
         key: 'atk',
         zh: '攻击',
         snap: 100,
+        zeroBelow: 2000,
         inputId: 'inputMinAtkLimit',
         requestKey: 'inputAtkMinLimit',
         configuredKey: 'inputAtkMinConfigured',

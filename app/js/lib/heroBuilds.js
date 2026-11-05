@@ -11,15 +11,15 @@ const CACHE_DIR = 'cache/heroBuilds';
 const REQUEST_TIMEOUT = 90000;
 
 // 分析用的面板属性
-//   density: 参与 6 维密度计算
-//   padTo5 : 速度专用，取密度中心后向上取整到 5 的倍数（速度当最终值用，不做 5% 下调）
-//   min    : 低于这个值就认为这个属性"不需要"，直接跳过
+//   density : 参与 6 维密度计算
+//   snap    : 取整粒度（攻击/防御/生命用）
+//   picks   : 只允许取这组"常见阈值"里最接近的一个
 //   requestKey / configuredKey : 保存到英雄 optimizationRequest 时的字段名
 const STATS = [
     {
         key: 'atk',
         zh: '攻击',
-        step: 100,
+        snap: 100,
         inputId: 'inputMinAtkLimit',
         requestKey: 'inputAtkMinLimit',
         configuredKey: 'inputAtkMinConfigured',
@@ -28,7 +28,7 @@ const STATS = [
     {
         key: 'hp',
         zh: '生命',
-        step: 1000,
+        snap: 100,
         inputId: 'inputMinHpLimit',
         requestKey: 'inputHpMinLimit',
         configuredKey: 'inputHpMinConfigured',
@@ -37,7 +37,7 @@ const STATS = [
     {
         key: 'def',
         zh: '防御',
-        step: 100,
+        snap: 50,
         inputId: 'inputMinDefLimit',
         requestKey: 'inputDefMinLimit',
         configuredKey: 'inputDefMinConfigured',
@@ -46,52 +46,52 @@ const STATS = [
     {
         key: 'spd',
         zh: '速度',
-        step: 1,
+        snap: 5,
+        round: 'up',
         inputId: 'inputMinSpdLimit',
         requestKey: 'inputSpdMinLimit',
         configuredKey: 'inputSpdMinConfigured',
         density: true,
-        padTo5: true,
     },
     {
         key: 'chc',
         zh: '暴击率',
-        step: 1,
+        picks: [100, 88, 85, 73, 70, 50],
+        zeroBelow: 30,
         inputId: 'inputMinCrLimit',
         requestKey: 'inputCrMinLimit',
         configuredKey: 'inputCrMinConfigured',
         density: true,
-        min: 30,
     },
     {
         key: 'chd',
         zh: '爆伤',
-        step: 1,
+        snap: 5,
+        min: 170,
         inputId: 'inputMinCdLimit',
         requestKey: 'inputCdMinLimit',
         configuredKey: 'inputCdMinConfigured',
         density: true,
-        min: 170,
     },
     {
         key: 'eff',
         zh: '效果命中',
-        step: 1,
+        picks: [0, 50, 85, 100, 130, 150, 185, 200],
+        snapOver: [200, 5],
         inputId: 'inputMinEffLimit',
         requestKey: 'inputEffMinLimit',
         configuredKey: 'inputEffMinConfigured',
         density: false,
-        min: 50,
     },
     {
         key: 'efr',
         zh: '效果抗性',
-        step: 1,
+        picks: [0, 50, 85, 100, 130, 150, 185, 200],
+        snapOver: [200, 5],
         inputId: 'inputMinResLimit',
         requestKey: 'inputResMinLimit',
         configuredKey: 'inputResMinConfigured',
         density: false,
-        min: 50,
     },
 ];
 
@@ -428,14 +428,48 @@ function densestRegion(rows, radius) {
     return { center: rows[bestIndex], members };
 }
 
+/** 在候选阈值里取最接近的一个 */
+function nearestPick(value, picks) {
+    let best = picks[0];
+    picks.forEach((pick) => {
+        if (Math.abs(pick - value) < Math.abs(best - value)) best = pick;
+    });
+    return best;
+}
+
+/**
+ * 把密度中心的值归化成"配装器里好用的整数目标"
+ *   攻击/生命 -> 整 100，防御 -> 整 50，速度 -> 向上取整 5（末尾 0/5）
+ *   暴击率 -> [100, 88, 85, 73, 70, 50] 里最接近的，小于 30 置 0（视为没堆）
+ *   爆伤   -> 整 5
+ *   命中/抗性 -> [0, 50, 85, 100, 130, 150, 185, 200] 里最接近的，超过 200 取整 5
+ */
+function normalizeStat(stat, value) {
+    if (!Number.isFinite(value)) return null;
+    if (stat.zeroBelow != null && value < stat.zeroBelow) return 0;
+    if (stat.picks) {
+        if (stat.snapOver && value > stat.snapOver[0]) {
+            const grid = stat.snapOver[1];
+            return Math.round(value / grid) * grid;
+        }
+        return nearestPick(value, stat.picks);
+    }
+    if (stat.snap) {
+        return stat.round === 'up'
+            ? Math.ceil(value / stat.snap) * stat.snap
+            : Math.round(value / stat.snap) * stat.snap;
+    }
+    return Math.round(value);
+}
+
 /**
  * 计算目标面板：
  *   1. 套装组合占比最高
  *   2. 神器：指定了就用指定的（英雄当前神器），否则取该套装下占比最高的
  *   3. 子集内按 gs 取 p10~p70
- *   4. >=50 条用密度区间（取邻域 p25），否则取中位数
- *   5. 目标 = 值 x 0.95（留 5% 余量）
- *   6. 和目标与英雄基础值差不多的属性跳过
+ *   4. >=50 条用密度法取最密点的 6 维数值作为中心，否则取中位数
+ *   5. 每个属性都取密度中心再按 normalizeStat 归化成整数值
+ *   6. 目标和英雄基础值差不多的属性跳过
  *
  * options.artifactCode：固定用这个神器筛 build
  */
@@ -493,23 +527,9 @@ function computePanel(rows, baseStats, options) {
     if (baseRows.length >= 50) {
         const region = densestRegion(baseRows, 1.0);
         method = 'density';
-        // 6 维常用的三项取密集区间下沿（p25），给后面的 5% 余量留空间
-        DENSITY_STATS.forEach((stat) => {
-            anchor[stat.key] = quantile(
-                valuesOf(region.members, stat.key),
-                0.25
-            );
-        });
-        // 速度当最终值用：取密度中心（最密那个点）的速度，不做下调
-        anchor.spd =
-            Number(region.center.spd) ||
-            quantile(valuesOf(region.members, 'spd'), 0.5);
-        // 命中/抵抗不参与密度，用同一邻域的中位数
-        STATS.filter((stat) => !stat.density).forEach((stat) => {
-            anchor[stat.key] = quantile(
-                valuesOf(region.members, stat.key),
-                0.5
-            );
+        // 所有属性统一取密度中心（最密那个点）的值，再各自归化
+        STATS.forEach((stat) => {
+            anchor[stat.key] = Number(region.center[stat.key]) || 0;
         });
     } else {
         STATS.forEach((stat) => {
@@ -532,16 +552,21 @@ function computePanel(rows, baseStats, options) {
             return;
         }
 
-        let value;
-        if (stat.padTo5) {
-            // 速度：密度中心向上取整到 5 的倍数（末尾是 0 或 5）
-            value = Math.ceil(anchorValue / 5) * 5;
-        } else {
-            value = Math.floor((anchorValue * 0.95) / stat.step) * stat.step;
+        // 取密度中心后归化到常见整数目标
+        const value = normalizeStat(stat, anchorValue);
+        // 归化成 0 表示这个属性没堆，直接跳过
+        if (!value) {
+            skipped.push(stat.key);
+            return;
+        }
+        if (stat.min != null && value < stat.min) {
+            skipped.push(stat.key);
+            return;
         }
 
         const baseValue = Number(base[stat.key] || 0);
-        const tolerance = stat.step >= 100 ? Math.max(5, baseValue * 0.02) : 5;
+        const tolerance =
+            stat.snap && stat.snap >= 50 ? Math.max(5, baseValue * 0.02) : 5;
         if (value <= baseValue + tolerance) {
             skipped.push(stat.key);
             return;

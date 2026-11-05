@@ -1396,23 +1396,22 @@ function getImprintHtml(hero, heroInfo) {
     const imprintType = heroInfo.self_devotion.type;
     const displayText = e7StatToDisplayStat[imprintType];
     const imprintValues = heroInfo.self_devotion.grades;
-    const fixedImprintValues = [];
 
     const isFlat = imprintType == "max_hp" || imprintType == "speed" || imprintType == "att" || imprintType == "def";
 
-    for (var grade of Object.keys(imprintValues)) {
-        if (!isFlat) {
-            fixedImprintValues[grade] = Utils.round10ths(imprintValues[grade] * 100);
-        } else {
-            fixedImprintValues[grade] = imprintValues[grade];
-        }
-    }
+    // 数据里 grades 的 key 顺序是 A, B, C, D, S, SS, SSS（字典序），
+    // 但数值大小其实是 D < C < B < A < S < SS < SSS，照 key 顺序排会让
+    // 9% - A 排在 6% - B 上面，所以这里按数值从小到大重新排一遍。
+    const imprintOptions = Object.keys(imprintValues).map(grade => ({
+        grade,
+        value: isFlat ? imprintValues[grade] : Utils.round10ths(imprintValues[grade] * 100),
+    }));
+    imprintOptions.sort((a, b) => a.value - b.value);
 
     var html = `<select class="editGearStatSelect" id="editImprint"><option value="None">${i18next.t("None")}</option>`;
 
-    for (var grade of Object.keys(fixedImprintValues)) {
-        html += `<option value="${fixedImprintValues[grade]}" ${hero.imprintNumber == fixedImprintValues[grade] ? "selected" : ""}>${fixedImprintValues[grade]}${displayText} - ${grade}</option>`
-        // html += `<option value="${imprintValues[grade]}"}>${grade + " - " + imprintValues[grade]} ${displayText}</option>`
+    for (var option of imprintOptions) {
+        html += `<option value="${option.value}" ${hero.imprintNumber == option.value ? "selected" : ""}>${option.value}${displayText} - ${option.grade}</option>`
     }
 
     html += `</select>

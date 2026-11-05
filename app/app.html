@@ -486,93 +486,31 @@ window.jQuery = $;
               <input type="number" id="inputMinUpgradesLimit" class="optimizer-number-input stat-number-input">
               <div class="inputStatLabel" data-t>Upg</div>
               <input type="number" id="inputMaxUpgradesLimit" class="optimizer-number-input stat-number-input"><br>
+
+              <!--技能伤害上下限（S1/S2/S3）：只去掉标题，输入框保留-->
+              <div class="horizontalSpace" ></div>
+              <div class="horizontalSpace" ></div>
+              <div class="horizontalSpace" ></div>
+              <div class="horizontalSpace" ></div>
+              <div class="horizontalSpace" ></div>
+              <div class="horizontalSpace" style="height:1px"></div>
+
+              <input type="number" id="inputMinS1Limit" class="optimizer-number-input stat-number-input skill-number-input">
+              <div class="inputStatLabel" data-t>S1</div>
+              <input type="number" id="inputMaxS1Limit" class="optimizer-number-input stat-number-input skill-number-input"><br>
+
+              <input type="number" id="inputMinS2Limit" class="optimizer-number-input stat-number-input skill-number-input">
+              <div class="inputStatLabel" data-t>S2</div>
+              <input type="number" id="inputMaxS2Limit" class="optimizer-number-input stat-number-input skill-number-input"><br>
+
+              <input type="number" id="inputMinS3Limit" class="optimizer-number-input stat-number-input skill-number-input">
+              <div class="inputStatLabel" data-t>S3</div>
+              <input type="number" id="inputMaxS3Limit" class="optimizer-number-input stat-number-input skill-number-input"><br>
             </div>
 
             <div class="vertical"></div>
 
             <div id="constraints-focus-panel" class="constraints-panel-col">
-              <div class="panelLabel">
-                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="accessoryMainStatsTooltip"></img>
-                <div class="panelLabelText" id="accessorySetsLabel" data-content=" (clear)" data-t>Accessory main stats</div>
-              </div>
-
-
-              <select multiple="multiple" id="inputNecklaceStat" class="inputGearFilterSelect">
-                <option value="CriticalHitChancePercent" data-t>Crit Chance</option>
-                <option value="CriticalHitDamagePercent" data-t>Crit Damage</option>
-                <option value="AttackPercent" data-t>Attack %</option>
-                <option value="Attack" data-t>Attack</option>
-                <option value="HealthPercent" data-t>Health %</option>
-                <option value="Health" data-t>Health</option>
-                <option value="DefensePercent" data-t>Defense %</option>
-                <option value="Defense" data-t>Defense</option>
-              </select><br>
-
-              <select multiple="multiple" id="inputRingStat" class="inputGearFilterSelect">
-                <option value="EffectivenessPercent" data-t>Effectiveness</option>
-                <option value="EffectResistancePercent" data-t>Effect Resistance</option>
-                <option value="AttackPercent" data-t>Attack %</option>
-                <option value="Attack" data-t>Attack</option>
-                <option value="HealthPercent" data-t>Health %</option>
-                <option value="Health" data-t>Health</option>
-                <option value="DefensePercent" data-t>Defense %</option>
-                <option value="Defense" data-t>Defense</option>
-              </select><br>
-
-              <select multiple="multiple" id="inputBootsStat" class="inputGearFilterSelect">
-                <option value="Speed" data-t>Speed</option>
-                <option value="AttackPercent" data-t>Attack %</option>
-                <option value="Attack" data-t>Attack</option>
-                <option value="HealthPercent" data-t>Health %</option>
-                <option value="Health" data-t>Health</option>
-                <option value="DefensePercent" data-t>Defense %</option>
-                <option value="Defense" data-t>Defense</option>
-              </select><br>
-
-
-              <div class="horizontalSpace" ></div>
-
-              <div class="panelLabel">
-                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="excludeTooltip"></img>
-                <div class="panelLabelText" data-t>Exclude</div>
-              </div>
-
-
-              <select multiple="multiple" id="inputExcludeSet" class="inputSetFilterSelect">
-                <!-- <option value="None" data-t>None</option> -->
-                <optgroup label="4 Piece" data-t>
-                  <option value="Attack" data-t>Attack</option>
-                  <option value="Counter" data-t>Counter</option>
-                  <option value="Destruction" data-t>Destruction</option>
-                  <option value="Injury" data-t>Injury</option>
-                  <option value="Lifesteal" data-t>Lifesteal</option>
-                  <option value="Protection" data-t>Protection</option>
-                  <option value="Rage" data-t>Rage</option>
-                  <option value="Revenge" data-t>Revenge</option>
-                  <option value="Reversal" data-t>Reversal</option>
-                  <option value="Riposte" data-t>Riposte</option>
-                  <option value="Warfare" data-t>Warfare</option>
-                  <option value="Weakening" data-t>Weakening</option>
-                  <option value="Speed" data-t>Speed</option>
-                </optgroup>
-                <optgroup label="2 Piece" data-t>
-                  <option value="Critical" data-t>Critical</option>
-                  <option value="Defense" data-t>Defense</option>
-                  <option value="Health" data-t>Health</option>
-                  <option value="Hit" data-t>Hit</option>
-                  <option value="Immunity" data-t>Immunity</option>
-                  <option value="Penetration" data-t>Penetration</option>
-                  <option value="Resist" data-t>Resist</option>
-                  <option value="Torrent" data-t>Torrent</option>
-                  <option value="Unity" data-t>Unity</option>
-                  <option value="Pursuit" data-t>Pursuit</option>
-                  <option value="Fervor" data-t>Fervor</option>
-                </optgroup>
-              </select><br>
-
-
-              <div class="horizontalSpace" ></div>
-
               <div class="panelLabel">
                 <img src="./assets/tooltip.png" class="tooltipImageLeft" id="setsTooltip"></img>
                 <div class="panelLabelText" data-t>Sets</div>
@@ -644,6 +582,88 @@ window.jQuery = $;
                   <option value="Fervor" data-t>Fervor</option>
                 </optgroup>
               </select>
+
+
+              <div class="horizontalSpace" ></div>
+
+              <div class="panelLabel">
+                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="excludeTooltip"></img>
+                <div class="panelLabelText" data-t>Exclude</div>
+              </div>
+
+
+              <select multiple="multiple" id="inputExcludeSet" class="inputSetFilterSelect">
+                <!-- <option value="None" data-t>None</option> -->
+                <optgroup label="4 Piece" data-t>
+                  <option value="Attack" data-t>Attack</option>
+                  <option value="Counter" data-t>Counter</option>
+                  <option value="Destruction" data-t>Destruction</option>
+                  <option value="Injury" data-t>Injury</option>
+                  <option value="Lifesteal" data-t>Lifesteal</option>
+                  <option value="Protection" data-t>Protection</option>
+                  <option value="Rage" data-t>Rage</option>
+                  <option value="Revenge" data-t>Revenge</option>
+                  <option value="Reversal" data-t>Reversal</option>
+                  <option value="Riposte" data-t>Riposte</option>
+                  <option value="Warfare" data-t>Warfare</option>
+                  <option value="Weakening" data-t>Weakening</option>
+                  <option value="Speed" data-t>Speed</option>
+                </optgroup>
+                <optgroup label="2 Piece" data-t>
+                  <option value="Critical" data-t>Critical</option>
+                  <option value="Defense" data-t>Defense</option>
+                  <option value="Health" data-t>Health</option>
+                  <option value="Hit" data-t>Hit</option>
+                  <option value="Immunity" data-t>Immunity</option>
+                  <option value="Penetration" data-t>Penetration</option>
+                  <option value="Resist" data-t>Resist</option>
+                  <option value="Torrent" data-t>Torrent</option>
+                  <option value="Unity" data-t>Unity</option>
+                  <option value="Pursuit" data-t>Pursuit</option>
+                  <option value="Fervor" data-t>Fervor</option>
+                </optgroup>
+              </select><br>
+
+
+              <div class="horizontalSpace" ></div>
+
+              <div class="panelLabel">
+                <img src="./assets/tooltip.png" class="tooltipImageLeft" id="accessoryMainStatsTooltip"></img>
+                <div class="panelLabelText" id="accessorySetsLabel" data-content=" (clear)" data-t>Accessory main stats</div>
+              </div>
+
+
+              <select multiple="multiple" id="inputNecklaceStat" class="inputGearFilterSelect">
+                <option value="CriticalHitChancePercent" data-t>Crit Chance</option>
+                <option value="CriticalHitDamagePercent" data-t>Crit Damage</option>
+                <option value="AttackPercent" data-t>Attack %</option>
+                <option value="Attack" data-t>Attack</option>
+                <option value="HealthPercent" data-t>Health %</option>
+                <option value="Health" data-t>Health</option>
+                <option value="DefensePercent" data-t>Defense %</option>
+                <option value="Defense" data-t>Defense</option>
+              </select><br>
+
+              <select multiple="multiple" id="inputRingStat" class="inputGearFilterSelect">
+                <option value="EffectivenessPercent" data-t>Effectiveness</option>
+                <option value="EffectResistancePercent" data-t>Effect Resistance</option>
+                <option value="AttackPercent" data-t>Attack %</option>
+                <option value="Attack" data-t>Attack</option>
+                <option value="HealthPercent" data-t>Health %</option>
+                <option value="Health" data-t>Health</option>
+                <option value="DefensePercent" data-t>Defense %</option>
+                <option value="Defense" data-t>Defense</option>
+              </select><br>
+
+              <select multiple="multiple" id="inputBootsStat" class="inputGearFilterSelect">
+                <option value="Speed" data-t>Speed</option>
+                <option value="AttackPercent" data-t>Attack %</option>
+                <option value="Attack" data-t>Attack</option>
+                <option value="HealthPercent" data-t>Health %</option>
+                <option value="Health" data-t>Health</option>
+                <option value="DefensePercent" data-t>Defense %</option>
+                <option value="Defense" data-t>Defense</option>
+              </select><br>
             </div>
             <div class="vertical"></div>
 

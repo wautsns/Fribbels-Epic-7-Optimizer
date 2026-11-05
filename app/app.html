@@ -270,15 +270,17 @@ window.jQuery = $;
                 <img src="./assets/blank.png" id="inputImprintImage" class="inputImprintImage"></img>
               </div>
 
+              <!--「开始」在搜索中变成「取消」（同一个按钮）-->
               <input type="submit" value="Start" class="gearPreviewButton controlsPanel" id="submitOptimizerRequest" data-t ><br>
               <div class="horizontalSpace" ></div>
               <input type="submit" value="Filter" class="gearPreviewButton controlsPanel" id="submitOptimizerFilter" data-t ><br>
               <div class="horizontalSpace" ></div>
-              <input type="submit" value="Cancel" class="gearPreviewButton controlsPanel" id="submitOptimizerCancel" data-t ><br>
-              <div class="horizontalSpace" ></div>
-              <input type="submit" value="Hero library" class="gearPreviewButton controlsPanel" id="submitOptimizerHeroLibrary" data-t >
-              <div class="horizontalSpace" ></div>
               <input type="submit" value="Reset filters" class="gearPreviewButton controlsPanel" id="submitOptimizerReset" data-t >
+              <div class="horizontalSpace" ></div>
+              <input type="submit" class="gearPreviewButton controlsPanel" value="根据配装数据填入" id="fillFromBuildsButton">
+              <div class="horizontalSpace" ></div>
+              <!--一键换装：把英雄身上这套装备在模拟器里复刻一遍（和英雄列表的功能一致）-->
+              <input type="submit" value="One-Click Equip" class="gearPreviewButton controlsPanel" id="optimizerOneClickEquip" data-t>
 
             </div>
             <div class="vertical"></div>
@@ -432,7 +434,6 @@ window.jQuery = $;
               <input type="submit" class="gearActionButtonSmaller" value="Add bonus stats" id="addBonusStatsOptimizerButton" data-t>
               <input type="submit" class="gearActionButtonSmaller" value="Add substat mods" id="addSubstatModsOptimizerButton" data-t>
               <input type="submit" class="gearActionButtonSmaller" value="Change skill options" id="skillOptionsButton" data-t>
-              <input type="submit" class="gearActionButtonSmaller" value="根据配装数据填入" id="fillFromBuildsButton">
             </div>
 
             <div class="vertical"></div>

@@ -13,6 +13,8 @@ const fs = require('fs');
 var currentExecutionId;
 var resized = false;
 var resultPriorityStates = {};
+// 「开始」按钮在搜索进行中会变成「取消」，用这个标记记录当前状态
+var optimizationRunning = false;
 const gearTypes = ["Weapon", "Helmet", "Armor", "Necklace", "Ring", "Boots"];
 
 function countItemsByGear(items) {
@@ -125,27 +127,56 @@ module.exports = {
             calculatePlaceholderRatings()
         });
 
+        // 「开始」和「取消」是同一个按钮：搜索中变成取消，点取消或者搜索结束再变回开始
         document.getElementById('submitOptimizerRequest').addEventListener("click", () => {
+            if (optimizationRunning) {
+                cancelOptimizationRequest();
+                return;
+            }
             submitOptimizationRequest()
         });
         document.getElementById('submitOptimizerFilter').addEventListener("click", () => {
             submitOptimizationFilterRequest()
         });
-        document.getElementById('submitOptimizerCancel').addEventListener("click", () => {
-            if (progressTimer) {
-                clearInterval(progressTimer);
-            }
-            Api.cancelOptimizationRequest();
-        });
-        // document.getElementById('submitOptimizerLoad').addEventListener("click", async () => {
-        //     loadPreviousHeroFilters();
-        // });
 
-        document.getElementById('submitOptimizerHeroLibrary').addEventListener("click", async () => {
+        // 一键换装：把英雄身上这套装备在模拟器里复刻一遍（和英雄列表的按钮功能一致）
+        document.getElementById('optimizerOneClickEquip').addEventListener("click", async () => {
+            if (EmulatorEquip.isBusy && EmulatorEquip.isBusy()) {
+                EmulatorEquip.cancel();
+                return;
+            }
+
             const heroId = document.getElementById('inputHeroAdd').value;
-            const heroResponse = await Api.getHeroById(heroId, $('#inputPredictReforges').prop('checked'));
-            electron.shell.openExternal('https://fribbels.github.io/e7/hero-library.html?hero=' + heroResponse.hero.name);
+            if (!heroId) {
+                Dialog.error('请先选择一个英雄');
+                return;
+            }
+
+            const button = document.getElementById('optimizerOneClickEquip');
+            button.disabled = true;
+            try {
+                const heroResponse = await Api.getHeroById(heroId, $('#inputPredictReforges').prop('checked'));
+                const hero = heroResponse.hero;
+                const items = hero && hero.equipment
+                    ? Object.values(hero.equipment).filter(Boolean)
+                    : [];
+
+                if (items.length !== gearTypes.length) {
+                    Dialog.error('该英雄身上没有穿齐 6 件装备，无法一键换装');
+                    return;
+                }
+
+                await EmulatorEquip.equipHeroBuild(hero, items);
+            } catch (e) {
+                Dialog.error(`一键换装失败：${e && e.message ? e.message : e}`);
+            } finally {
+                updateOneClickEquipButton();
+            }
         });
+        if (EmulatorEquip.onBusyChange) {
+            EmulatorEquip.onBusyChange(updateOneClickEquipButton);
+        }
+        updateOneClickEquipButton();
 
         // 根据 hero-library 的配装数据（getBuilds 接口）自动填入套装 / 神器 / 属性过滤
         document.getElementById('fillFromBuildsButton').addEventListener("click", async () => {
@@ -1411,6 +1442,54 @@ async function submitOptimizationFilterRequest() {
     });
 }
 
+/* ---------------- 开始 / 取消 合并成一个按钮 ---------------- */
+
+/** 切换「开始 / 取消」按钮的文案和状态 */
+function setOptimizationRunning(running) {
+    optimizationRunning = running;
+
+    const button = document.getElementById('submitOptimizerRequest');
+    if (!button) {
+        return;
+    }
+
+    // 只改 value 属性（property）：data-t 的翻译读的是 value 特性，不去动它
+    button.value = i18next.t(running ? 'Cancel' : 'Start');
+}
+
+/** 点「取消」：停进度轮询 + 通知后端取消，按钮立刻变回「开始」 */
+function cancelOptimizationRequest() {
+    if (progressTimer) {
+        clearInterval(progressTimer);
+    }
+
+    Api.cancelOptimizationRequest();
+    setOptimizationRunning(false);
+}
+
+/** 一键换装按钮的文案：空闲=一键换装，运行中=中断操作，请求中断后=正在中断 */
+function updateOneClickEquipButton() {
+    const button = document.getElementById('optimizerOneClickEquip');
+    if (!button) {
+        return;
+    }
+
+    const state = EmulatorEquip.getState
+        ? EmulatorEquip.getState()
+        : { busy: false, stopping: false, cooldown: false };
+
+    if (state.stopping) {
+        button.value = i18next.t('Stopping...');
+        button.disabled = true;
+        button.style.opacity = '0.6';
+        return;
+    }
+
+    button.disabled = !state.busy && state.cooldown;
+    button.style.opacity = button.disabled ? '0.6' : '';
+    button.value = i18next.t(state.busy ? 'Cancel operation' : 'One-Click Equip');
+}
+
 async function submitOptimizationRequest() {
     recalculateFilters();
 
@@ -1489,6 +1568,8 @@ async function submitOptimizationRequest() {
     currentExecutionId = await Api.prepareExecution();
     mergedRequest.executionId = currentExecutionId;
 
+    setOptimizationRunning(true);
+
     const results = Api.submitOptimizationRequest(mergedRequest).then(result => {
         console.log("RESPONSE RECEIVED", result);
         if (progressTimer) {
@@ -1515,7 +1596,15 @@ async function submitOptimizationRequest() {
         $('#resultsFoundNum').text(resultsStr);
         OptimizerGrid.reloadData();
         console.log("REFRESHED");
+    }).catch((error) => {
+        // 取消 / 出错：Api 那边已经弹过提示，这里只负责把按钮恢复
+        console.warn('[optimizer] search ended with error', error);
+    }).finally(() => {
+        // 搜索结束（正常完成 / 取消 / 出错）后，按钮变回「开始」
+        setOptimizationRunning(false);
     });
+
+    return results;
 }
 
 function updateProgress() {

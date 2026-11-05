@@ -17,8 +17,8 @@ let stopping = false;
 let cooldown = false;
 let cooldownTimer = null;
 
-// 运行状态变化时通知界面（builds 功能列要在这里把机器人图标换成转圈图标）
-let busyListener = null;
+// 运行状态变化时通知界面（builds 功能列的机器人图标、配装器页的一键换装按钮都看它）
+const busyListeners = [];
 
 /**
  * 给界面看的运行状态：
@@ -31,9 +31,13 @@ function currentState() {
 }
 
 function notifyState() {
-    if (busyListener) {
-        busyListener(currentState());
-    }
+    busyListeners.forEach((listener) => {
+        try {
+            listener(currentState());
+        } catch (error) {
+            console.warn('[emulator] busy listener failed', error);
+        }
+    });
 }
 
 function setBusy(value) {
@@ -214,7 +218,12 @@ module.exports = {
     getState: () => currentState(),
 
     onBusyChange: (listener) => {
-        busyListener = listener;
+        if (
+            typeof listener === 'function' &&
+            !busyListeners.includes(listener)
+        ) {
+            busyListeners.push(listener);
+        }
     },
 
     cancel: () => {

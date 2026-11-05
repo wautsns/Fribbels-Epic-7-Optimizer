@@ -12,7 +12,7 @@ const REQUEST_TIMEOUT = 90000;
 
 // 分析用的面板属性
 //   density: 参与 6 维密度计算
-//   padTo5 : 速度专用，向上取整到 5 的倍数（速度当最终值用，不做 5% 下调）
+//   padTo5 : 速度专用，取密度中心后向上取整到 5 的倍数（速度当最终值用，不做 5% 下调）
 //   min    : 低于这个值就认为这个属性"不需要"，直接跳过
 //   requestKey / configuredKey : 保存到英雄 optimizationRequest 时的字段名
 const STATS = [
@@ -500,8 +500,10 @@ function computePanel(rows, baseStats, options) {
                 0.25
             );
         });
-        // 速度当最终值用：取密度中心（中位数），不做下调
-        anchor.spd = quantile(valuesOf(region.members, 'spd'), 0.5);
+        // 速度当最终值用：取密度中心（最密那个点）的速度，不做下调
+        anchor.spd =
+            Number(region.center.spd) ||
+            quantile(valuesOf(region.members, 'spd'), 0.5);
         // 命中/抵抗不参与密度，用同一邻域的中位数
         STATS.filter((stat) => !stat.density).forEach((stat) => {
             anchor[stat.key] = quantile(

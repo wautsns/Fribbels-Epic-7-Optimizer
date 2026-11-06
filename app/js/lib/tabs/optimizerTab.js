@@ -148,7 +148,7 @@ module.exports = {
 
             const heroId = document.getElementById('inputHeroAdd').value;
             if (!heroId) {
-                Dialog.error('请先选择一个英雄');
+                Dialog.error(i18next.t('Select a hero first'));
                 return;
             }
 
@@ -162,13 +162,17 @@ module.exports = {
                     : [];
 
                 if (items.length !== gearTypes.length) {
-                    Dialog.error('该英雄身上没有穿齐 6 件装备，无法一键换装');
+                    Dialog.error(
+                        i18next.t('This hero is not wearing all 6 pieces, cannot use One-Click Equip')
+                    );
                     return;
                 }
 
                 await EmulatorEquip.equipHeroBuild(hero, items);
             } catch (e) {
-                Dialog.error(`一键换装失败：${e && e.message ? e.message : e}`);
+                Dialog.error(
+                    i18next.t('One-Click Equip failed: ') + (e && e.message ? e.message : e)
+                );
             } finally {
                 updateOneClickEquipButton();
             }
@@ -182,7 +186,7 @@ module.exports = {
         document.getElementById('fillFromBuildsButton').addEventListener("click", async () => {
             const heroId = document.getElementById('inputHeroAdd').value;
             if (!heroId) {
-                Dialog.error('请先选择一个英雄');
+                Dialog.error(i18next.t('Select a hero first'));
                 return;
             }
 
@@ -196,11 +200,19 @@ module.exports = {
                 if (result) {
                     recalculateFilters();
                     Notifier.success(
-                        `已按配装数据填入：${result.setZh} + ${result.artifactName}（${result.n} 条 build，${result.method === 'density' ? '密度区间' : '中位数'}）`
+                        i18next.t('Filled from build data: {{set}} + {{artifact}} ({{count}} builds, {{method}})', {
+                            set: result.setZh,
+                            artifact: result.artifactName,
+                            count: result.n,
+                            method: i18next.t(result.method === 'density' ? 'density range' : 'median'),
+                            interpolation: { escapeValue: false },
+                        })
                     );
                 }
             } catch (e) {
-                Dialog.error(`填入失败：${e && e.message ? e.message : e}`);
+                Dialog.error(
+                    i18next.t('Fill from build data failed: ') + (e && e.message ? e.message : e)
+                );
             } finally {
                 button.disabled = false;
             }

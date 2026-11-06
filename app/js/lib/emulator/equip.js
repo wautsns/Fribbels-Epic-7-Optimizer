@@ -20,10 +20,6 @@ const LAYOUT = {
     },
     sortButton: [1160, 103],
     sortAcquisitionRow: [1000, 211],
-    sortArrow: [1176, 211],
-    // empty part of the "获得" row background (right of the label, left of the arrow toggle)
-    sortRowProbe: { x: 1108, y: 200, w: 8, h: 20 },
-    sortArrowRegion: { x: 1158, y: 196 },
     filters: {
         set: [810, 163],
         main: [810, 209],
@@ -320,42 +316,99 @@ async function assertManagePage() {
     return frame;
 }
 
+// ---- 排序菜单 ----
+// 菜单打开时，当前被选中的那一行有一块白色圆角高亮（约 44px 高），行右端带一个
+// ↑/↓ 圆钮。菜单里点任何一项（包括那个圆钮）都会把菜单关掉，所以「选中项不是
+// 获得」时「获得」那一行既没有高亮也没有圆钮 —— 只看「获得」那一行会误判成
+// 「菜单没打开」，随后又被点一下排序按钮关掉，结果永远切不到获得升序。
+// 现在改成：先扫出任意一行的高亮，再用「高亮行右端有 ↑/↓ 圆钮」确认菜单真的打开。
+const SORT_MENU_PROBE = { x: 1100, w: 24, yFrom: 150, yTo: 440 };
+const SORT_ROW_MIN_HEIGHT = 20;
+const SORT_ARROW_X = 1158;
+const SORT_ARROW_MATCH_SCORE = 20;
+const SORT_ACQUISITION_ROW_Y = 211;
+const SORT_ACQUISITION_ROW_TOLERANCE = 12;
+
+/** 菜单里被选中那一行的高亮带（从上到下的 y 区间） */
+function sortRowBands(frame) {
+    const bands = [];
+    let current = null;
+
+    for (let y = SORT_MENU_PROBE.yFrom; y <= SORT_MENU_PROBE.yTo; y += 1) {
+        const value = screen.luminance(frame, {
+            x: SORT_MENU_PROBE.x,
+            y,
+            w: SORT_MENU_PROBE.w,
+            h: 1,
+        });
+
+        if (value > 150) {
+            if (current) {
+                current.to = y;
+            } else {
+                current = { from: y, to: y };
+            }
+        } else if (current) {
+            bands.push(current);
+            current = null;
+        }
+    }
+
+    if (current) {
+        bands.push(current);
+    }
+
+    return bands.filter((band) => band.to - band.from >= SORT_ROW_MIN_HEIGHT);
+}
+
+/** 高亮行右端的 ↑/↓ 圆钮：分数低的是真的那个 */
+async function readSortArrow(frame, band) {
+    const y = band.from + 7;
+    const up = await screen.matchTemplate(frame, 'sort_up.png', SORT_ARROW_X, y, 3);
+    const down = await screen.matchTemplate(frame, 'sort_down.png', SORT_ARROW_X, y, 3);
+
+    return {
+        // 菜单关着时这里只是列表背景，两个模板都对不上（实测 0.2 vs 89）
+        matched: Math.min(up.score, down.score) < SORT_ARROW_MATCH_SCORE,
+        direction: up.score < down.score ? 'up' : 'down',
+        y,
+        upScore: up.score,
+        downScore: down.score,
+    };
+}
+
+/**
+ * 读排序菜单：open / 选中的是不是「获得」/ 方向，以及圆钮的点击坐标。
+ * 菜单关着时 open = false（列表里没有那块行高亮 + 圆钮）。
+ */
 async function readSortState(frame) {
-    const selected = screen.luminance(frame, LAYOUT.sortRowProbe) > 150;
-    const up = await screen.matchTemplate(
-        frame,
-        'sort_up.png',
-        LAYOUT.sortArrowRegion.x,
-        LAYOUT.sortArrowRegion.y,
-        3
-    );
-    const down = await screen.matchTemplate(
-        frame,
-        'sort_down.png',
-        LAYOUT.sortArrowRegion.x,
-        LAYOUT.sortArrowRegion.y,
-        3
-    );
-    const direction = up.score < down.score ? 'up' : 'down';
-    return { selected, direction, upScore: up.score, downScore: down.score };
+    for (const band of sortRowBands(frame)) {
+        const arrow = await readSortArrow(frame, band);
+        if (!arrow.matched) {
+            continue;
+        }
+
+        const center = Math.round((band.from + band.to) / 2);
+
+        return {
+            open: true,
+            center,
+            acquisition:
+                Math.abs(center - SORT_ACQUISITION_ROW_Y) <=
+                SORT_ACQUISITION_ROW_TOLERANCE,
+            direction: arrow.direction,
+            arrowPoint: [SORT_ARROW_X + 19, arrow.y + 17],
+            band,
+            upScore: arrow.upScore,
+            downScore: arrow.downScore,
+        };
+    }
+
+    return { open: false, acquisition: false, direction: null };
 }
 
 async function isSortMenuOpen(frame) {
-    const up = await screen.matchTemplate(
-        frame,
-        'sort_up.png',
-        LAYOUT.sortArrowRegion.x,
-        LAYOUT.sortArrowRegion.y,
-        3
-    );
-    const down = await screen.matchTemplate(
-        frame,
-        'sort_down.png',
-        LAYOUT.sortArrowRegion.x,
-        LAYOUT.sortArrowRegion.y,
-        3
-    );
-    return Math.min(up.score, down.score) < 20;
+    return (await readSortState(frame)).open;
 }
 
 // An empty corner of the manage equipment page (bottom-left, below the stats panel).
@@ -411,12 +464,7 @@ async function openSortMenu() {
         }
     }
 
-    const up = await screen.matchTemplate(frame, 'sort_up.png', LAYOUT.sortArrowRegion.x, LAYOUT.sortArrowRegion.y, 3);
-    const down = await screen.matchTemplate(frame, 'sort_down.png', LAYOUT.sortArrowRegion.x, LAYOUT.sortArrowRegion.y, 3);
-    console.warn('[emulator] sort menu did not open, arrow scores:', {
-        up: Math.round(up.score * 10) / 10,
-        down: Math.round(down.score * 10) / 10,
-    });
+    console.warn('[emulator] sort menu did not open, bands:', JSON.stringify(sortRowBands(frame)));
     await dumpFrame(frame, 'sort-not-open').catch(() => null);
 
     throw new Error(
@@ -427,59 +475,40 @@ async function openSortMenu() {
 }
 
 async function closeSortMenu(frame) {
-    if (await isSortMenuOpen(frame)) {
+    if (frame && (await isSortMenuOpen(frame))) {
         await dismissOverlay('sort menu');
     }
 }
 
-// 排序菜单里的某个控件被点一下之后，轮询到状态真的变成期望值为止（最多 timeout）。
-// 固定等 800ms 时，偶尔被吞掉的一次点击会被当成「排序改不动」而整轮报错。
-async function tapSortControl(point, predicate, timeout = 2000) {
-    await inputThenWait({ tap: point }, 250);
-
-    const deadline = Date.now() + timeout;
-    let frame = await openSortMenu();
-    let state = await readSortState(frame);
-
-    while (!predicate(state) && Date.now() < deadline) {
-        await adb.wait(120);
-        const next = await captureFrame();
-
-        if (await isSortMenuOpen(next)) {
-            frame = next;
-        } else {
-            // 点击把菜单关掉了（点到了菜单外），重新打开再读
-            frame = await openSortMenu();
-        }
-
-        state = await readSortState(frame);
-    }
-
-    return { frame, state };
-}
+// 菜单里点任何一项都会把菜单关掉（点行 = 选这个排序键，点圆钮 = 翻转方向），
+// 所以每次改完都要重新打开菜单再读一遍，最多试几次，避免一次被吞掉的点击就报错。
+const SORT_SWITCH_ATTEMPTS = 4;
 
 async function setSortAcquisitionAscending() {
-    let frame = await openSortMenu();
-    let state = await readSortState(frame);
+    for (let attempt = 0; attempt < SORT_SWITCH_ATTEMPTS; attempt++) {
+        const frame = await openSortMenu();
+        const state = await readSortState(frame);
 
-    if (!state.selected) {
-        ({ frame, state } = await tapSortControl(LAYOUT.sortAcquisitionRow, (s) => s.selected));
-    }
-
-    if (state.direction !== 'up') {
-        ({ frame, state } = await tapSortControl(LAYOUT.sortArrow, (s) => s.direction === 'up'));
-
-        if (state.direction !== 'up') {
+        if (state.acquisition && state.direction === 'up') {
             await closeSortMenu(frame);
-            throw new Error(
-                t(
-                    'Could not switch the sort to Acquisition (Ascending). Set it manually and retry'
-                )
-            );
+            return;
         }
+
+        const point = state.acquisition
+            ? state.arrowPoint
+            : LAYOUT.sortAcquisitionRow;
+
+        await inputThenWait({ tap: point }, 250);
+        await waitForSettledScreen(1200).catch(() => null);
     }
 
-    await closeSortMenu(frame);
+    await closeSortMenu(await captureFrame().catch(() => null));
+
+    throw new Error(
+        t(
+            'Could not switch the sort to Acquisition (Ascending). Set it manually and retry'
+        )
+    );
 }
 
 const SLOT_ORDER = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];

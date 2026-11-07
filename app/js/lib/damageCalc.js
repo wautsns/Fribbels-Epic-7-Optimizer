@@ -4,9 +4,9 @@
         // final int s2 = ((atk * s2AtkMod * s2Rate + s2FlatMod) * 1.871f + s2FlatMod2) * (s2Pow) * s2Multis;
         // final int s3 = ((atk * s3AtkMod * s3Rate + s3FlatMod) * 1.871f + s3FlatMod2) * (s3Pow) * s3Multis;
 
-        // (increase dmg) * [(atk + bonus atk) * (pow * multi) * (cdmg)] 
+        // (increase dmg) * [(atk + bonus atk) * (pow * multi) * (cdmg)]
 
-        // {[(ATK !!)(Atkmod)(Rate **)+(FlatMod)] * (1.871)+(Flat2Mod)} × (pow **)(a) + 
+        // {[(ATK !!)(Atkmod)(Rate **)+(FlatMod)] * (1.871)+(Flat2Mod)} × (pow **)(a) +
 
         // a = multis = (EnhanceMod)(HitTypeMod)(ElementMod)(DamageUpMod)(TargetDebuffMod)
         // rate -> scaling
@@ -166,9 +166,9 @@ module.exports = {
             hitMulti:                  skillNames.map(x => getHitTypeMulti(x, hero, heroData) || 0),
         }
 
-        console.warn("calc")
-        console.warn(skillOptions)
-        console.warn(result)
+        console.info("calc")
+        console.info(skillOptions)
+        console.info(result)
 
         return result
     },

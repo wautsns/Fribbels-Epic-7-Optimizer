@@ -250,9 +250,9 @@ module.exports = {
     },
 
     setGearMainAndSetsFromRequest: (request, index) => {
-        console.warn("SETS", request, index);
-        console.warn("SETS", request.inputExcludeSet);
-        console.warn("SETS", $('#inputExcludeSet' + index));
+        console.info("SETS", request, index);
+        console.info("SETS", request.inputExcludeSet);
+        console.info("SETS", $('#inputExcludeSet' + index));
         $('#inputSet1' + index).multipleSelect('setSelects', request.inputSetsOne.map(x => x.replace("Set", "")) || [])
         $('#inputSet2' + index).multipleSelect('setSelects', request.inputSetsTwo.map(x => x.replace("Set", "")) || [])
         $('#inputSet3' + index).multipleSelect('setSelects', request.inputSetsThree.map(x => x.replace("Set", "")) || [])

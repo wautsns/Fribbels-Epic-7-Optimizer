@@ -361,7 +361,7 @@ input, button {
   display: flex;
   flex-direction: row;
   min-height: 250px;
-  margin-bottom: 8px
+  margin: 23px 0 0 0;
 }
 
 .heroes-equipped-item {

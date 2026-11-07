@@ -722,8 +722,8 @@ const SEARCHABLE_SELECTS = [
         options: {
             width: 140,
             textTemplate: entryTextTemplate,
-            // 实测（14px 字号）最长一条如「天秤之主 #3 — 速度≥240 防御≥1600 生命≥20000 抵抗≥75 ·
-            // 生命∧ 防御∧ 速度∧ 抵抗∧」要 630px，520 会出横向滚动条；660 留点余量
+            // 实测（14px 字号）最长一条如「天秤之主 #3 — 速度≥240 防御≥1600 生命≥20000 抗性≥75 ·
+            // 生命∧ 防御∧ 速度∧ 抗性∧」要 630px，520 会出横向滚动条；660 留点余量
             dropWidth: 660,
             displayTitle: false,
         },
@@ -1037,4 +1037,3 @@ function escapeHtml(text) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 }
-

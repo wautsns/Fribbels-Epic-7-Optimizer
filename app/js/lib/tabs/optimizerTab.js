@@ -1015,7 +1015,14 @@ module.exports = {
         const optimizerHeroSelector = document.getElementById('inputHeroAdd')
         const optimizerAllowGearFromSelector = document.getElementById('optionsExcludeGearFrom')
         const heroes = getAllHeroesResponse.heroes;
-        Utils.sortByAttribute(heroes, "name");
+        // 按角色条目的「优先度」排（index 就是英雄列表 rank 列的值），
+        // 配装器的排除下拉框按 #N 找起来更顺手；左侧英雄选择器也跟着这个顺序走。
+        // 缺 index 的兜底到最大排最后，避免 undefined 比较出乱序。
+        heroes.sort(
+            (a, b) =>
+                (Number(a.index) || Number.MAX_SAFE_INTEGER) -
+                (Number(b.index) || Number.MAX_SAFE_INTEGER)
+        );
         console.log("getAllHeroesResponse", getAllHeroesResponse)
         for (var hero of heroes) {
             const option = document.createElement('option');

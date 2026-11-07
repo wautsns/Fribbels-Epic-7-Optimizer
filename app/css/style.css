@@ -2331,14 +2331,6 @@ input:checked + .darkSlider:before {
   overflow-x: hidden;
   overflow-y: auto;
 }
-.gvgTitleRow {
-  display: flex;
-  align-items: center;
-}
-.gvgTitle {
-  font-size: 16px;
-  font-weight: 600;
-}
 /* 筛选行：3 个防守筛选下拉
    用的是「新增作业 → 从英雄列表带入」同一个 multiple-select 组件（单选 + 搜索框），
    所以外观走 .ms-parent / .ms-choice，不再依赖原生 select 的样式。

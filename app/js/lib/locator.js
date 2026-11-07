@@ -50,6 +50,11 @@ function readableSubstat(type) {
     return i18next.t(readableSubstatByName[type] || type);
 }
 
+// 套装 code -> 本地化名称（i18n key 就是套装名本身，例如 DestructionSet -> Destruction）
+function readableSet(set) {
+    return set ? i18next.t(String(set).replace(/Set$/, '')) : '';
+}
+
 function isPercentStat(type) {
     return /Percent$/.test(type);
 }
@@ -87,7 +92,8 @@ function detailContent(result) {
     if (result.storage) {
         lines.push(i18next.t("Item in storage"));
     } else if (result.found) {
-        lines.push(i18next.t("Row") + ': ' + result.row + ' ' + i18next.t("Column") + ': ' + result.column);
+        const setName = readableSet(result.set);
+        lines.push((setName ? '【' + setName + '】 ' : '') + i18next.t("Row") + ': ' + result.row + ' ' + i18next.t("Column") + ': ' + result.column);
     } else {
         lines.push('<b>' + i18next.t("Not in the filtered list") + '</b>');
     }
@@ -292,6 +298,7 @@ function locateSingleItem(itemId, items, width) {
         total: info.total,
         row: found ? Math.floor(info.index / width) + 1 : null,
         column: found ? (info.index % width) + 1 : null,
+        set: item.set || null,
         main: item.main ? { type: item.main.type, value: item.main.value } : null,
         substats: substats,
     }

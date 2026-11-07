@@ -108,7 +108,7 @@ function matchesHeroFilters(hero) {
         }
 
         try {
-            buildsGrid.gridOptions.api.refreshView()
+            buildsGrid.gridOptions.api.refreshCells()
         } catch (e) {
 
         }
@@ -822,8 +822,8 @@ function buildGrid(localeText) {
         rowHeight: 27,
         rowSelection: 'single',
         // 冲突提示要快：100ms 就弹（默认 500ms 太慢，原生 title 更慢）
+        // 注意：ag-grid 26 没有 tooltipHideDelay 这个 grid 选项（v27 才有），别再加
         tooltipShowDelay: 100,
-        tooltipHideDelay: 8000,
         tooltipMouseTrack: true,
         onRowSelected: onBuildRowSelected,
         onCellClicked: onBuildCellClicked,

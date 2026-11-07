@@ -303,7 +303,8 @@ module.exports = {
         }
         pathOverride = settings.settingDefaultPath;
 
-        console.warn("changing path override to: " + pathOverride);
+        // 启动日志用 debug：DevTools 默认不显示，需要时打开 Verbose 就能看到
+        console.debug("changing path override to: " + pathOverride);
 
         if (isNullUndefined(settings.settingPenSet)) {
             settings.settingPenSet = true;
@@ -371,7 +372,6 @@ module.exports = {
   // "settingNeutralColorPicker": "#343127",
   // "settingGreenColorPicker": "#38821f"
 
-        console.warn(settings);
         ColorPicker.loadColorSettings(settings)
 
         const currentVersion = Updater.getCurrentVersion();

@@ -35,10 +35,10 @@ module.exports = {
 
     // the grid can be created while the optimizer tab is hidden (the app starts on the
     // heroes tab), so it needs a layout pass once the tab becomes visible
+    // （ag-grid 25.1 起 doLayout 已移除，网格自己响应尺寸变化）
     layout: () => {
         try {
-            optimizerGrid.gridOptions.api.doLayout();
-            optimizerGrid.gridOptions.api.refreshView();
+            optimizerGrid.gridOptions.api.refreshCells();
         } catch (e) {
         }
     },
@@ -51,7 +51,7 @@ module.exports = {
         }
 
         try {
-            optimizerGrid.gridOptions.api.refreshView()
+            optimizerGrid.gridOptions.api.refreshCells()
         } catch (e) {
 
         }

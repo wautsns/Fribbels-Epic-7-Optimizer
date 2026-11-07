@@ -44,7 +44,7 @@ module.exports = {
         }
 
         try {
-            itemsGrid.gridOptions.api.refreshView()
+            itemsGrid.gridOptions.api.refreshCells()
         } catch (e) {
 
         }

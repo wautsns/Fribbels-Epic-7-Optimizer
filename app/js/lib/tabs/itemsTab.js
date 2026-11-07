@@ -86,7 +86,7 @@ module.exports = {
         });
 
         document.getElementById('tab3label').addEventListener("click", () => {
-            itemsGrid.gridOptions.api.refreshView();
+            itemsGrid.gridOptions.api.refreshCells();
             module.exports.redraw();
         });
     },

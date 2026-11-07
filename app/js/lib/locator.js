@@ -125,7 +125,8 @@ function ensureHoverTip() {
         arrow: false,
         trigger: 'manual',
         placement: 'top',
-        distance: 6,
+        // tippy v6 没有 distance，间距走 offset: [skidding, distance]
+        offset: [0, 6],
         content: () => hoverContent(),
         getReferenceClientRect: () => (hoverIcon ? hoverIcon.getBoundingClientRect() : emptyRect()),
     });
@@ -232,7 +233,8 @@ module.exports = {
                     allowHTML: true,
                     trigger: 'manual',
                     placement: 'top-end',
-                    distance: 0,
+                    // 对齐装备卡右下角，不要额外间距（tippy v6 用 offset 而不是 distance）
+                    offset: [0, 0],
                     content: content,
                     arrow: false,
                     getReferenceClientRect: reference,

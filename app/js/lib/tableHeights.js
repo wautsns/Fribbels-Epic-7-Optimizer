@@ -5,11 +5,13 @@
  * 这个工具把高度改成内联样式，可以在 DevTools 控制台里直接试，满意后再抄回 CSS。
  *
  * 用法（F12 控制台）：
- *   TableHeights.current()                    // 打印四个表格当前的高度、外壳、能放几行
+ *   TableHeights.current()                    // 打印所有表格当前的高度、外壳、能放几行
  *   TableHeights.apply({ builds: 176 })       // 临时把 builds 容器高度改成 176（其它不动）
  *   TableHeights.fit('builds', 4)             // 自动算"正好 4 行"需要的高度并应用
  *   TableHeights.fit('heroes', 8)             // 英雄表正好 8 行
  *   TableHeights.fit('gvg', 8)                // GVG 作业表正好 8 行
+ *   TableHeights.fit('gvgHeroes', 6)          // GVG 角色条目正好 6 行
+ *   TableHeights.fit('gvgBuilds', 4)          // GVG builds 正好 4 行
  *   TableHeights.reset()                      // 去掉内联高度，回到 CSS 的值
  *   TableHeights.fit('builds', 4, -1)         // 第三个参数是额外余量（默认 0，负数可消掉半行）
  */
@@ -34,6 +36,16 @@ const TABLES = {
         container: '.gvgTableContainer',
         grid: '#gvg-plans-table',
         rowHeight: 36,
+    },
+    gvgHeroes: {
+        container: '.gvgTeamHeroesContainer',
+        grid: '#gvg-team-heroes',
+        rowHeight: 36,
+    },
+    gvgBuilds: {
+        container: '.gvgTeamBuildsContainer',
+        grid: '#gvg-team-builds',
+        rowHeight: 27,
     },
 };
 

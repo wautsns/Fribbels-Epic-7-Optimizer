@@ -64,12 +64,21 @@ module.exports = {
     loadAutoSave: async () => {
         const autoSavePath = Settings.getDefaultPath() + '/autosave.json';
 
-        console.warn("Loading autosave: " + autoSavePath);
+        // 正常流程的启动日志用 debug（DevTools 默认不显示），别用 warn 吓人
+        console.debug('[saves] loading autosave:', autoSavePath);
 
         try {
             const data = await Files.readFileSync(Files.path(autoSavePath));
-            await module.exports.loadSavedData(JSON.parse(data));
-            console.log(JSON.parse(data));
+            const parsed = JSON.parse(data);
+            await module.exports.loadSavedData(parsed);
+
+            const heroCount = Array.isArray(parsed.heroes) ? parsed.heroes.length : 0;
+            const itemCount = Array.isArray(parsed.items) ? parsed.items.length : 0;
+            console.debug(
+                '[saves] autosave loaded:',
+                itemCount + ' items,',
+                heroCount + ' heroes'
+            );
         } catch (e) {
             // Notifier.error("Failed to load autosave - " + e);
             console.warn("Failed to load autosave -", e);
@@ -89,13 +98,17 @@ module.exports = {
                 ]
             }
             const filename = dialog.showSaveDialogSync(currentWindow, options);
-            console.log(filename);
+            console.debug('[saves] save to:', filename);
 
             if (!filename) return;
 
             const data = await module.exports.saveData(Files.path(filename));
             await module.exports.autoSave();
-            console.log("DATA", data);
+            console.debug(
+                '[saves] saved:',
+                data.items.length + ' items,',
+                data.heroes.length + ' heroes'
+            );
             $('#saveDataSubmitOutputText').text(`Saved ${data.heroes.length} heroes and ${data.items.length} items to ${filename}`)
         });
 
@@ -109,10 +122,11 @@ module.exports = {
                 ]
             }
             const filenames = dialog.showOpenDialogSync(currentWindow, options);
-            console.log(filenames);
+            console.debug('[saves] load from:', filenames);
 
             if (!filenames || filenames.length < 1) {
-                return console.warn("Invalid filename")
+                // 取消对话框是正常操作，不算告警
+                return console.debug('[saves] load cancelled');
             };
 
             const data = await Files.readFileSync(filenames[0]);
@@ -120,7 +134,7 @@ module.exports = {
             // 加载是严格快照（缺 gvgPlans 键会清空作业），覆盖前先备份当前存档
             module.exports.backupAutoSave();
             await module.exports.loadSavedData(parsedData);
-            console.log(parsedData);
+            console.debug('[saves] loaded file:', filenames[0]);
 
             const planNote = Array.isArray(parsedData.gvgPlans)
                 ? `${parsedData.gvgPlans.length} GVG plans`
@@ -139,8 +153,12 @@ module.exports = {
 
         ItemAugmenter.augment(data.items);
 
-        console.log("Saved items", data.items)
-        console.log("Saved heroes", data.heroes)
+        // 只打数量：整份 items/heroes 打出来有几十万字符，启动时刷一屏没意义
+        console.debug(
+            '[saves] loaded:',
+            data.items.length + ' items,',
+            data.heroes.length + ' heroes'
+        );
 
         if (data.heroes && data.heroes.filter(x => x.name == "Euglmomorain").length > 0) {
             function baseToStatObj(stats) {

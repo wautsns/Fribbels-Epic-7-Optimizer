@@ -139,6 +139,7 @@ function chipOrderCandidates(sorted, allItems) {
  * 游戏里有个细节：把某个 chip 设成**已经存在于别的 chip 上**的副属性时，两个 chip 会
  * 交换，而不是出现重复。所以「把 chip2 设成 chip3 现在那个属性」会顺带把 chip3 也变成
  * chip2 原来的属性 —— 如果那正好是这次想要的，chip3 就不用再点了。
+ * （交换只发生在副属性 chip 之间；这里传进来的四个位置本来就都是副属性。）
  * 这里按 chip1..4 的顺序模拟一遍，返回实际需要点击的次数。
  */
 function chipChangeCost(previous, next) {

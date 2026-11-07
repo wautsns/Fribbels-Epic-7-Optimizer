@@ -1092,6 +1092,8 @@ async function applyItemFilters(item, force = false) {
     const applied = [];
     const skipped = [];
     // 预测游戏里的状态：把某个 chip 设成别的 chip 已经有的副属性时，两者会交换（不产生重复）。
+    // 交换**只发生在副属性 chip 之间**，主属性那个 chip 不参与（所以下面的交换伙伴只在
+    // SUB_KEYS 里找，即使主属性正好也是同名属性也不会被当成交换对象）。
     //
     // 这套预测只用来打日志 / 给规划算代价（emulatorEquip.chipChangeCost），**不用来跳过设置**：
     // 交换顺带设对的那个 chip 仍然会打开面板读一次确认（读到就是目标值时不点，只多花一次读数）。

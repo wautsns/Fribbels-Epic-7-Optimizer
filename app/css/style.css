@@ -1615,6 +1615,23 @@ body.dark-theme input {
   margin-right: 10px
 }
 
+/* 「浏览…」这种小按钮：覆盖 .gearPreviewButton 的 140px 宽度 */
+.settingsSmallButton {
+  width: auto;
+  min-width: 62px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+/* 设置项的说明文字：放在控件下方，不再挤在右侧 */
+.settingsRowHint {
+  display: block;
+  margin: 0 0 12px 0;
+  max-width: 720px;
+  line-height: 18px;
+}
+
 .statPreviewContainer {
   display:flex;
   flex-direction: column;

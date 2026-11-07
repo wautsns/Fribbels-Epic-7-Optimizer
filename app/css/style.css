@@ -391,7 +391,8 @@ input, button {
   /* 819px = 865 窗口 - 44 面板 top - 2：这个高度切 tab 不跳（卡片位置和配装器一致）。
      body 底部还有约 17px padding 会把总量顶过窗口，用负下边距吃掉一部分来避免纵向滚动条 */
   min-height: calc(100vh - 46px);
-  margin-bottom: -14px;
+  /* body 底部 padding 约 17px + 取整：44(面板顶) + 819 - 18 + 17 ≈ 862 < 865，才不会出纵向滚动条 */
+  margin-bottom: -18px;
 }
 
 /* 多出来的空白放在 builds 和 6 装备之间：最后一个子容器撑满剩余高度，再把卡片顶到它底部 */

@@ -125,18 +125,22 @@ function wssToText(item) {
         baseStats.hp = baseStats.bonusStats.overrideHp || baseStats.hp;
         baseStats.def = baseStats.bonusStats.overrideDef || baseStats.def;
 
-        // 括号里那个"按英雄基础属性换算"的分数也统一 2 位小数
+        /*
+         * 有白字副属性时，wss 里的白字是按通用系数折算的，和「按这个英雄的基础属性反算」
+         * 出来的分数不是一个数。原来两个都显示成 "wss (按基础属性换算)"，容易看混，
+         * 现在只显示反算后的那个（统一 2 位小数）。
+         */
         const score = rateBaseScore(item.augmentedStats, baseStats).toFixed(2)
         const reforgedScore = rateBaseScore(item.reforgedStats, baseStats).toFixed(2)
 
         if (Reforge.isReforgeable(item)) {
             if (isItemModded(item) && item.substats.filter(x => x.originalType).length > 0) {
-                return `${item.reforgedWss} (${reforgedScore})`;
+                return reforgedScore;
             } else {
-                return `${item.wss} (${score}) ➤ ${item.reforgedWss} (${reforgedScore})`;
+                return `${score} ➤ ${reforgedScore}`;
             }
         } else {
-            return `${item.wss} (${score})`
+            return score
         }
     } else {
         if (Reforge.isReforgeable(item)) {

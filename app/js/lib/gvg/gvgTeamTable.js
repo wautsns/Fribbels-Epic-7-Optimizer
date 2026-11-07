@@ -24,6 +24,11 @@ module.exports = {
             enableRowDrag: false,
             /* 行数据只有 6 条，但"谁穿着什么"要按全量英雄算 → 由 refresh 显式喂 */
             ownershipSource: 'external',
+            /*
+             * 同一个角色条目可能被阵容 1 / 2 同时命中，两行 hero.id 一样；
+             * 用 GvgTeamGrid 补的 rowId 做行标识，否则 immutableData 会算错行数。
+             */
+            rowIdOf: (hero) => (hero && (hero.rowId || hero.id)),
             hooks: {
                 getUseReforgedStats: () => HeroesTab.getUseReforgedStats(),
 

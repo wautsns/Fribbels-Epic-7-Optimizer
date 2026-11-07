@@ -39,7 +39,17 @@ module.exports = {
     /** 进攻阵容 1 / 2 命中的角色条目（heroTable 组件的行数据） */
     getTeamHeroes: async (heroes) => {
         const rows = await collectTeamRows(heroes);
-        return rows.map((row) => row.hero);
+
+        /*
+         * 同一个角色条目可能被阵容 1 和阵容 2 同时命中（同一个英雄占两行的位置）。
+         * heroTable 的英雄表用 getRowNodeId(data => data.id) + immutableData，
+         * 两行 id 相同会让 ag-grid 的增量对比算错行数（越刷越多、分页显示 7/7 这种）。
+         * 所以每行补一个唯一的 rowId：作业 + 站位 + 条目 id。
+         */
+        return rows.map((row, index) => ({
+            ...row.hero,
+            rowId: `${row.planId}:${row.member.position || index}:${row.hero.id}`,
+        }));
     },
 
     /** 命中条目的 id（调试 / 测试用） */

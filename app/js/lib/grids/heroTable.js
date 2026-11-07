@@ -29,6 +29,16 @@ function createHeroTable(options) {
     options = options || {};
     const hooks = options.hooks || {};
 
+    /*
+     * 行标识：默认用 hero.id。
+     * GVG 实例会传 rowIdOf —— 同一个角色条目可能被阵容 1 / 2 同时命中，
+     * 两行 hero.id 相同，immutableData 的增量对比会算错行数。
+     */
+    const rowIdOf =
+        typeof options.rowIdOf === 'function'
+            ? options.rowIdOf
+            : (data) => (data ? data.id : null);
+
     /* ---- 实例状态（原来都是模块级变量，现在每个实例一份） ---- */
     let heroesGrid = null;
     let buildsGrid = null;
@@ -751,7 +761,7 @@ function buildGrid(localeText) {
         immutableData: true,
         suppressDragLeaveHidesColumns: true,
         getRowNodeId: (data) => {
-            return data.id;
+            return rowIdOf(data);
         },
         // suppressMoveWhenRowDragging: true,
         // 键盘上下切换行：把本实例的 Grid 交给 navigator（不能再走全局单例）

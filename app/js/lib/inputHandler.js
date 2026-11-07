@@ -39,7 +39,6 @@ global.Reforge = require('./reforge');
 global.Utils = require('./utils');
 global.DarkMode = require('./darkmode');
 global.GridRenderer = require('./renderer/gridRenderer');
-global.GearScoreTable = require('./gearScoreTable');
 global.Updater = require('./updater');
 global.StatPreview = require('./statPreview');
 global.Artifact = require('./artifact');
@@ -49,7 +48,6 @@ global.ColorPicker = require('./colorPicker');
 global.HeroesTab = require('./tabs/heroesTab');
 global.OptimizerTab = require('./tabs/optimizerTab');
 global.ItemsTab = require('./tabs/itemsTab');
-global.EnhancingTab = require('./tabs/enhancingTab');
 global.EmulatorEquip = require('./emulator/emulatorEquip');
 
 // Grid
@@ -148,7 +146,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         // 定位准星的悬浮提示（排序顺序 + 每行数量）
         Locator.initialize();
         ColorPicker.initialize();
-        EnhancingTab.initialize();
     });
     Scanner.initialize();
     Updater.checkForUpdates();

@@ -136,8 +136,6 @@ var processes = [];
 //         }
 
 
-//         EnhancingTab.redrawEnhanceGuide(item);
-
 //         console.warn(response.equip)
 //     }
 
@@ -180,8 +178,6 @@ var processes = [];
 //         await Api.addItems([rawItem])
 
 //         const result = await Api.getItemByIngameId(rawItem.ingameId);
-
-//         EnhancingTab.redrawEnhanceGuide(result.item);
 
 //         ItemsGrid.redraw()
 //     }
@@ -238,8 +234,6 @@ var processes = [];
 
 //         item.substats = tempItem.substats;
 //         item.enhance = tempItem.enhance;
-
-//         EnhancingTab.redrawEnhanceGuide(item);
 
 //         Api.editItems([item])
 

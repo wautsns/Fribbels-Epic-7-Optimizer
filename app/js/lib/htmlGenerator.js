@@ -445,7 +445,7 @@ module.exports = {
 
         var html = `
 <div class="itemDisplayHeader">
-  <img src="${gearImage}" class="gearTypeImg" ${styleForImage(item.rank)} ondblclick='EnhancingTab.redrawEnhanceGuideFromRemoteId("${item.id}")' title="${i18next.t("Double click to open the enhance guide")}"></img>
+  <img src="${gearImage}" class="gearTypeImg" ${styleForImage(item.rank)}></img>
   <div class="itemDisplayHeaderData">
     <div class="itemDisplayHeaderDataTop">
       <div class="itemDisplayLevel" ${styleEnhance(item.enhance)}>+${item.enhance}</div>
@@ -498,15 +498,15 @@ module.exports = {
 </div>
 <div class="itemDisplayFooter">
   <div class="itemDisplayFooterIconContainer">
-      ${checkboxPrefix == "itemsGrid" || checkboxPrefix == "enhanceTab" || checkboxPrefix == "heroesGrid" ? "" : `<input type="checkbox" class="itemPreviewCheckbox" id="${checkboxPrefix + item.gear}" checked>`}
+      ${checkboxPrefix == "itemsGrid" || checkboxPrefix == "heroesGrid" ? "" : `<input type="checkbox" class="itemPreviewCheckbox" id="${checkboxPrefix + item.gear}" checked>`}
       <div class="itemDisplayFooterSet">
         <img src="${setImage}" class="itemDisplaySetImg"></img>
       </div>
   </div>
   <div class="itemDisplayFooterIconContainer">
       ${storageOrLocator(item, checkboxPrefix)}
-      ${editItemDisplay(item, checkboxPrefix)}
-      ${editLockDisplay(item, checkboxPrefix)}
+      ${editItemDisplay(item)}
+      ${editLockDisplay(item)}
   </div>
 </div>
         `
@@ -587,16 +587,12 @@ function storage(item, checkboxPrefix) {
     return `<img src="${Assets.getStorage()}" class="itemDisplayEditImg locateTooltip${checkboxPrefix}" data-itemId="${item.ingameId}" onclick='Locator.locate("${item.ingameId}", "locateTooltip${checkboxPrefix}")'></img>`
 }
 
-function editItemDisplay(item, checkboxPrefix) {
-    // if (checkboxPrefix == "enhanceTab") {
-    //     return '';
-    // }
-
+function editItemDisplay(item) {
     if (Reforge.isReforgeableNow(item)) {
-        return `<img src="${Assets.getEdit()}"    class="itemDisplayEditImg" onclick='OptimizerTab.editGearFromIcon("${item.id}", false, "${checkboxPrefix}")'></img>
-                <img src="${Assets.getReforge()}" class="itemDisplayEditImg" onclick='OptimizerTab.editGearFromIcon("${item.id}", true, "${checkboxPrefix}")'></img>`
+        return `<img src="${Assets.getEdit()}"    class="itemDisplayEditImg" onclick='OptimizerTab.editGearFromIcon("${item.id}", false)'></img>
+                <img src="${Assets.getReforge()}" class="itemDisplayEditImg" onclick='OptimizerTab.editGearFromIcon("${item.id}", true)'></img>`
     }
-    return `<img src="${Assets.getEdit()}" class="itemDisplayEditImg" onclick='OptimizerTab.editGearFromIcon("${item.id}", false, "${checkboxPrefix}")'></img>`
+    return `<img src="${Assets.getEdit()}" class="itemDisplayEditImg" onclick='OptimizerTab.editGearFromIcon("${item.id}", false)'></img>`
 }
 
 function styleEnhance(enhance) {
@@ -605,15 +601,11 @@ function styleEnhance(enhance) {
     }
 }
 
-function editLockDisplay(item, checkboxPrefix) {
-    // if (checkboxPrefix == "enhanceTab") {
-    //     return '';
-    // }
-
+function editLockDisplay(item) {
     if (!item.locked) {
-        return `<img src="${Assets.getLock()}" style="opacity:0.12" class="itemDisplayLockImgTransparent" onclick='OptimizerTab.lockGearFromIcon("${item.id}", "${checkboxPrefix}")'}></img>`
+        return `<img src="${Assets.getLock()}" style="opacity:0.12" class="itemDisplayLockImgTransparent" onclick='OptimizerTab.lockGearFromIcon("${item.id}")'}></img>`
     }
-    return `<img src="${Assets.getLock()}" class="itemDisplayLockImg" onclick='OptimizerTab.lockGearFromIcon("${item.id}", "${checkboxPrefix}")'}></img>`
+    return `<img src="${Assets.getLock()}" class="itemDisplayLockImg" onclick='OptimizerTab.lockGearFromIcon("${item.id}")'}></img>`
 }
 
 function styleLevel(item) {

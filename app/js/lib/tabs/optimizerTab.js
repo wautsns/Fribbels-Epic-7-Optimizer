@@ -994,12 +994,12 @@ module.exports = {
         module.exports.drawPreview(gearIds, []);
     },
 
-    editGearFromIcon: (id, reforge, checkboxPrefix) => {
-        editGearFromIcon(id, reforge, checkboxPrefix);
+    editGearFromIcon: (id, reforge) => {
+        editGearFromIcon(id, reforge);
     },
 
-    lockGearFromIcon: (id, checkboxPrefix) => {
-        lockGearFromIcon(id, checkboxPrefix);
+    lockGearFromIcon: (id) => {
+        lockGearFromIcon(id);
     },
 
     getCurrentExecutionId: () => {
@@ -1110,7 +1110,7 @@ function clearOptions() {
     $("#inputKeepCurrentItems").prop('checked', optimizerSettings.settingDefaultKeepCurrent);
 }
 
-async function editGearFromIcon(id, reforge, checkboxPrefix) {
+async function editGearFromIcon(id, reforge) {
     const result = await Api.getItemById(id);
     console.log("a1", result.item);
     const editedItem = await Dialog.editGearDialog(result.item, true, reforge);
@@ -1125,13 +1125,9 @@ async function editGearFromIcon(id, reforge, checkboxPrefix) {
     Saves.autoSave();
     HeroesGrid.redrawPreview();
     HeroesGrid.refresh();
-
-    if (checkboxPrefix == "enhanceTab") {
-        EnhancingTab.redrawEnhanceGuideFromRemoteId(editedItem.id);
-    }
 }
 
-async function lockGearFromIcon(id, checkboxPrefix) {
+async function lockGearFromIcon(id) {
     const result = await Api.getItemById(id);
     console.log(result.item);
 
@@ -1148,10 +1144,6 @@ async function lockGearFromIcon(id, checkboxPrefix) {
     drawPreview();
     Saves.autoSave();
     HeroesGrid.redrawPreview();
-
-    if (checkboxPrefix == "enhanceTab") {
-        EnhancingTab.redrawEnhanceGuideFromRemoteId(id);
-    }
 }
 
 async function redrawHeroImage() {

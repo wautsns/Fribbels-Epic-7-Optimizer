@@ -36,7 +36,6 @@
 .tabset > #tab4:checked ~ .tab-panels > #heroes-section,
 .tabset > #tab1:checked ~ .tab-panels > #optimizer-section,
 .tabset > #tab3:checked ~ .tab-panels > #gear-section,
-.tabset > #tab5:checked ~ .tab-panels > #enhancingSection,
 .tabset > #tab6:checked ~ .tab-panels > #importer-section,
 .tabset > #tab7:checked ~ .tab-panels > #settingsTab,
 .tabset > #tab8:checked ~ .tab-panels > #aboutTab {
@@ -2095,54 +2094,6 @@ input:checked + .darkSlider:before {
   height: 20px;
 }
 
-#enhanceTabPreview {
-  width: 200px;
-  flex: none;
-  margin-left: 50px;
-}
-.enhanceContainer {
-  display: flex;
-  flex-direction: row;
-  height: 270px;
-}
-
-.bars {
-  /* 固定 600px（原来 1000px 会把整页撑出横向滚动条）；
-     1113px 窗口下 50(卡片缩进) + 200(卡片) + 70(容器缩进) + 600 = 920，右侧还留余量 */
-  width: 600px;
-  height:  60px;
-}
-
-.scoreRadar {
-  /* 单张 12 轴雷达图：宽度取窗口内容区放得下的最大值，避免出现横向滚动条 */
-  width: 720px;
-  height: 380px;
-  margin: 0 auto;
-}
-
-.enhanceSecondRow {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  height: 400px;
-}
-.stats {
-  min-width:  150px;
-  display: flex;
-  flex-direction: row;
-}
-#statsRight {
-  min-width:  30px;
-}
-#statsLeft {
-  margin-left: 10px;
-  min-width:  200px;
-}
-.barsContainer {
-  margin-top: 30px;
-  margin-left: 70px;
-}
 #detectorStatus {
   display: flex;
   flex-direction: row;
@@ -2205,10 +2156,6 @@ input:checked + .darkSlider:before {
   border-color: var(--inactive-color);
 }
 
-.enhanceGuide {
-  margin-left: 10px;
-  margin-top: 10px;
-}
 .thankList {
               line-height: 1em;
 }

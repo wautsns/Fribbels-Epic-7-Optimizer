@@ -1744,9 +1744,10 @@ window.jQuery = $;
         </div>
 
         <div class="toggleRow">
-          <input type="text" id="settingAdbPath" class="settingsNumber" style="width: 320px;">
+          <select id="settingAdbPath" class="settingsNumber" style="width: 320px; height: 22px;"></select>
+          <button type="button" class="gearPreviewButton" id="settingAdbPathBrowse" data-t>Browse...</button>
           <div class="switchText" data-t>
-            Emulator adb path (leave empty to auto-detect). Used by "One-Click Equip" on the Heroes tab
+            Emulator adb used by "One-Click Equip" on the Heroes tab. Auto-detect looks in the emulator install folders, the registry and PATH
           </div>
         </div>
 

@@ -75,7 +75,7 @@
   "Column": "Column",
   "Emulator adb connection is offline ({{device}}): adbd is not responding. Restart the emulator, or check that ADB debugging is enabled in the emulator settings.": "Emulator adb connection is offline ({{device}}): adbd is not responding. Restart the emulator, or check that ADB debugging is enabled in the emulator settings.",
   "Emulator adb not found: checked the usual install folders, the registry and PATH. Set the emulator adb path in the Settings tab.": "Emulator adb not found: checked the usual install folders, the registry and PATH. Set the emulator adb path in the Settings tab.",
-  "Emulator adb path (leave empty to auto-detect). Used by \"One-Click Equip\" on the Heroes tab": "Emulator adb path (leave empty to auto-detect). Used by \"One-Click Equip\" on the Heroes tab",
+  "Emulator adb used by \"One-Click Equip\" on the Heroes tab. Auto-detect looks in the emulator install folders, the registry and PATH": "Emulator adb used by \"One-Click Equip\" on the Heroes tab. Auto-detect looks in the emulator install folders, the registry and PATH",
   "Emulator adb path (leave empty to auto-detect). Used by \"Select in emulator\" on the Gear tab": "Emulator adb path (leave empty to auto-detect). Used by \"Select in emulator\" on the Gear tab",
   "Emulator automation failed: ": "Emulator automation failed: ",
   "Emulator resolution must be 1280x720 (current: {{size}}). Adjust it in the emulator settings first.": "Emulator resolution must be 1280x720 (current: {{size}}). Adjust it in the emulator settings first.",

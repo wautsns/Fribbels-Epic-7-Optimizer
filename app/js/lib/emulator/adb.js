@@ -193,6 +193,74 @@ function adbCandidates() {
     return registry.concat(ADB_CANDIDATES);
 }
 
+// 设置页的下拉里给每个 adb 标一下来源（认不出来的按“其他位置”）
+const ADB_SOURCE_HINTS = [
+    [/MuMuPlayer/i, 'MuMu 12'],
+    [/Netease|MuMu/i, 'MuMu'],
+    [/LDPlayer/i, 'LDPlayer'],
+    [/BlueStacks/i, 'BlueStacks'],
+    [/Nox/i, 'Nox'],
+    [/Microvirt|MEmu/i, 'MEmu'],
+];
+
+function adbSourceLabel(adbFile) {
+    for (const [pattern, label] of ADB_SOURCE_HINTS) {
+        if (pattern.test(adbFile)) {
+            return label;
+        }
+    }
+
+    return t('Other location');
+}
+
+/*
+ * 设置页下拉用的候选 adb：注册表登记的安装目录 -> 常见安装路径 -> PATH，
+ * 只保留真的存在的，去重后带上来源标签。
+ *
+ * 探测要跑十几次 reg query（实测 ~500ms），而下拉每次获得焦点都会问一次，
+ * 所以结果缓存 30 秒；点了「浏览…」或换了设置也不会受影响（那条路径会单独补进下拉）。
+ */
+const PATH_CHOICES_TTL = 30000;
+let pathChoicesCache = { at: 0, choices: [] };
+
+function adbPathChoices(force = false) {
+    if (!force && Date.now() - pathChoicesCache.at < PATH_CHOICES_TTL) {
+        return pathChoicesCache.choices;
+    }
+
+    const choices = [];
+    const seen = new Set();
+
+    const push = (adbFile) => {
+        if (!adbFile) {
+            return;
+        }
+
+        const key = String(adbFile).toLowerCase();
+        if (seen.has(key)) {
+            return;
+        }
+
+        try {
+            if (!fs.existsSync(adbFile)) {
+                return;
+            }
+        } catch (error) {
+            return;
+        }
+
+        seen.add(key);
+        choices.push({ path: adbFile, label: adbSourceLabel(adbFile) });
+    };
+
+    adbCandidates().forEach(push);
+    push(pathAdb());
+
+    pathChoicesCache = { at: Date.now(), choices };
+
+    return choices;
+}
+
 // 设置页里填的 adb（空 = 自动探测）；实际使用的路径由 detectAdbPath() 决定
 let configuredAdbPath = null;
 
@@ -1001,6 +1069,8 @@ module.exports = {
     DEFAULT_PORTS,
     REFERENCE_SIZE,
     adbCandidates,
+    adbPathChoices,
+    adbSourceLabel,
     regInstallDirs,
 
     detectAdbPath,

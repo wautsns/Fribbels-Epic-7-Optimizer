@@ -4,6 +4,8 @@ const currentWindow = remote.getCurrentWindow();
 const documentsPath = remote.app.getPath('documents');
 const savesFolder = documentsPath + '/FribbelsOptimizerSaves';
 
+const emulatorAdb = require('./emulator/adb');
+
 const defaultPath = savesFolder;
 
 const settingsPath = defaultPath + "/settings.ini";
@@ -40,6 +42,74 @@ function formatNumbersOnKey(event) {
     });
 }
 
+function escapeHtml(text) {
+    return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/*
+ * 设置页的「模拟器 adb」下拉：第一项是自动检测（并显示它当前会选中哪个），
+ * 后面列出本机真的存在的 adb.exe（注册表登记的安装目录 / 常见安装路径 / PATH）。
+ * 都不对时可以点「浏览…」挑一个，会作为「手动指定」项留在列表里。
+ */
+let lastAdbOptionsSignature = '';
+
+function refreshAdbPathOptions(preferred) {
+    const select = document.getElementById('settingAdbPath');
+    if (!select) {
+        return;
+    }
+
+    const current = preferred !== undefined ? preferred : select.value;
+    const choices = emulatorAdb.adbPathChoices();
+    const autoPath = choices.length ? choices[0].path : '';
+
+    // 列表没变化就不动 DOM：下拉在 focus 时重建 innerHTML 会打断原生弹出
+    const signature = [current, autoPath, choices.map((choice) => choice.path).join('|')].join('>');
+    if (signature === lastAdbOptionsSignature) {
+        return;
+    }
+    lastAdbOptionsSignature = signature;
+
+    const options = [
+        '<option value="">' +
+            escapeHtml(
+                i18next.t('Auto-detect (current: {{path}})', {
+                    path: autoPath || i18next.t('not found'),
+                    interpolation: { escapeValue: false },
+                })
+            ) +
+            '</option>',
+    ];
+
+    choices.forEach((choice) => {
+        options.push(
+            '<option value="' +
+                escapeHtml(choice.path) +
+                '">' +
+                escapeHtml(choice.label + ' — ' + choice.path) +
+                '</option>'
+        );
+    });
+
+    // 保存过的自定义路径不在自动探测结果里时也要留在下拉里，否则会被清掉
+    if (current && !choices.some((choice) => choice.path === current)) {
+        options.push(
+            '<option value="' +
+                escapeHtml(current) +
+                '">' +
+                escapeHtml(i18next.t('Custom path') + ' — ' + current) +
+                '</option>'
+        );
+    }
+
+    select.innerHTML = options.join('');
+    select.value = current || '';
+}
+
 module.exports = {
     initialize: async () => {
         await module.exports.loadSettings();
@@ -53,6 +123,7 @@ module.exports = {
         const settingsIds = [
             'settingGpu',
             'settingUnlockOnUnequip',
+            'settingAdbPath',
             'settingMaxResults',
             'settingMaxRamGb',
             'settingPenDefense',
@@ -73,6 +144,30 @@ module.exports = {
 
         for (var id of settingsIds) {
             document.getElementById(id).addEventListener('change', (event) => {
+                module.exports.saveSettings();
+            });
+        }
+
+        // 下拉获得焦点时刷新一次（探测结果缓存 30 秒，正常点击不花时间）
+        const adbSelect = document.getElementById('settingAdbPath');
+        if (adbSelect) {
+            adbSelect.addEventListener('focus', () => refreshAdbPathOptions());
+        }
+
+        const adbBrowse = document.getElementById('settingAdbPathBrowse');
+        if (adbBrowse) {
+            adbBrowse.addEventListener('click', () => {
+                const filenames = dialog.showOpenDialogSync(currentWindow, {
+                    title: 'Select adb.exe',
+                    properties: ['openFile'],
+                    filters: [{ name: 'adb', extensions: ['exe'] }],
+                });
+
+                if (!filenames || !filenames.length) {
+                    return;
+                }
+
+                refreshAdbPathOptions(filenames[0]);
                 module.exports.saveSettings();
             });
         }
@@ -247,7 +342,7 @@ module.exports = {
             settings.settingLocatorWidth = 5;
         }
 
-        document.getElementById('settingAdbPath').value = settings.settingAdbPath || '';
+        refreshAdbPathOptions(settings.settingAdbPath || '');
 
         if (settings.settingDarkMode) {
             document.getElementById('darkSlider').checked = true;

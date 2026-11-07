@@ -69,6 +69,7 @@ function createHeroTable(options) {
                 itemOwnerIndex.set(String(item.id), {
                     heroId: String(hero.id),
                     heroName: hero.name,
+                    heroIndex: hero.index,
                     slot,
                 });
             });
@@ -307,7 +308,7 @@ function matchesHeroFilters(hero) {
 
     /**
      * 这条配装的 6 件装备里，当前正被别人穿着的有哪些。
-     * 返回 [{ itemId, heroId, heroName }]，排除这条配装所属英雄自己身上的。
+     * 返回 [{ itemId, heroId, heroName, heroIndex }]，排除这条配装所属英雄自己身上的。
      */
     getBuildConflicts: (heroId, build) => {
         if (!build || !Array.isArray(build.items) || !itemOwnerIndex) return [];
@@ -326,6 +327,7 @@ function matchesHeroFilters(hero) {
                 slot: owner.slot,
                 heroId: owner.heroId,
                 heroName: owner.heroName,
+                heroIndex: owner.heroIndex,
             });
         });
 
@@ -1131,8 +1133,12 @@ function buildConflictOwners(build) {
 
     const owners = [];
     conflicts.forEach((conflict) => {
+        // 同一个角色可以有多条角色条目（英雄列表里的 index 不同），
+        // 所以冲突提示带上「优先度列」的值，便于区分是哪一条（和配装器排除下拉的口径一致）
         const name = i18next.t(conflict.heroName);
-        if (!owners.includes(name)) owners.push(name);
+        const index = Number(conflict.heroIndex);
+        const label = Number.isFinite(index) ? `${name} #${index}` : name;
+        if (!owners.includes(label)) owners.push(label);
     });
 
     return { count: conflicts.length, owners };

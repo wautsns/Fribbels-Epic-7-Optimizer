@@ -282,8 +282,15 @@ module.exports = {
             useReforgeStats: useReforgeStatsOverride
         });
 
+        // 后端在「英雄不存在 / id 为空 / 找不到基础属性」时会直接返回空字符串，
+        // 这里统一成 { hero: null, baseStats: null }，调用方才能安全地判断空值
+        if (!response || typeof response !== 'object' || !response.hero) {
+            console.warn('[api] getHeroById returned no hero', id, response);
+            return { hero: null, baseStats: null };
+        }
+
         // the hero payload carries zeroed stat fields, the usable numbers are in baseStats
-        if (response && response.hero && response.baseStats) {
+        if (response.baseStats) {
             response.hero = Object.assign({}, response.hero, response.baseStats);
         }
 

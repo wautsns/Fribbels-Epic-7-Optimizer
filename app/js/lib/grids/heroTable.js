@@ -206,6 +206,14 @@ function matchesHeroFilters(hero) {
             return;
         }
 
+        // 英雄可能已经被删掉（或者后端返回了错误响应），这时 hero 是 undefined，
+        // 后面 updateCurrentAggregate / hero.builds 都会炸，直接放弃这次刷新
+        if (!hero || hero.id == null) {
+            currentBuildsHero = null;
+            console.warn('[heroTable] refreshBuilds: hero not found, skip', response);
+            return;
+        }
+
         // 功能列判断「已装备/未装备」要用这份最新数据
         currentBuildsHero = hero;
 
@@ -454,7 +462,7 @@ function scheduleTextTooltipRefresh() {
     }, 80);
 }
 
-/* 面板需求的输出顺序：速度优先，其余按 攻/防/血/暴率/暴伤/命中/抵抗 */
+/* 面板需求的输出顺序：速度优先，其余按 攻/防/血/暴率/暴伤/命中/抗性 */
 const STAT_REQUIREMENT_ORDER = ['Spd', 'Atk', 'Def', 'Hp', 'Cr', 'Cd', 'Eff', 'Res'];
 
 /* 属性列 → i18n key */
@@ -1179,6 +1187,12 @@ function redrawPreviewHero(heroId) {
         const hero = response.hero;
         console.log("On hero row selected hero row", hero);
 
+        // 英雄刚被删掉时后端拿不到数据，这里直接收工，不要拿 undefined 去重画
+        if (!hero) {
+            console.warn('[heroTable] redrawPreviewHero: hero not found, skip', heroId);
+            return;
+        }
+
         updateCurrentAggregate(hero);
         // 先更新「这一行英雄」，setRowData 渲染功能列时才会判断对“已装备/未装备”
         currentBuildsHero = hero;
@@ -1257,6 +1271,11 @@ function cleanInfinities(num) {
 
 
 function updateCurrentAggregate(hero) {
+    // 英雄被删掉 / 取不到时不要往下算（hero.builds 会报错）
+    if (!hero) {
+        return;
+    }
+
     const statsToAggregate = [
         "atk",
         "hp",

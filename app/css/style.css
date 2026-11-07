@@ -2327,7 +2327,6 @@ input:checked + .darkSlider:before {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: 6px 8px;
   /* 纵向内容（作业列表）可能超过面板高度：允许纵向滚动，横向仍然裁掉 */
   overflow-x: hidden;
   overflow-y: auto;

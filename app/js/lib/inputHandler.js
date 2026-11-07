@@ -69,7 +69,6 @@ global.Subprocess = require('./subprocess');
 global.Selectors = require('./selectors');
 // 表格容器高度试调工具（DevTools 控制台用：TableHeights.fit('builds', 4)）
 global.TableHeights = require('./tableHeights');
-global.RtaStats = require('./rtaStats');
 global.HeroBuilds = require('./heroBuilds');
 global.Settings = require('./settings');
 global.ForceFilter = require('./forceFilter');
@@ -123,7 +122,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     Subprocess.initialize(async () => {
         await HeroData.initialize();
-        RtaStats.initialize();
 
         Notifier.initialize();
         Dialog.initialize();

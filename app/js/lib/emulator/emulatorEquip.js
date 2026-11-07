@@ -62,11 +62,9 @@ function startCooldown() {
     }, RESTART_COOLDOWN_MS);
 }
 
-function buildTarget(item) {
-    // chip 1 = the highest value (the list sorts by chip 1 first, so the target stays near
-    // the first page); the other three keep a stable alphabetical order so consecutive
-    // slots of similar items can reuse the filters already set
-    const sorted = (item.substats || [])
+// 副属性按数值降序（同值按类型字母序）：chip 1 就是第一条
+function sortedSubstats(item) {
+    return (item.substats || [])
         .map((sub) => ({
             type: sub.type,
             value:
@@ -76,17 +74,139 @@ function buildTarget(item) {
                     : sub.value,
         }))
         .sort((a, b) => b.value - a.value || a.type.localeCompare(b.type));
+}
 
-    const substats = sorted.length
-        ? [sorted[0]].concat(
-              sorted.slice(1).sort((a, b) => a.type.localeCompare(b.type))
+/** 没给规划时的默认顺序：chip 1 取最大数值，其余三条按类型字母序 */
+function defaultChipOrder(sorted) {
+    return sorted.length
+        ? [sorted[0].type].concat(
+              sorted
+                  .slice(1)
+                  .map((sub) => sub.type)
+                  .sort((a, b) => a.localeCompare(b))
           )
-        : sorted;
+        : [];
+}
 
-    // base substat values, same ordering rules (used when reading the panel back)
-    const baseSubstats = (item.substats || [])
-        .map((sub) => ({ type: sub.type, value: sub.value }))
-        .sort((a, b) => b.value - a.value || a.type.localeCompare(b.type));
+function orderSubstats(sorted, order) {
+    if (!order || !order.length || order.length !== sorted.length) {
+        return sorted;
+    }
+
+    const byType = new Map(sorted.map((sub) => [sub.type, sub]));
+    const ordered = order
+        .map((type) => byType.get(type))
+        .filter((sub) => Boolean(sub));
+
+    // 类型对不上（数据不一致）时退回默认顺序，不要丢副属性
+    return ordered.length === sorted.length ? ordered : sorted;
+}
+
+function permutations(types) {
+    if (types.length <= 1) {
+        return [types.slice()];
+    }
+
+    const result = [];
+    types.forEach((type, index) => {
+        const rest = types.slice(0, index).concat(types.slice(index + 1));
+        permutations(rest).forEach((tail) => result.push([type].concat(tail)));
+    });
+    return result;
+}
+
+/** 一件装备所有合法的 chip 排列：chip 1 固定，其余三条任意排 */
+function chipOrderCandidates(sorted) {
+    if (!sorted.length) {
+        return [[]];
+    }
+
+    const rest = sorted.slice(1).map((sub) => sub.type);
+    return permutations(rest).map((tail) => [sorted[0].type].concat(tail));
+}
+
+function chipsChanged(previous, next) {
+    let changed = 0;
+    for (let index = 0; index < next.length; index += 1) {
+        if (previous[index] !== next[index]) {
+            changed += 1;
+        }
+    }
+    return changed;
+}
+
+/**
+ * 六件装备是按槽位一件件换的，过滤器（chip）会跨槽位保留：上一件已经设好的
+ * 「副属性2/3/4」如果这件也有，那个 chip 就完全不用动。
+ *
+ * chip 1 是排序主键（决定目标在列表里的位置），不能动；chip 2/3/4 只在数值相同时
+ * 参与排序，顺序可以随便排。所以这里把每件的三种「其余副属性」排列都列出来做一次
+ * DP，让整轮相邻两件的 chip 差异数（= 需要重设的 chip 数）最小。
+ */
+function planChipOrders(items) {
+    const layers = [];
+    let states = new Map([['', { cost: 0, previousKey: null, order: null }]]);
+
+    items.forEach((item) => {
+        const next = new Map();
+
+        chipOrderCandidates(sortedSubstats(item)).forEach((order) => {
+            const key = order.join('|');
+            let best = null;
+
+            states.forEach((state, previousKey) => {
+                const cost =
+                    state.cost +
+                    (state.order ? chipsChanged(state.order, order) : 0);
+                if (!best || cost < best.cost) {
+                    best = { cost, previousKey, order };
+                }
+            });
+
+            if (best) {
+                next.set(key, best);
+            }
+        });
+
+        layers.push(next);
+        states = next;
+    });
+
+    let bestKey = null;
+    let bestCost = Infinity;
+    states.forEach((state, key) => {
+        if (state.cost < bestCost) {
+            bestCost = state.cost;
+            bestKey = key;
+        }
+    });
+
+    const orders = new Array(layers.length).fill(null);
+    let key = bestKey;
+    for (let index = layers.length - 1; index >= 0; index -= 1) {
+        const state = layers[index].get(key);
+        if (!state) {
+            break;
+        }
+        orders[index] = state.order;
+        key = state.previousKey;
+    }
+
+    console.log(
+        '[emulator] chip plan:',
+        bestCost,
+        'changes |',
+        orders.map((order) => (order || []).join('/')).join(' -> ')
+    );
+    return orders;
+}
+
+function buildTarget(item, chipOrder) {
+    const sorted = sortedSubstats(item);
+    const ordered = orderSubstats(
+        sorted,
+        chipOrder || defaultChipOrder(sorted)
+    );
 
     // The panel shows the values the game has. For a reforged item those are the reforged
     // substats, for a normal one the base substats, so both sets are kept.
@@ -116,14 +236,7 @@ function buildTarget(item) {
         set: item.set,
         mainType: item.main.type,
         mainValue: item.main.value,
-        substats,
-        baseSubstats: baseSubstats.length
-            ? [baseSubstats[0]].concat(
-                  baseSubstats
-                      .slice(1)
-                      .sort((a, b) => a.type.localeCompare(b.type))
-              )
-            : baseSubstats,
+        substats: ordered,
         baseValues,
         reforgedValues,
     };
@@ -208,6 +321,10 @@ function preflightErrorMessage(error) {
 
 module.exports = {
     buildTarget,
+    /** 供控制台排查：给定一组装备，打印最省切换次数的 chip 排列 */
+    planChipOrders,
+    defaultChipOrder,
+    sortedSubstats,
 
     // 一键换装按钮已移除，取消入口改到 builds 功能列的机器人图标上
     isBusy: () => busy,
@@ -317,6 +434,9 @@ module.exports = {
             const allItems = await getAllItems();
             equip.resetFilterSession();
 
+            // 副属性 chip 的顺序按整轮连续性先规划好：chip 2/3/4 能沿用上一件的就不用重设
+            const chipOrders = planChipOrders(items);
+
             // the optimizer data may be stale, so every piece is attempted; a slot that
             // fails (e.g. already worn in game) does not stop the rest
             const failed = [];
@@ -337,9 +457,12 @@ module.exports = {
                 try {
                     // select only: the game keeps the pending selections and applies them
                     // when the user presses 更换装备 once at the end
-                    await equip.selectItem(module.exports.buildTarget(item), {
-                        allItems,
-                    });
+                    await equip.selectItem(
+                        module.exports.buildTarget(item, chipOrders[index]),
+                        {
+                            allItems,
+                        }
+                    );
                 } catch (error) {
                     if (error.cancelled) {
                         cancelled = true;

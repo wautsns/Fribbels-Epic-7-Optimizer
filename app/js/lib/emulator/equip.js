@@ -1092,7 +1092,11 @@ async function applyItemFilters(item, force = false) {
     const applied = [];
     const skipped = [];
     // 预测游戏里的状态：把某个 chip 设成别的 chip 已经有的副属性时，两者会交换（不产生重复）。
-    // 这里只用来打日志 / 让后续判断知道发生了什么；是否真的要设置始终以面板读回为准。
+    //
+    // 这套预测只用来打日志 / 给规划算代价（emulatorEquip.chipChangeCost），**不用来跳过设置**：
+    // 交换顺带设对的那个 chip 仍然会打开面板读一次确认（读到就是目标值时不点，只多花一次读数）。
+    // 曾经考虑过直接按预测跳过这次读取，省 ~0.8s，但万一游戏某次不是交换而是清空/覆盖，
+    // 就会跳错一格 -> 列表不对 -> 又去跑 ±4 探测。这点时间不值得，保持读一次。
     const predicted = { ...(filterCache || {}) };
     const SUB_KEYS = ['sub1', 'sub2', 'sub3', 'sub4'];
 

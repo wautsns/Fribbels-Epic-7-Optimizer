@@ -180,6 +180,8 @@ input[type=submit] {
 .optimizer-equipped-section {
   display: flex;
   flex-direction: row;
+  /* 6 张卡按可用宽度均分（右端不再留一大块空白；中间那 5 个 .vertical 是 1px 隐形占位，不影响观感） */
+  justify-content: space-between;
   flex-grow: 1;
   min-height: 225px;
   margin-top: 2px;
@@ -282,6 +284,12 @@ input, button {
   flex-shrink: 0;
 }
 
+/* space-between 下最后一张卡贴着右边缘，别让它多出 4px 缩进 */
+#optimizer-equipped-section > .gear-preview-row:last-child,
+#heroes-equipped-section > .gear-preview-row:last-child {
+  margin-right: 0;
+}
+
 #optimizer-equipped-section .gear-preview-row .itemDisplayHeaderData,
 #heroes-equipped-section .gear-preview-row .itemDisplayHeaderData {
   width: 38px;
@@ -363,6 +371,8 @@ input, button {
 #heroes-equipped-section {
   display: flex;
   flex-direction: row;
+  /* 6 张卡按可用宽度均分（右端不再留一大块空白） */
+  justify-content: space-between;
   min-height: 250px;
   margin: 23px 0 0 0;
 }

@@ -388,8 +388,8 @@ input, button {
 .tabset > #tab4:checked ~ .tab-panels > #heroes-section {
   display: flex;
   flex-direction: column;
-  /* 819px = 865 窗口高 - 44 面板 top - 2 余量：实测这个高度切 tab 不跳，又不冒出纵向滚动条 */
-  min-height: calc(100vh - 46px);
+  /* 819px 时正好会溢出 2px 左右（冒出纵向滚动条），留 10px 余量：865 窗口 → 809 */
+  min-height: calc(100vh - 56px);
 }
 
 /* 多出来的空白放在 builds 和 6 装备之间：最后一个子容器撑满剩余高度，再把卡片顶到它底部 */

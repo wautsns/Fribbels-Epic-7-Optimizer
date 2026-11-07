@@ -397,6 +397,11 @@ input, button {
   margin-top: auto;
 }
 
+/* 英雄页这一排不需要额外的下边距：面板已经被撑到接近一屏，卡片下面只剩页面自身的 padding */
+#heroes-equipped-section {
+  margin-bottom: 0;
+}
+
 .heroes-equipped-item {
   width: 150px;
   padding: 10px 15px;

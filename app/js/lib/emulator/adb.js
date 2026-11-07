@@ -53,18 +53,44 @@ const ADB_RELATIVE_PATHS = [
     'platform-tools/adb.exe',
 ];
 
-// LDPlayer 9/14 register their adb on 5555 (second instance 5557); MuMu on 16384,
-// Nox on 7555
+/*
+ * 自动连接的候选端口，按模拟器分组（一开 / 二开 / 三开…）。
+ *
+ * 这里只是「挨个连一下试试」，用哪个设备最终由 adb devices 的结果决定；
+ * 真正执行 adb connect 之前会先做一次本地 TCP 探测（见 listeningPorts），
+ * 只连真的有在监听的端口，所以列表长一点也不会拖慢「没有模拟器在跑」的情况。
+ */
 const DEFAULT_PORTS = [
+    // MuMu 12（一开 / 二开 / 三开）
     '127.0.0.1:16384',
+    '127.0.0.1:16385',
+    '127.0.0.1:16386',
+    // MuMu 6 / Nemu 旧版
     '127.0.0.1:7555',
+    // LDPlayer 9/14（一开 5555，之后每多开一个 +2）
     '127.0.0.1:5555',
     '127.0.0.1:5557',
+    '127.0.0.1:5559',
+    '127.0.0.1:5561',
+    // BlueStacks 5（一开通常就是 5555，多开 5565 / 5575）
+    '127.0.0.1:5565',
+    '127.0.0.1:5575',
+    // Nox（一开 62001，多开从 62025 起）
+    '127.0.0.1:62001',
+    '127.0.0.1:62025',
+    '127.0.0.1:62026',
+    // MEmu（一开 21503，多开从 21513 起）
+    '127.0.0.1:21503',
+    '127.0.0.1:21513',
+    // 标准 AOSP/AVD：这些 id 由 adb 自己列出来，不能 adb connect，
+    // 只参与上面「已经在线的设备」的优先级匹配
     'emulator-5554',
+    'emulator-5556',
 ];
 
 let adbPath = null;
 let serial = null;
+let lastLoggedSerial = null;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -372,23 +398,67 @@ async function listDevices() {
         });
 }
 
+/* 本机某个端口有没有在监听（300~400ms 的小探测，比 adb connect 超时快得多） */
+function portOpen(id, timeout = 400) {
+    const port = Number(String(id).split(':').pop());
+
+    if (!port) {
+        return Promise.resolve(false);
+    }
+
+    return new Promise((resolve) => {
+        const socket = net.connect({ port, host: '127.0.0.1' });
+        const finish = (open) => {
+            socket.destroy();
+            resolve(open);
+        };
+
+        socket.setTimeout(timeout);
+        socket.once('connect', () => finish(true));
+        socket.once('timeout', () => finish(false));
+        socket.once('error', () => finish(false));
+    });
+}
+
+/* 从候选列表里挑出真的在监听的端口（并行探测，总耗时 ≈ 一次超时） */
+async function listeningPorts(ids) {
+    const probes = await Promise.all(
+        ids.map(async (id) => ({ id, open: await portOpen(id) }))
+    );
+
+    return probes.filter((probe) => probe.open).map((probe) => probe.id);
+}
+
+function pickSerial(preferred, online) {
+    // 优先用已知端口上的设备；多个都在线时按 adb devices 的顺序取第一个
+    const preferredDevice = online.find((device) =>
+        preferred.includes(device.id)
+    );
+    serial = (preferredDevice || online[0]).id;
+
+    if (serial !== lastLoggedSerial) {
+        lastLoggedSerial = serial;
+        console.log('[emulator] device:', serial);
+    }
+
+    return serial;
+}
+
 // MuMu/LDPlayer expose the emulator over tcp; connect if it is not listed yet
 async function connect(preferred = DEFAULT_PORTS) {
     const devices = await listDevices();
     const online = devices.filter((device) => device.state === 'device');
 
     if (online.length > 0) {
-        const preferredDevice = online.find((device) =>
-            preferred.includes(device.id)
-        );
-        serial = (preferredDevice || online[0]).id;
-        return serial;
+        return pickSerial(preferred, online);
     }
 
-    for (const port of preferred) {
-        if (port.startsWith('emulator-')) {
-            continue;
-        }
+    // 只对真的有在监听的端口执行 adb connect：候选列表可以列全一点，
+    // 但没开模拟器时不该逐个等 4 秒超时
+    const candidates = preferred.filter((id) => !id.startsWith('emulator-'));
+    const listening = await listeningPorts(candidates);
+
+    for (const port of listening) {
         // a port that is not served at all fails fast; a served-but-silent adbd takes
         // the whole timeout, so keep it short and let the caller report the real reason
         await execAdb(['connect', port], 4000).catch(() => null);
@@ -414,11 +484,7 @@ async function connect(preferred = DEFAULT_PORTS) {
         );
     }
 
-    const preferredDevice = connected.find((device) =>
-        preferred.includes(device.id)
-    );
-    serial = (preferredDevice || connected[0]).id;
-    return serial;
+    return pickSerial(preferred, connected);
 }
 
 async function deviceSize() {
@@ -944,6 +1010,8 @@ module.exports = {
 
     connect,
     listDevices,
+    portOpen,
+    listeningPorts,
     deviceSize,
     requireReferenceSize,
     capture,

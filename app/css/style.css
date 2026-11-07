@@ -47,7 +47,7 @@
 */
 body {
   margin: 0;
-  padding: 0;
+  padding: 0 4px;
   font: 14px "Noto Sans SC", "Overpass", "Open Sans", Helvetica, sans-serif;
   color: #333;
   user-select: none;
@@ -2319,8 +2319,8 @@ input:checked + .darkSlider:before {
   margin-bottom: 0;
 }
 
-/* ===== GVG plans (docs/gvg/design.md 6.1 / 6.2) ===== */
-/* 注意：全站没有全局 box-sizing: border-box（见 :root 附近），
+/* ===== GVG plans  ===== */
+/* 注意：CSS 默认 content-box，全项目没有全局 box-sizing: border-box（只在个别类上单独设），
    所以「width: 100% + padding」会撑出父容器（100% + 16px）→ 横向溢出。
    这里显式 border-box，并去掉多余的 width: 100%（block 元素本来就占满）。 */
 .gvgSectionContainer {

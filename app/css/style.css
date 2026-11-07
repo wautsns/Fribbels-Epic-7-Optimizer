@@ -149,8 +149,8 @@ input[type=submit] {
 .optimization-results-panel {
   flex-grow: 2;
   /* 这个高度跟着右侧「筛选/搜索详情 + 功能」的内容走：去掉锁定/解锁、全选/全反选
-     两排按钮后内容少了约 54px，这里也跟着从 340 收到 286，表格随之变矮、底部仍对齐 */
-  min-height: 286px;
+     两排按钮后内容少了约 54px，这里也跟着从 340 收到 278，表格随之变矮、底部仍对齐 */
+  min-height: 278px;
   height: 100%;
   display: flex;
 }
@@ -1734,7 +1734,6 @@ body.dark-theme input {
   min-height: 343px;
   height: 343px;
   flex-grow: 1;
-  margin-top: 6px;
   resize: vertical;
   overflow: hidden;
 }
@@ -2320,7 +2319,6 @@ input:checked + .darkSlider:before {
 .gvgTitleRow {
   display: flex;
   align-items: center;
-  margin-bottom: 4px;
 }
 .gvgTitle {
   font-size: 16px;

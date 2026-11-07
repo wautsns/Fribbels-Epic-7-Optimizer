@@ -373,8 +373,9 @@ input, button {
   flex-direction: row;
   /* 6 张卡按可用宽度均分（右端不再留一大块空白） */
   justify-content: space-between;
-  min-height: 250px;
-  margin: 23px 0 0 0;
+  /* 和配装器底部那一排保持同一套几何：切 tab 时这 6 张卡不会跳 */
+  min-height: 225px;
+  margin: 2px 0 14px 0;
 }
 
 .heroes-equipped-item {

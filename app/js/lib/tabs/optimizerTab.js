@@ -1293,16 +1293,8 @@ function getSelectedHeroId() {
 }
 
 function filterSelectedGearByCheckbox(selectedGear) {
-    const filteredIds = [];
-
-    if ($('#optimizerGridWeapon').prop('checked')) filteredIds.push(selectedGear[0]);
-    if ($('#optimizerGridHelmet').prop('checked')) filteredIds.push(selectedGear[1]);
-    if ($('#optimizerGridArmor').prop('checked')) filteredIds.push(selectedGear[2]);
-    if ($('#optimizerGridNecklace').prop('checked')) filteredIds.push(selectedGear[3]);
-    if ($('#optimizerGridRing').prop('checked')) filteredIds.push(selectedGear[4]);
-    if ($('#optimizerGridBoots').prop('checked')) filteredIds.push(selectedGear[5]);
-
-    return filteredIds.filter(x => !!x);
+    // 配装器下面 6 张卡已经没有勾选框：装备 / 脱下 / 存配装等操作作用于全部 6 件
+    return selectedGear.filter(x => !!x);
 }
 
 async function addBuild() {

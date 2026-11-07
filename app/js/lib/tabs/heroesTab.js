@@ -333,10 +333,31 @@ function equipBuild(hero, build, onDone) {
     });
 }
 
+/* 英雄身上实际穿着的装备 id（统一按字符串比，避免 number/string 混用） */
+function wornItemIds(hero) {
+    const equipment = (hero && hero.equipment) || {};
+
+    return Object.keys(equipment)
+        .map((slot) => equipment[slot] && equipment[slot].id)
+        .filter((id) => id != null)
+        .map((id) => String(id));
+}
+
 // 脱下这套配装的 6 件装备（效果和原来「脱下装备」按钮一致）
 function unequipBuild(hero, build, onDone) {
     const gearIds = (build && build.items ? build.items : []).filter(Boolean);
-    const idsToUnequip = gearIds.length ? gearIds : getSelectedGearIds();
+
+    /*
+     * 只脱这个英雄身上真的穿着的那几件：这条配装可能有 1~2 件已经被别的英雄抢走了，
+     * 那几件不能连带从别人身上脱下来。
+     */
+    const worn = new Set(wornItemIds(hero));
+    const ownIds = gearIds.filter((id) => worn.has(String(id)));
+    const idsToUnequip = ownIds.length
+        ? ownIds
+        : gearIds.length
+          ? gearIds
+          : getSelectedGearIds();
 
     if (!idsToUnequip || !idsToUnequip.length) return;
 

@@ -802,6 +802,7 @@ function buildGrid(localeText) {
                 suppressMovable: true,
                 cellRenderer: (params) => HtmlGenerator.buildBuildActionsCell(
                     isBuildEquipped(params.data),
+                    hasAnyBuildEquipped(params.data),
                     oneClickEquipState()
                 ),
             },
@@ -1141,7 +1142,28 @@ function renderConflictBadge(build) {
     return `<span class="buildConflictBadge"><i class="fas fa-exclamation-triangle"></i>${count}</span>`;
 }
 
-/* 这条配装是否就是英雄当前身上穿的（按 6 件装备的 id 比较，与顺序无关） */
+/*
+ * 这条配装里，当前英雄身上**实际**穿着的装备 id。
+ * 被别人抢走的那件不算 —— 英雄的 equipment 里已经没有它了。
+ */
+function equippedBuildIds(hero, build) {
+    if (!build || !build.items) {
+        return [];
+    }
+
+    const equipmentMap = (hero && hero.equipment) || {};
+    const worn = new Set();
+    HERO_EQUIPMENT_SLOTS.forEach((slot) => {
+        const item = equipmentMap[slot];
+        if (item && item.id != null) {
+            worn.add(String(item.id));
+        }
+    });
+
+    return build.items.filter((id) => id && worn.has(String(id)));
+}
+
+/* 这条配装是否就是英雄当前身上穿的（6 件都在身上，与顺序无关） */
 function isBuildEquipped(build) {
     if (!build || !build.items) return false;
 
@@ -1149,16 +1171,22 @@ function isBuildEquipped(build) {
     const hero = currentBuildsHero || api.getSelectedRow();
     if (!heroHasEquippedGear(hero)) return false;
 
-    const equippedIds = HERO_EQUIPMENT_SLOTS
-        .map((slot) => hero.equipment[slot] && hero.equipment[slot].id)
-        .filter(Boolean);
     const buildIds = build.items.filter(Boolean);
 
-    if (equippedIds.length !== HERO_EQUIPMENT_SLOTS.length || buildIds.length !== HERO_EQUIPMENT_SLOTS.length) {
+    if (buildIds.length !== HERO_EQUIPMENT_SLOTS.length) {
         return false;
     }
 
-    return equippedIds.every((id) => buildIds.includes(id));
+    return equippedBuildIds(hero, build).length === HERO_EQUIPMENT_SLOTS.length;
+}
+
+/*
+ * 身上还挂着这条配装的任意一件（被别的英雄抢走一两件也算）。
+ * 这种情况功能列要给「脱下」，否则这几件装备就没地方脱了。
+ */
+function hasAnyBuildEquipped(build) {
+    const hero = currentBuildsHero || api.getSelectedRow();
+    return equippedBuildIds(hero, build).length > 0;
 }
 
 /*

@@ -201,7 +201,7 @@ module.exports = {
                     recalculateFilters();
                     Notifier.success(
                         i18next.t('Filled from build data: {{set}} + {{artifact}} ({{count}} builds, {{method}})', {
-                            set: result.setZh,
+                            set: result.setLabel,
                             artifact: result.artifactName,
                             count: result.n,
                             method: i18next.t(result.method === 'density' ? 'density range' : 'median'),

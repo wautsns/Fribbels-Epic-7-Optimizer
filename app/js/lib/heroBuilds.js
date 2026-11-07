@@ -1,4 +1,4 @@
-/* global Files, Api, Artifact, HeroData, Notifier, OptimizerTab, Saves, $ */
+/* global Files, Api, Artifact, HeroData, Notifier, OptimizerTab, Saves, i18next, $ */
 const fs = require('fs');
 const Path = require('path');
 const https = require('https');
@@ -19,7 +19,6 @@ const REQUEST_TIMEOUT = 90000;
 const STATS = [
     {
         key: 'atk',
-        zh: '攻击',
         snap: 100,
         zeroBelow: 2000,
         inputId: 'inputMinAtkLimit',
@@ -29,7 +28,6 @@ const STATS = [
     },
     {
         key: 'hp',
-        zh: '生命',
         snap: 100,
         inputId: 'inputMinHpLimit',
         requestKey: 'inputHpMinLimit',
@@ -38,7 +36,6 @@ const STATS = [
     },
     {
         key: 'def',
-        zh: '防御',
         snap: 50,
         inputId: 'inputMinDefLimit',
         requestKey: 'inputDefMinLimit',
@@ -47,7 +44,6 @@ const STATS = [
     },
     {
         key: 'spd',
-        zh: '速度',
         snap: 5,
         round: 'up',
         inputId: 'inputMinSpdLimit',
@@ -57,7 +53,6 @@ const STATS = [
     },
     {
         key: 'chc',
-        zh: '暴击率',
         picks: [100, 88, 85, 73, 70, 50],
         zeroBelow: 30,
         inputId: 'inputMinCrLimit',
@@ -67,7 +62,6 @@ const STATS = [
     },
     {
         key: 'chd',
-        zh: '爆伤',
         snap: 5,
         min: 170,
         inputId: 'inputMinCdLimit',
@@ -77,7 +71,6 @@ const STATS = [
     },
     {
         key: 'eff',
-        zh: '效果命中',
         picks: [0, 50, 85, 100, 130, 150, 185, 200],
         snapOver: [200, 5],
         inputId: 'inputMinEffLimit',
@@ -87,7 +80,6 @@ const STATS = [
     },
     {
         key: 'efr',
-        zh: '效果抗性',
         picks: [0, 50, 85, 100, 130, 150, 185, 200],
         snapOver: [200, 5],
         inputId: 'inputMinResLimit',
@@ -147,49 +139,6 @@ const SET_OPTION = {
     set_might: 'Fervor',
 };
 
-const SET_ZH = {
-    set_acc: '命中',
-    set_att: '攻击',
-    set_coop: '团结',
-    set_counter: '反击',
-    set_cri_dmg: '破坏',
-    set_cri: '暴击',
-    set_def: '防御',
-    set_immune: '免疫',
-    set_max_hp: '生命',
-    set_penetrate: '穿透',
-    set_rage: '愤怒',
-    set_res: '抗性',
-    set_revenge: '复仇',
-    set_scar: '创伤',
-    set_speed: '速度',
-    set_vampire: '吸血',
-    set_shield: '保护',
-    set_torrent: '激流',
-    set_revenant: '逆转',
-    set_riposte: '还击',
-    set_chase: '追击',
-    set_opener: '先手',
-    set_weak: '削弱',
-    set_might: '威慑',
-};
-
-const FOUR_PIECE_SETS = [
-    'AttackSet',
-    'SpeedSet',
-    'DestructionSet',
-    'LifestealSet',
-    'ProtectionSet',
-    'CounterSet',
-    'RageSet',
-    'RevengeSet',
-    'InjurySet',
-    'ReversalSet',
-    'RiposteSet',
-    'WarfareSet',
-    'WeakeningSet',
-];
-
 /* ---------------- 缓存 ---------------- */
 
 function pad2(n) {
@@ -223,8 +172,10 @@ function writeCache(code, record) {
 
 function showSlowLoading() {
     Swal.fire({
-        title: '正在查询配装数据',
-        html: '这个接口比较慢，通常要 5~20 秒，请稍候…',
+        title: i18next.t('Querying build data'),
+        html: i18next.t(
+            'This API is slow, it usually takes 5-20 seconds. Please wait...'
+        ),
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -269,7 +220,9 @@ function requestBuilds(heroName) {
                             Buffer.concat(chunks).toString('utf8')
                         );
                         if (!payload || !Array.isArray(payload.data)) {
-                            throw new Error('响应格式异常');
+                            throw new Error(
+                                i18next.t('Unexpected response format')
+                            );
                         }
                         resolve(payload);
                     } catch (e) {
@@ -280,7 +233,7 @@ function requestBuilds(heroName) {
         );
 
         req.setTimeout(REQUEST_TIMEOUT, () =>
-            req.destroy(new Error('请求超时'))
+            req.destroy(new Error(i18next.t('Request timed out')))
         );
         req.on('error', reject);
         req.end(body);
@@ -308,11 +261,19 @@ async function loadBuilds(heroName, heroCode) {
         return { payload, day: todayKey(), stale: false };
     } catch (e) {
         if (cached && cached.payload) {
-            Notifier.warn(`配装数据请求失败，使用 ${cached.day} 获取的缓存`);
+            Notifier.warnRaw(
+                i18next.t(
+                    'Build data request failed, using cache fetched on {{day}}',
+                    { day: cached.day, interpolation: { escapeValue: false } }
+                )
+            );
             return { payload: cached.payload, day: cached.day, stale: true };
         }
         throw new Error(
-            `配装数据请求失败（${e && e.message ? e.message : e}）`
+            i18next.t('Build data request failed: {{error}}', {
+                error: e && e.message ? e.message : e,
+                interpolation: { escapeValue: false },
+            })
         );
     } finally {
         hideLoading();
@@ -339,12 +300,17 @@ function comboKey(sets) {
         .join('+');
 }
 
-function comboZh(key) {
+/** 套装 code -> 本地化名称（i18n key 就是优化器的套装选项值，例如 SpeedSet -> Speed） */
+function setName(code) {
+    return i18next.t(SET_OPTION[code] || code);
+}
+
+function comboLabel(key) {
     return key
         .split('+')
         .map((part) => {
             const [code, count] = part.split(':');
-            return `${SET_ZH[code] || code}${count}`;
+            return `${setName(code)}${count}`;
         })
         .join(' + ');
 }
@@ -442,7 +408,7 @@ function nearestPick(value, picks) {
 /**
  * 把密度中心的值归化成"配装器里好用的整数目标"
  *   攻击/生命 -> 整 100，防御 -> 整 50，速度 -> 向上取整 5（末尾 0/5）
- *   暴击率 -> [100, 88, 85, 73, 70, 50] 里最接近的，小于 30 置 0（视为没堆）
+ *   暴击 -> [100, 88, 85, 73, 70, 50] 里最接近的，小于 30 置 0（视为没堆）
  *   爆伤   -> 整 5
  *   命中/抗性 -> [0, 50, 85, 100, 130, 150, 185, 200] 里最接近的，超过 200 取整 5
  */
@@ -477,7 +443,9 @@ function normalizeStat(stat, value) {
  * options.artifactCode：固定用这个神器筛 build
  */
 function computePanel(rows, baseStats, options) {
-    if (!rows || !rows.length) throw new Error('该英雄没有配装数据');
+    if (!rows || !rows.length) {
+        throw new Error(i18next.t('This hero has no build data'));
+    }
 
     const settings = options || {};
     let pool = rows;
@@ -573,7 +541,7 @@ function computePanel(rows, baseStats, options) {
 
     return {
         setKey: topCombo,
-        setZh: comboZh(topCombo),
+        setLabel: comboLabel(topCombo),
         inputSets: comboToInputSets(topCombo),
         artifactCode: fixedArtifact,
         n: baseRows.length,
@@ -753,7 +721,7 @@ async function persistFilters(hero, panel) {
         request = OptimizerTab.getOptimizationRequestParams();
     } catch (e) {
         console.warn(
-            'RTAStats: 读取完整过滤器失败，改为只保存本次填入的项',
+            '[HeroBuilds] 读取完整过滤器失败，改为只保存本次填入的项',
             e && e.message
         );
         request = { ...(hero.optimizationRequest || {}) };
@@ -771,8 +739,10 @@ async function persistFilters(hero, panel) {
             targets: panel.targets,
         });
     } catch (e) {
-        console.warn('RTAStats: 保存过滤器失败', e && e.message);
-        Notifier.warn('过滤器保存失败，切换英雄后可能会还原');
+        console.warn('[HeroBuilds] 保存过滤器失败', e && e.message);
+        Notifier.warn(
+            'Saving filters failed, they may be reverted after switching heroes'
+        );
     }
 }
 
@@ -781,7 +751,7 @@ async function persistFilters(hero, panel) {
  * 返回结果给 UI 提示用。
  */
 async function fill(hero) {
-    if (!hero) throw new Error('没有选中英雄');
+    if (!hero) throw new Error(i18next.t('Select a hero first'));
 
     const heroCode = (hero.data && hero.data.code) || hero.code || hero.name;
     const { payload, day, stale } = await loadBuilds(hero.name, heroCode);
@@ -795,8 +765,14 @@ async function fill(hero) {
     if (heroArtifactName) {
         fixedArtifactCode = artifactCodeByName(heroArtifactName);
         if (!fixedArtifactCode) {
-            Notifier.warn(
-                `当前神器「${heroArtifactName}」在配装数据里没有记录，已取消填入`
+            Notifier.warnRaw(
+                i18next.t(
+                    'Artifact {{artifact}} is not recorded in the build data, fill cancelled',
+                    {
+                        artifact: heroArtifactName,
+                        interpolation: { escapeValue: false },
+                    }
+                )
             );
             return null;
         }
@@ -804,8 +780,14 @@ async function fill(hero) {
             (row) => row.artifactCode === fixedArtifactCode
         );
         if (!hasBuilds) {
-            Notifier.warn(
-                `当前神器「${heroArtifactName}」没有对应的配装记录，已取消填入`
+            Notifier.warnRaw(
+                i18next.t(
+                    'No builds recorded for artifact {{artifact}}, fill cancelled',
+                    {
+                        artifact: heroArtifactName,
+                        interpolation: { escapeValue: false },
+                    }
+                )
             );
             return null;
         }
@@ -824,7 +806,9 @@ async function fill(hero) {
         artifactCode: fixedArtifactCode,
     });
     if (!panel) {
-        Notifier.warn('这个神器下没有可用的配装数据，已取消填入');
+        Notifier.warn(
+            'No usable build data for this artifact, fill cancelled'
+        );
         return null;
     }
 
@@ -837,7 +821,7 @@ async function fill(hero) {
         try {
             artifactName = await applyArtifact(hero, panel.artifactCode);
         } catch (e) {
-            console.warn('RTAStats: 神器设置失败', e && e.message);
+            console.warn('[HeroBuilds] 神器设置失败', e && e.message);
         }
     }
 
@@ -845,14 +829,19 @@ async function fill(hero) {
     await persistFilters(hero, panel);
 
     if (stale) {
-        Notifier.info(`配装数据是 ${day} 获取的缓存`);
+        Notifier.infoRaw(
+            i18next.t('Build data is from cache fetched on {{day}}', {
+                day,
+                interpolation: { escapeValue: false },
+            })
+        );
     }
 
     return {
         n: panel.n,
         nAll: panel.nAll,
         method: panel.method,
-        setZh: panel.setZh,
+        setLabel: panel.setLabel,
         artifactName: artifactName || panel.artifactCode,
         gsRange: panel.gsRange,
         targets: panel.targets,

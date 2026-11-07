@@ -1091,17 +1091,44 @@ async function applyItemFilters(item, force = false) {
     const wanted = wantedFilters(item);
     const applied = [];
     const skipped = [];
+    // 预测游戏里的状态：把某个 chip 设成别的 chip 已经有的副属性时，两者会交换（不产生重复）。
+    // 这里只用来打日志 / 让后续判断知道发生了什么；是否真的要设置始终以面板读回为准。
+    const predicted = { ...(filterCache || {}) };
+    const SUB_KEYS = ['sub1', 'sub2', 'sub3', 'sub4'];
 
     // compare each chip one by one: main, sub1, sub2, sub3, sub4
     for (const key of Object.keys(wanted)) {
         if (!force && filterCache && filterCache[key] === wanted[key]) {
             skipped.push(key);
+            predicted[key] = wanted[key];
             continue;
         }
 
         throwIfCancelled();
         const status = await setFilter(key, wanted[key]);
         (status === 'applied' ? applied : skipped).push(key);
+
+        if (SUB_KEYS.includes(key)) {
+            const partner = SUB_KEYS.find(
+                (other) => other !== key && predicted[other] === wanted[key]
+            );
+            if (partner) {
+                const displaced = predicted[key];
+                predicted[partner] = displaced;
+                console.log(
+                    '[emulator] chip swap:',
+                    key,
+                    '->',
+                    wanted[key],
+                    '|',
+                    partner,
+                    '->',
+                    displaced
+                );
+            }
+        }
+
+        predicted[key] = wanted[key];
     }
 
     console.log(

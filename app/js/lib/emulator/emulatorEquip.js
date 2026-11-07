@@ -133,14 +133,35 @@ function chipOrderCandidates(sorted, allItems) {
     return all.filter((order) => order[0] === types[0]);
 }
 
-function chipsChanged(previous, next) {
-    let changed = 0;
+/**
+ * 从上一件的 chip 排列换到这一件，需要点几次。
+ *
+ * 游戏里有个细节：把某个 chip 设成**已经存在于别的 chip 上**的副属性时，两个 chip 会
+ * 交换，而不是出现重复。所以「把 chip2 设成 chip3 现在那个属性」会顺带把 chip3 也变成
+ * chip2 原来的属性 —— 如果那正好是这次想要的，chip3 就不用再点了。
+ * 这里按 chip1..4 的顺序模拟一遍，返回实际需要点击的次数。
+ */
+function chipChangeCost(previous, next) {
+    const live = previous.slice();
+    let taps = 0;
+
     for (let index = 0; index < next.length; index += 1) {
-        if (previous[index] !== next[index]) {
-            changed += 1;
+        if (live[index] === next[index]) {
+            continue;
         }
+
+        const partner = live.indexOf(next[index]);
+        const displaced = live[index];
+
+        live[index] = next[index];
+        if (partner >= 0 && partner !== index) {
+            live[partner] = displaced;
+        }
+
+        taps += 1;
     }
-    return changed;
+
+    return taps;
 }
 
 // 两种代价都换算成秒，方便放在一起比较
@@ -190,7 +211,7 @@ function planChipOrders(items, allItems, verbose = true) {
                     state.cost +
                     scrollCost +
                     (state.order
-                        ? chipsChanged(state.order, order) * CHIP_CHANGE_SECONDS
+                        ? chipChangeCost(state.order, order) * CHIP_CHANGE_SECONDS
                         : 0);
                 if (!best || cost < best.cost) {
                     best = { cost, previousKey, order };
@@ -360,6 +381,7 @@ module.exports = {
     /** 供控制台排查：给定一组装备，打印最省切换次数的 chip 排列 */
     planChipOrders,
     defaultChipOrder,
+    chipChangeCost,
     sortedSubstats,
 
     // 一键换装按钮已移除，取消入口改到 builds 功能列的机器人图标上

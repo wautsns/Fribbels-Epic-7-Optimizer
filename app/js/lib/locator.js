@@ -276,7 +276,9 @@ function locateSingleItem(itemId, items, width) {
         };
     }
 
-    const target = EmulatorEquip.buildTarget(item);
+    // 和一键换装用同一套 chip 排列（单件就是它自己那一轮），这样行列数才对得上
+    const chipOrder = EmulatorEquip.planChipOrders([item], items, false)[0];
+    const target = EmulatorEquip.buildTarget(item, chipOrder);
     const filters = equip.wantedFilters(target);
     const info = equip.computeRank(target, items, filters, true, true) || { index: -1, total: 0, rank: -1 };
 

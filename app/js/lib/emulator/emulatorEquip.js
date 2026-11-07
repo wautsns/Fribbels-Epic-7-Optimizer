@@ -115,14 +115,22 @@ function permutations(types) {
     return result;
 }
 
-/** 一件装备所有合法的 chip 排列：chip 1 固定，其余三条任意排 */
-function chipOrderCandidates(sorted) {
-    if (!sorted.length) {
+/**
+ * 一件装备所有合法的 chip 排列（4 条副属性 = 24 种）。
+ * 没有全量装备数据时估不出排名，就只保留 chip1 = 数值最高那条的旧规则。
+ */
+function chipOrderCandidates(sorted, allItems) {
+    const types = sorted.map((sub) => sub.type);
+    if (!types.length) {
         return [[]];
     }
 
-    const rest = sorted.slice(1).map((sub) => sub.type);
-    return permutations(rest).map((tail) => [sorted[0].type].concat(tail));
+    const all = permutations(types);
+    if (allItems && allItems.length) {
+        return all;
+    }
+
+    return all.filter((order) => order[0] === types[0]);
 }
 
 function chipsChanged(previous, next) {
@@ -135,29 +143,55 @@ function chipsChanged(previous, next) {
     return changed;
 }
 
+// 两种代价都换算成秒，方便放在一起比较
+const CHIP_CHANGE_SECONDS = 1.8; // 开面板 + 选一条 + 关面板
+const ROW_SECONDS = 0.5; // 列表每滚一行（125px ≈ 半次 swipe，一次 swipe ≈ 1s 滚 2 行）
+
+/** 这套 chip 下目标要滚动几行（chip1 是排序主键，直接决定它在列表里的位置） */
+function rankRowsOf(item, order, allItems) {
+    if (!allItems || !allItems.length) {
+        return 0;
+    }
+
+    const target = buildTarget(item, order);
+    const filters = equip.wantedFilters(target);
+    const info = equip.computeRank(target, allItems, filters, true, true);
+    if (!info || info.rank < 0) {
+        return 0;
+    }
+
+    const cols = (equip.LAYOUT.grid && equip.LAYOUT.grid.cols) || 5;
+    return Math.floor(info.rank / cols);
+}
+
 /**
  * 六件装备是按槽位一件件换的，过滤器（chip）会跨槽位保留：上一件已经设好的
- * 「副属性2/3/4」如果这件也有，那个 chip 就完全不用动。
+ * 副属性 chip 如果这件也用到，那个 chip 就不用重设。
  *
- * chip 1 是排序主键（决定目标在列表里的位置），不能动；chip 2/3/4 只在数值相同时
- * 参与排序，顺序可以随便排。所以这里把每件的三种「其余副属性」排列都列出来做一次
- * DP，让整轮相邻两件的 chip 差异数（= 需要重设的 chip 数）最小。
+ * 每个排列的代价 = 目标在列表里要滚动的行数（chip 1 是排序主键，决定目标位置）
+ *              + 和上一件排列的差异数 × 一次 chip 切换的耗时。
+ * 每件最多 24 种排列，对整轮做一次 DP 取总代价最小的组合。
  */
-function planChipOrders(items) {
+function planChipOrders(items, allItems, verbose = true) {
+    const startedAt = Date.now();
     const layers = [];
     let states = new Map([['', { cost: 0, previousKey: null, order: null }]]);
 
     items.forEach((item) => {
         const next = new Map();
 
-        chipOrderCandidates(sortedSubstats(item)).forEach((order) => {
+        chipOrderCandidates(sortedSubstats(item), allItems).forEach((order) => {
             const key = order.join('|');
+            const scrollCost = rankRowsOf(item, order, allItems) * ROW_SECONDS;
             let best = null;
 
             states.forEach((state, previousKey) => {
                 const cost =
                     state.cost +
-                    (state.order ? chipsChanged(state.order, order) : 0);
+                    scrollCost +
+                    (state.order
+                        ? chipsChanged(state.order, order) * CHIP_CHANGE_SECONDS
+                        : 0);
                 if (!best || cost < best.cost) {
                     best = { cost, previousKey, order };
                 }
@@ -192,12 +226,14 @@ function planChipOrders(items) {
         key = state.previousKey;
     }
 
-    console.log(
-        '[emulator] chip plan:',
-        bestCost,
-        'changes |',
-        orders.map((order) => (order || []).join('/')).join(' -> ')
-    );
+    if (verbose) {
+        console.log(
+            '[emulator] chip plan:',
+            bestCost.toFixed(1) + 's |',
+            orders.map((order) => (order || []).join('/')).join(' -> '),
+            '| planned in ' + (Date.now() - startedAt) + 'ms'
+        );
+    }
     return orders;
 }
 
@@ -434,8 +470,8 @@ module.exports = {
             const allItems = await getAllItems();
             equip.resetFilterSession();
 
-            // 副属性 chip 的顺序按整轮连续性先规划好：chip 2/3/4 能沿用上一件的就不用重设
-            const chipOrders = planChipOrders(items);
+            // 副属性 chip 的顺序按整轮连续性 + 目标排名先规划好（顺序影响谁先排序）
+            const chipOrders = planChipOrders(items, allItems);
 
             // the optimizer data may be stale, so every piece is attempted; a slot that
             // fails (e.g. already worn in game) does not stop the rest

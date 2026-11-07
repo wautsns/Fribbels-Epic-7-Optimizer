@@ -378,6 +378,18 @@ input, button {
   margin: 2px 0 14px 0;
 }
 
+/* 英雄页内容比窗口矮时，把这一排压到页面底部（配装器那边天然就在底部），
+   否则切 tab 时这 6 张卡会上下跳一大截。62px ≈ 顶部标签栏 + 页面上下 padding */
+#heroes-section {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 62px);
+}
+
+#heroes-equipped-section {
+  margin-top: auto;
+}
+
 .heroes-equipped-item {
   width: 150px;
   padding: 10px 15px;

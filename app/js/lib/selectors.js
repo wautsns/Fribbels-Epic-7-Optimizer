@@ -2,12 +2,13 @@ var addHeroSelectorOpen = false;
 
 module.exports = {
     initialize: () => {
-        // 配装器筛选面板（套装 / 饰品主属性 / 排除）的 multiple-select 尺寸。
-        // 收起状态的输入框用 160px，贴近面板列的内容宽度（170px），右边不留大空白；
+        // 配装器筛选面板（套装 / 排除 / 饰品主属性）的 multiple-select 尺寸。
+        // 收起状态的输入框给 '100%'，跟着面板列的内容宽度走（#constraints-focus-panel 现在是 147px，
+        // 面板宽度再改也不用动这里）；插件会把这个值写进 .ms-parent 的内联 style，所以不能给死像素。
         // 展开列表的宽度单独给 dropWidth，因为插件默认让 .ms-drop 的 min-width 等于包装层宽度，
         // 只传 width 会把列表一起缩窄、选项被截断。
         // 套装 / 排除的列表另有 style.css 的双列 max-content 规则按内容自适应，所以不给 dropWidth。
-        const focusPanelInputWidth = 160;
+        const focusPanelInputWidth = '100%';
         const focusPanelDropWidth = 200;
         const multipleSelectOptions = {
             maxHeight: 450,

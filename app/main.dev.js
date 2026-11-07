@@ -112,8 +112,8 @@ console.log("main.dev.ts");
 let mainWindow = null;
 
 // 记住窗口大小、位置和最大化状态，下次启动时恢复
-const DEFAULT_WINDOW_WIDTH = 1113;
-const DEFAULT_WINDOW_HEIGHT = 940;
+const DEFAULT_WINDOW_WIDTH = 1091;
+const DEFAULT_WINDOW_HEIGHT = 932;
 const getWindowStateFile = () =>
   path.join(app.getPath('userData'), 'window-state.json');
 

@@ -229,8 +229,8 @@ input, button {
 
 .constraints-panel-col-med {
   padding: 5px 4px 4px 4px;
-  /* 去掉“属性变化”那一列后，210 → 180，省下的宽度留给属性优先级 */
-  width: 180px;
+  /* 去掉“属性变化”那一列后，210 → 176，省下的宽度留给属性优先级 */
+  width: 176px;
   flex-grow: 0;
   flex-shrink: 0;
   line-height: 14px;
@@ -1026,10 +1026,10 @@ input[type=number]::-webkit-outer-spin-button {
 }
 /* 评分过滤面板移除后，横排多出来的空间不再分给「饰品主属性/排除/套装」这一列：
    这一列一被拉宽，三个饰品主属性下拉就会挤成两列（第二列跑到右边），属性优先级也会被推远。
-   这里把它再收窄一些（200 → 170），省下来的宽度留给属性优先级，滑块才够长。
+   这里把它再收窄一些（200 → 147），省下来的宽度留给属性优先级，滑块才够长。
    下拉框宽度见 selectors.js 的 focusPanelInputWidth（160）。 */
 #constraints-focus-panel {
-  width: 170px;
+  width: 147px;
   flex-grow: 0;
   flex-shrink: 0;
 }

@@ -2327,6 +2327,8 @@ input:checked + .darkSlider:before {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  /* 撑满窗口高度（面板 top=44px），没满一屏时底部不再留空余 */
+  min-height: calc(100vh - 44px);
   /* 纵向内容（作业列表）可能超过面板高度：允许纵向滚动，横向仍然裁掉 */
   overflow-x: hidden;
   overflow-y: auto;
@@ -2372,12 +2374,13 @@ input[type=submit].gvgFilterClear {
   margin: 0;
 }
 /*
- * 作业表高度：面板下面还要放「角色条目 6 行 + builds」，空间不够时优先压缩作业表
- * （用户要求：宁可矮作业表，也不压 builds）。
- * 上限沿用原来的 252px（6 行），窗口变矮时自动缩到 3 行（144px）。
+ * 作业表：flex 布局下吃掉容器剩下的高度（撑满窗口后，剩余空间全给作业表），
+ * 所以任何窗口高度下作业表都会自动占满、builds 仍贴底。
+ * 窗口太矮（放不下 4 行）时 min-height 兜底到 144px，纵向滚动交给容器。
  */
 .gvgTableContainer {
-  height: clamp(144px, calc(100vh - 610px), 252px);
+  flex: 1 1 auto;
+  min-height: 144px;
   margin-top: 4px;
   overflow: hidden;
 }

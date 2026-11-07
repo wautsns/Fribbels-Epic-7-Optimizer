@@ -269,12 +269,16 @@ input, button {
 
 /* 配装器 / 英雄页底部那 6 件装备：两处必须用同一套尺寸，否则窄窗口下会出现横向滚动条。
    卡片内部最宽的是头部（装备图标 30 + 等级 38 + 材料 34+6 + 英雄头像 40 = 148），
-   所以内容宽度不能低于 148，否则窄卡片会被内容撑开。 */
+   所以内容宽度不能低于 148，否则窄卡片会被内容撑开。
+
+   一排 6 张卡的总宽 = 6 × (150 内容 + 6×2 左右 padding + 2 边框) + 5 × 4 间距 = 1004px，
+   窗口内容区小于这个宽度才会出现横向滚动条。左右 padding 原来是 10、间距是 6，
+   总宽 1062 —— 卡片内容宽度没变，只是把外面那圈留白收窄，给窄窗口多留了 58px。 */
 #optimizer-equipped-section .gear-preview-row,
 #heroes-equipped-section .gear-preview-row {
   width: 150px;
-  padding: 10px 10px 5px;
-  margin-right: 6px;
+  padding: 10px 6px 5px;
+  margin-right: 4px;
   flex-shrink: 0;
 }
 

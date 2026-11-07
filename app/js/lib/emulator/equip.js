@@ -1767,6 +1767,7 @@ module.exports = {
     setSortAcquisitionAscending,
     selectSlot,
     setFilter,
+    wantedFilters,
     computeRank,
     applySetFilter,
     findSetIcon,

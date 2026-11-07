@@ -304,20 +304,19 @@ input, button {
   display: flex;
   flex-direction: row;
 }
-.ag-body-horizontal-scroll {
-  min-height: 5px !important;
-  max-height: 5px !important;
-  height: 5px !important;
+/* 全主题统一 5px 细滚动条（原来只有 darktheme.css 里有，浅色主题是浏览器默认的 ~15px）。
+   表格底部那条横向滚动条（.ag-body-horizontal-scroll）的高度就由它决定，
+   所以这里直接按滚动条尺寸走，不再用 !important 去写死高度。 */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
-.ag-body-horizontal-scroll-viewport {
-  min-height: 5px !important;
-  max-height: 5px !important;
-  height: 5px !important;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
-.ag-body-horizontal-scroll-container {
-  min-height: 5px !important;
-  max-height: 5px !important;
-  height: 5px !important;
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 5px;
 }
 .ag-cell {
   display: flex;
@@ -1727,20 +1726,21 @@ body.dark-theme input {
   width: 100%;
 }
 .heroesTableContainer {
-  /* 完整显示 8 行英雄、且不露出第 9 行顶部：8×36 + 外壳 55 = 343
-     （外壳 = 表头 24 + 分页条 + 内部横/纵滚动条，实测 55）。
-     原来 360 是「8 行 + 一段第 9 行」的高度，会导致页面超高 + 露出半行；
-     窗口更高时仍由 flex-grow 自动撑开 */
-  min-height: 343px;
-  height: 343px;
+  /* 完整显示 8 行英雄、不露第 9 行顶部：8×36 + 外壳 50 = 338
+     外壳实测 = 表头 24 + 分页条 24 + 边框 2（没有横向滚动条时横条高度是 0）。
+     窗口变窄、表格出现横向滚动条时外壳会再 +5px，可用控制台
+     TableHeights.fit('heroes', 8) 重新量一次。 */
+  min-height: 338px;
+  height: 338px;
   flex-grow: 1;
   resize: vertical;
   overflow: hidden;
 }
 .buildsTableContainer {
-  /* 4 条 builds：表头 24 + 4×27 + 分页 32 + 边框 ≈ 168，取 172 */
-  min-height: 172px;
-  height: 172px;
+  /* 完整显示 5 条 builds：5×27 + 外壳 26 = 161
+     外壳实测 = 表头 24 + 边框 2（这个表没有分页条，也没有横向滚动条）。 */
+  min-height: 161px;
+  height: 161px;
   flex-grow: 0.2;
   resize: vertical;
   overflow: hidden;

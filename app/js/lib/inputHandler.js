@@ -67,6 +67,8 @@ global.GvgTab = require('./gvg/gvgTab');
 global.ModificationFilter = require('./modificationFilter');
 global.Subprocess = require('./subprocess');
 global.Selectors = require('./selectors');
+// 表格容器高度试调工具（DevTools 控制台用：TableHeights.fit('builds', 4)）
+global.TableHeights = require('./tableHeights');
 global.RtaStats = require('./rtaStats');
 global.HeroBuilds = require('./heroBuilds');
 global.Settings = require('./settings');
@@ -145,6 +147,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         EmulatorEquip.initialize();
 
         Tooltip.initialize();
+        // 定位准星的悬浮提示（排序顺序 + 每行数量）
+        Locator.initialize();
         ColorPicker.initialize();
         EnhancingTab.initialize();
     });

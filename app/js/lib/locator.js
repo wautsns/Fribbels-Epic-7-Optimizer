@@ -1,5 +1,9 @@
 
-const tippy = require('tippy.js').default;
+const tippyModule = require('tippy.js');
+const tippy = tippyModule.default;
+
+const equip = require('./emulator/equip');
+const EmulatorEquip = require('./emulator/emulatorEquip');
 
 var readableSubstatByName = {
     "Attack": "Flat atk",
@@ -15,74 +19,240 @@ var readableSubstatByName = {
     "EffectResistancePercent": "Eff Res",
 }
 
-// A single substat can still leave the item far down the list. Once it lands past
-// this row, a second substat is added so the item gets sorted closer to the top.
-const SECOND_SUBSTAT_ROW_THRESHOLD = 6;
+// 悬浮提示共用一个 tippy 实例：锚点是一个隐藏的空元素，位置跟着鼠标下的准星走。
+// 不用 tippy 的 delegate()，因为它要求 props.target（而且一个元素只能挂一个实例，
+// 会和点击后的详情提示抢位置）。
+var hoverTip = null;
+var hoverIcon = null;
+var hoverListenersAttached = false;
+
+// 点击后弹出来的详情提示：点一个准星会把当前这一排 6 个部位各弹一个，所以用数组管
+var detailTips = [];
+
+function hideDetailTips() {
+    const tips = detailTips;
+    detailTips = [];
+
+    tips.forEach((tip) => {
+        try {
+            tip.hide();
+        } catch (error) {
+            console.warn('[locator] hide tooltip failed', error);
+        }
+    });
+}
+
+function locatorWidth() {
+    return parseInt(Settings.parseNumberValue('settingLocatorWidth') || 5);
+}
+
+function readableSubstat(type) {
+    return i18next.t(readableSubstatByName[type] || type);
+}
+
+function isPercentStat(type) {
+    return /Percent$/.test(type);
+}
+
+function formatValue(type, value) {
+    const number = Number(value);
+    const shown = Number.isFinite(number)
+        ? (Number.isInteger(number) ? number : number.toFixed(1))
+        : value;
+
+    return isPercentStat(type) ? shown + '%' : String(shown);
+}
+
+// 副属性按「一键换装用的 chip 顺序」显示（chip1 = 强化后数值最高那条，其余按类型字母序）
+function substatLines(result) {
+    return (result.substats || []).map((sub, index) => {
+        return i18next.t("Substat") + (index + 1) + '：' + readableSubstat(sub.type) + '（' + formatValue(sub.type, sub.value) + '）';
+    });
+}
+
+function hoverContent() {
+    return '<div class="locatorTip">'
+        + i18next.t("Sort") + ': ' + i18next.t("Substat value (Descending)") + ' → ' + i18next.t("Acquisition (Ascending)") + '<br>'
+        + i18next.t("Width setting") + ': ' + locatorWidth()
+        + '</div>';
+}
+
+function detailContent(result) {
+    if (result.unscannedItem) {
+        return '<div class="locatorTip">' + i18next.t("Rescan items to locate") + '</div>';
+    }
+
+    const lines = [];
+
+    if (result.storage) {
+        lines.push(i18next.t("Item in storage"));
+    } else if (result.found) {
+        lines.push(i18next.t("Row") + ': ' + result.row + ' ' + i18next.t("Column") + ': ' + result.column);
+    } else {
+        lines.push('<b>' + i18next.t("Not in the filtered list") + '</b>');
+    }
+
+    if (result.main) {
+        lines.push(i18next.t("Main stat") + '：' + readableSubstat(result.main.type) + '（' + formatValue(result.main.type, result.main.value) + '）');
+    }
+
+    lines.push.apply(lines, substatLines(result));
+
+    return '<div class="locatorTip">' + lines.join('<br>') + '</div>';
+}
+
+function emptyRect() {
+    return { width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0 };
+}
+
+function ensureHoverTip() {
+    if (hoverTip) {
+        return hoverTip;
+    }
+
+    const anchor = document.createElement('span');
+    anchor.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;';
+    document.body.appendChild(anchor);
+
+    hoverTip = tippy(anchor, {
+        allowHTML: true,
+        arrow: false,
+        trigger: 'manual',
+        placement: 'top',
+        distance: 6,
+        content: () => hoverContent(),
+        getReferenceClientRect: () => (hoverIcon ? hoverIcon.getBoundingClientRect() : emptyRect()),
+    });
+
+    return hoverTip;
+}
+
+function hideHoverTip() {
+    hoverIcon = null;
+    if (hoverTip) {
+        hoverTip.hide();
+    }
+}
+
+function attachHoverListeners() {
+    if (hoverListenersAttached) {
+        return;
+    }
+    hoverListenersAttached = true;
+
+    document.addEventListener('mouseover', (event) => {
+        const icon = event.target && event.target.closest
+            ? event.target.closest('[class*="locateTooltip"]')
+            : null;
+
+        if (!icon || icon === hoverIcon) {
+            return;
+        }
+
+        hoverIcon = icon;
+        ensureHoverTip().show();
+    });
+
+    document.addEventListener('mouseout', (event) => {
+        const icon = event.target && event.target.closest
+            ? event.target.closest('[class*="locateTooltip"]')
+            : null;
+
+        if (!icon) {
+            return;
+        }
+
+        hideHoverTip();
+    });
+}
 
 module.exports = {
+    initialize: () => {
+        attachHoverListeners();
+
+        // 点击弹出来的详情提示是手动触发的，需要自己处理「点别处 / 滚动就关掉」，
+        // 否则它们会一直挂在卡片上（一次会弹 6 个，所以按数组管理）
+        document.addEventListener('mousedown', hideDetailTips, true);
+        window.addEventListener('scroll', hideDetailTips, true);
+    },
+
     locate: async (ingameId, selectorClass) => {
         const getAllItemsResponse = await Api.getAllItems();
         const items = getAllItemsResponse.items;
-        const width = parseInt(Settings.parseNumberValue('settingLocatorWidth') || 5);
+        const width = locatorWidth();
 
-        var elements = document.querySelectorAll("." + selectorClass);
+        const elements = document.querySelectorAll("." + selectorClass);
 
-        for (var element of elements) {
-            var result = locateSingleItem(element.dataset.itemid, items, width);
+        // 注意用 const：闭包（reference）要捕获「当前这一张卡」的 element，
+        // 用 var 的话循环结束后所有提示都会落到最后一张卡上，全部叠在一起
+        for (const element of elements) {
+            const result = locateSingleItem(element.dataset.itemid, items, width);
             console.log('locate', element, element.dataset.itemid, result);
 
-            if (result) {
-                var content = "";
-
-                if (result.unscannedItem) {
-                    content = i18next.t("Rescan items to locate")
-                } else if (result.storage) {
-                    content = i18next.t("Item in storage")
-                } else {
-                    const substats = result.substats
-                        .map(x => i18next.t(readableSubstatByName[x] || x))
-                        .join(", ")
-
-                    content = `<div class="locatorTip">${i18next.t("Substat")}: ${substats}</br>
-                    ${i18next.t("Row")}: ${Math.floor(result.index / width) + 1} ${i18next.t("Column")}: ${result.index % width + 1}</br>
-                    ${i18next.t("Sort")}: ${i18next.t("Acquisition (Ascending)")}</br>
-                    ${i18next.t("Width setting")}: ${width}</div>`
-                }
-
-                var tippyInstance;
-                if (element._tippy) {
-                    tippyInstance = element._tippy
-                } else {
-                    // 提示框按「整张装备卡」定位，而不是按卡片底部的小准星：
-                    // 这样它弹在卡片上方（不挡住副属性数值），
-                    // 且每张卡片居中一格，窄卡也不会压到邻居
-                    const card = element.closest('.gear-preview-row');
-                    const reference = card
-                        ? () => card.getBoundingClientRect()
-                        : null;
-
-                    tippyInstance = tippy(element, {
-                        allowHTML: true,
-                        trigger: 'focus',
-                        placement: 'top',
-                        distance: 6,
-                        content: content,
-                        arrow: false,
-                        getReferenceClientRect: reference,
-
-                        onHidden(instance) {
-                            instance.destroy()
-                            return true;
-                        },
-                    })
-                }
-
-                tippyInstance.show();
+            if (!result) {
+                continue;
             }
+
+            hideHoverTip();
+
+            const content = detailContent(result);
+
+            let tippyInstance = element._tippy;
+            if (tippyInstance) {
+                tippyInstance.setContent(content);
+            } else {
+                // 提示框的右下角对齐装备卡的右下角，盖在卡片上：
+                // 参考区域收成一个「卡片右下角的点」+ top-end，
+                // 提示框从那个点往左上方展开（挡住卡片数据没关系，数据提示里都有）
+                const reference = () => {
+                    const card = element.closest('.gear-preview-row');
+                    const rect = card
+                        ? card.getBoundingClientRect()
+                        : element.getBoundingClientRect();
+
+                    return {
+                        width: 0,
+                        height: 0,
+                        top: rect.bottom,
+                        bottom: rect.bottom,
+                        left: rect.right,
+                        right: rect.right,
+                        x: rect.right,
+                        y: rect.bottom,
+                    };
+                };
+
+                tippyInstance = tippy(element, {
+                    allowHTML: true,
+                    trigger: 'manual',
+                    placement: 'top-end',
+                    distance: 0,
+                    content: content,
+                    arrow: false,
+                    getReferenceClientRect: reference,
+
+                    onHidden(instance) {
+                        detailTips = detailTips.filter((tip) => tip !== instance);
+                        instance.destroy()
+                        return true;
+                    },
+                })
+            }
+
+            if (!detailTips.includes(tippyInstance)) {
+                detailTips.push(tippyInstance);
+            }
+            tippyInstance.show();
         }
     },
 }
 
+/*
+ * 定位逻辑与「一键换装」(equip.computeRank) 完全一致：
+ *  - 候选集：同部位 + 不在仓库 + 主属性对得上 + 4 条副属性都存在
+ *  - 排序：按 chip 顺序（sub1..sub4）的副属性数值降序，同值按 ingameId 升序
+ * 这样一键换装找不到时，看提示里的行/列就能判断是哪一步对不上。
+ */
 function locateSingleItem(itemId, items, width) {
     if (!itemId) {
         console.log("No item matching id " + itemId)
@@ -100,107 +270,29 @@ function locateSingleItem(itemId, items, width) {
         };
     }
 
-    // The in-game page lists one gear slot at a time, storage items live in their own page
-    var candidates = items.filter(x => x.gear == item.gear && !x.storage)
-    // items = items.filter(x => x.set == item.set && x.gear == item.gear)
+    const target = EmulatorEquip.buildTarget(item);
+    const filters = equip.wantedFilters(target);
+    const info = equip.computeRank(target, items, filters, true, true) || { index: -1, total: 0, rank: -1 };
 
-    // Raw substat values give a more precise ordering than the rounded display values
-    const useOp = !!item.op
-    const substatTypes = item.substats.map(x => x.type)
+    const found = info.index >= 0;
 
-    var best = null
-
-    for (var substatType of substatTypes) {
-        const index = rankOf(item, candidates, [substatType], useOp)
-        if (!best || index < best.index) {
-            best = { index: index, substats: [substatType] }
-        }
-    }
-
-    if (best && Math.floor(best.index / width) + 1 > SECOND_SUBSTAT_ROW_THRESHOLD) {
-        for (var first of substatTypes) {
-            for (var second of substatTypes) {
-                if (first == second) {
-                    continue
-                }
-
-                const index = rankOf(item, candidates, [first, second], useOp)
-                if (index < best.index) {
-                    best = { index: index, substats: [first, second] }
-                }
-            }
-        }
-    }
+    // chip 顺序的副属性（sub1..sub4）+ 主属性，供提示框显示游戏面板上的实际数值
+    const substats = ['sub1', 'sub2', 'sub3', 'sub4']
+        .map((key) => filters[key])
+        .filter(Boolean)
+        .map((type) => {
+            const substat = (item.substats || []).find((entry) => entry.type === type);
+            return { type: type, value: substat ? substat.value : 0 };
+        });
 
     return {
-        substats: best ? best.substats : [],
-        index: best ? best.index : 0,
-        storage: item.storage || false
+        storage: item.storage || false,
+        found: found,
+        index: found ? info.index : -1,
+        total: info.total,
+        row: found ? Math.floor(info.index / width) + 1 : null,
+        column: found ? (info.index % width) + 1 : null,
+        main: item.main ? { type: item.main.type, value: item.main.value } : null,
+        substats: substats,
     }
-}
-
-// Selecting a substat on the in-game page also hides items that do not have it,
-// so only items carrying every selected substat are part of the list
-function rankOf(item, items, substatTypes, useOp) {
-    const filtered = items.filter(x => substatTypes.every(t => hasSubstat(x, t)))
-    const sorted = filtered.slice().sort((x, y) => compareItems(x, y, substatTypes, useOp))
-    return sorted.findIndex(x => x.ingameId == item.ingameId)
-}
-
-function hasSubstat(item, substatType) {
-    return (item.substats || []).some(x => x.type == substatType)
-}
-
-// Higher substats come first, items without raw substat data are pushed to the end.
-// Ties fall back to acquisition order, oldest first, matching the in-game page.
-// Newest first would shift existing rows whenever a new item rolls the same value.
-function compareItems(x, y, substatTypes, useOp) {
-    for (var substatType of substatTypes) {
-        const xValue = substatValue(x, substatType, useOp)
-        const yValue = substatValue(y, substatType, useOp)
-
-        if (xValue == null || yValue == null) {
-            if (xValue == null && yValue == null) {
-                continue
-            }
-            return xValue == null ? 1 : -1
-        }
-
-        const difference = yValue - xValue
-        if (difference != 0) {
-            return difference
-        }
-    }
-
-    return x.ingameId - y.ingameId
-}
-
-function substatValue(item, substatType, useOp) {
-    if (!useOp) {
-        return item.augmentedStats[substatType] || 0
-    }
-
-    if (!item.op) {
-        return null
-    }
-
-    return item.op.slice(1)
-        .filter(x => opStatToSubstat[x[0]] == substatType)
-        .map(x => parseFloat(x[1]))
-        .reduce((a, b) => a + b, 0)
-}
-
-var opStatToSubstat = {
-    "att_rate": "AttackPercent",
-    "max_hp_rate": "HealthPercent",
-    "def_rate": "DefensePercent",
-    "att": "Attack",
-    "max_hp": "Health",
-    "def": "Defense",
-    "speed": "Speed",
-    "res": "EffectResistancePercent",
-    "cri": "CriticalHitChancePercent",
-    "cri_dmg": "CriticalHitDamagePercent",
-    "acc": "EffectivenessPercent",
-    "coop": "DualAttackChancePercent"
 }

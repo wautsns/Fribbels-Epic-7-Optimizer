@@ -379,8 +379,11 @@ input, button {
 }
 
 /* 英雄页内容比窗口矮时，把这一排压到页面底部（配装器那边天然就在底部），
-   否则切 tab 时这 6 张卡会上下跳一大截。62px ≈ 顶部标签栏 + 页面上下 padding */
-#heroes-section {
+   否则切 tab 时这 6 张卡会上下跳一大截。62px ≈ 顶部标签栏 + 页面上下 padding。
+   注意：display 必须写在「英雄 tab 被选中」的选择器里 —— 直接给 #heroes-section 设
+   display:flex 会盖掉 .tabset .tab-panel{display:none}，导致英雄页永远显示、切 tab 时
+   配装器内容被追加在英雄页下面。 */
+.tabset > #tab4:checked ~ .tab-panels > #heroes-section {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 62px);

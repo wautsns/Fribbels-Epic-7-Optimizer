@@ -2373,12 +2373,10 @@ input[type=submit].gvgFilterClear {
 }
 /*
  * 作业表：ag-grid 需要固定高度（flex 自适应会在初始化时拿到 0 高度导致不渲染），
- * 所以用 clamp 写死。下面还要放「角色条目 + builds」，空间不够时优先压缩作业表；
- * 上限沿用默认 6 行并在窗口充足时略有放宽（100vh-570 → 295px，约 8 行），
- * 窗口变矮时自动缩到 4 行（144px）。
+ * 所以写死固定像素。当前值 314px 由 TableHeights.fit('gvg', N) 实测得出。
  */
 .gvgTableContainer {
-  height: clamp(144px, calc(100vh - 570px), 295px);
+  height: 314px;
   margin-top: 4px;
   overflow: hidden;
 }
@@ -2386,15 +2384,15 @@ input[type=submit].gvgFilterClear {
   height: 100%;
   width: 100%;
 }
-/* 进攻阵容角色条目：6 行 × 36px + 外壳 36 ≈ 271px（固定，不参与压缩） */
+/* 进攻阵容角色条目：6 行 × 36px + 外壳 ≈ 266px（固定，不参与压缩） */
 .gvgTeamHeroesContainer {
-  height: 271px;
+  height: 266px;
   margin-top: 8px;
   overflow: hidden;
 }
-/* builds：和英雄页的 builds 区域一样高（4 行 ≈ 172px） */
+/* builds：3 行 × 27px + 外壳 ≈ 161px */
 .gvgTeamBuildsContainer {
-  height: 172px;
+  height: 161px;
   margin-top: 4px;
   overflow: hidden;
 }

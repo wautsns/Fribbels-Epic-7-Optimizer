@@ -1027,11 +1027,13 @@ module.exports = {
         for (var hero of heroes) {
             const option = document.createElement('option');
             const option2 = document.createElement('option');
-            option.innerHTML = i18next.t(hero.name);
+            // 左侧英雄选择器 / 排除下拉框都显示成「英雄名 #优先度」，
+            // 方便按 rank 列的值找到目标条目；option.label 仍存英雄名：
+            // redrawHeroImage() 是按 label 取名字的
+            option.innerHTML = heroOptionText(hero);
             option.label = hero.name;
             option.value = hero.id;
-            // 同一个角色可以有多条条目，「排除已穿上的装备」里光看名字分不清是谁，
-            // 所以显示成「英雄名 #排名」（和 GVG 的「从英雄列表带入」一致）；
+            // 排除下拉框同样显示「英雄名 #优先度」，两个下拉口径一致；
             // option.label 仍存英雄名：redrawHeroImage() 是按 label 取名字的
             option2.innerHTML = heroOptionText(hero);
             option2.label = hero.name;

@@ -95,37 +95,8 @@ public class ItemDb {
                         reforgedStats.getDefense() * defValue +
                         reforgedStats.getHealth() * hpValue;
 
-        double dpsWssValue =
-                reforgedStats.getAttackPercent() +
-                        reforgedStats.getSpeed() * (8.0/4.0) +
-                        reforgedStats.getCritDamage() * 1.125 +
-                        reforgedStats.getCritRate() * 1.5 +
-                        reforgedStats.getAttack() * atkValue;
-
-        double supportWssValue =
-                reforgedStats.getDefensePercent() +
-                        reforgedStats.getHealthPercent() +
-                        reforgedStats.getEffectResistance() +
-                        reforgedStats.getSpeed() * (8.0/4.0) +
-                        reforgedStats.getDefense() * defValue +
-                        reforgedStats.getHealth() * hpValue;
-
-        double combatWssValue =
-                reforgedStats.getAttackPercent() +
-                        reforgedStats.getDefensePercent() +
-                        reforgedStats.getHealthPercent() +
-                        reforgedStats.getSpeed() * (8.0/4.0) +
-                        reforgedStats.getCritDamage() * 1.125 +
-                        reforgedStats.getCritRate() * 1.5 +
-                        reforgedStats.getAttack() * atkValue +
-                        reforgedStats.getDefense() * defValue +
-                        reforgedStats.getHealth() * hpValue;
-
         item.setWss(round2(wssValue));
         item.setReforgedWss(round2(reforgedWssValue));
-        item.setDpsWss(round2(dpsWssValue));
-        item.setSupportWss(round2(supportWssValue));
-        item.setCombatWss(round2(combatWssValue));
         return item;
     }
 

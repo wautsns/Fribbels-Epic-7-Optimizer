@@ -606,7 +606,6 @@ function onRowSelected(event) {
         updateSelectedCount();
 
         // Testing purposes
-        // Reforge.calculateMaxes(event.data);
         Reforge.unreforgeItem(event.data);
         console.log(event.data);
         // GearRating.rate(event.data);

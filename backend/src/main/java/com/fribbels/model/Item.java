@@ -59,12 +59,9 @@ public class Item {
     public int convertable;
     public int alreadyEquipped;
     public int priority;
-    // 分数保留 1 位小数（原来是 int，小数位被取整丢掉了）
+    // 分数保留 2 位小数（原来是 int，小数位被取整丢掉了）
     private double wss;
     private double reforgedWss;
-    private double dpsWss;
-    private double supportWss;
-    private double combatWss;
 
     private String duplicateId;
     private String allowedMods;

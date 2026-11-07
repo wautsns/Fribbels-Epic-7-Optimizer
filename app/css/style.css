@@ -388,13 +388,23 @@ input, button {
 .tabset > #tab4:checked ~ .tab-panels > #heroes-section {
   display: flex;
   flex-direction: column;
-  /* 面板 top 实测 44px、body 底部还有约 17px，所以只留 44+17≈61px：
-     再小就会整页超出窗口、冒出纵向滚动条 */
-  min-height: calc(100vh - 62px);
+  /* 819px = 865 窗口高 - 44 面板 top - 2 余量：实测这个高度切 tab 不跳，又不冒出纵向滚动条 */
+  min-height: calc(100vh - 46px);
+}
+
+/* 多出来的空白放在 builds 和 6 装备之间：最后一个子容器撑满剩余高度，再把卡片顶到它底部 */
+.tabset > #tab4:checked ~ .tab-panels > #heroes-section > *:last-child {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tabset > #tab4:checked ~ .tab-panels > #heroes-section > *:last-child > *:last-child {
+  margin-top: auto;
 }
 
 #heroes-section > *:last-child {
-  margin-top: auto;
+  /* 旧的占位规则已由上面 tab 内的两条替代（否则空白会落在 builds 上方） */
 }
 
 /* 英雄页这一排不需要额外的下边距：面板已经被撑到接近一屏，卡片下面只剩页面自身的 padding */

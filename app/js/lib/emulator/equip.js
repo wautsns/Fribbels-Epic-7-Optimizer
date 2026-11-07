@@ -1136,8 +1136,17 @@ async function assertListNotEmpty(frame) {
 
 // ---- waiting for what should appear (instead of sleeping a fixed time) ----------------
 const GRID_STABLE_DELTA = 6;
-const GRID_STABLE_TIMEOUT = 3000;
+const GRID_STABLE_TIMEOUT = 4000;
 const TILE_APPEAR_TIMEOUT = 1600;
+
+// 选完最后一个副属性 chip 后，列表要过一会儿才开始重画。「连续两帧一样」在重画开始前
+// 就已经成立，慢一点的机器上（渲染 + 编码延迟）会被误判成「已经稳定」，于是拿着旧列表
+// 去算行列、点格子 —— 点错之后又以为装备不存在，白跑一圈 ±4 探测。所以：
+//   * 先等列表真的变过一次（最多 GRID_CHANGE_TIMEOUT）
+//   * 再要求连续 GRID_READY_SAMPLES 次采样都不动
+const GRID_READY_INTERVAL = 100;
+const GRID_READY_SAMPLES = 3;
+const GRID_CHANGE_TIMEOUT = 1200;
 
 function gridRegion() {
     return {
@@ -1220,22 +1229,48 @@ async function waitForGridStable(previous, timeout = 2000) {
 // Waits until the item list is drawn *and* settled. A single capture right after the last
 // filter chip is not proof that the list finished refreshing, and tapping into a list that
 // is still rendering is what made the target tile get missed.
-async function waitForGridReady(timeout = GRID_STABLE_TIMEOUT) {
+//
+// expectChange: 这次筛选确实换了 chip，列表一定会重画 —— 那就先等它变（见上面的常量），
+// 避免把「还没开始重画」当成「已经稳定」。
+async function waitForGridReady({
+    timeout = GRID_STABLE_TIMEOUT,
+    expectChange = false,
+} = {}) {
     const started = Date.now();
     let previous = await captureFrame();
+    const baseline = previous;
+    let changed = !expectChange;
+    let stableSamples = 0;
+    let requiredSamples = GRID_READY_SAMPLES;
 
     while (Date.now() - started < timeout) {
         const frame = await captureFrame();
-        const hasTiles = findCandidates(frame).length > 0;
-        const stable =
-            screen.regionDelta(previous, frame, gridRegion()) < GRID_STABLE_DELTA;
+        const delta = screen.regionDelta(previous, frame, gridRegion());
 
-        if (hasTiles && stable) {
+        if (
+            !changed &&
+            screen.regionDelta(baseline, frame, gridRegion()) >= GRID_STABLE_DELTA
+        ) {
+            changed = true;
+        }
+
+        // 等不到变化说明这次筛选本来就不会改变列表，别一直空等；
+        // 但慢机器上「还没开始重画」也会这样，所以从这一刻起再要求一段静止时间
+        if (!changed && Date.now() - started >= GRID_CHANGE_TIMEOUT) {
+            changed = true;
+            requiredSamples = GRID_READY_SAMPLES + 5;
+            stableSamples = 0;
+        }
+
+        const hasTiles = findCandidates(frame).length > 0;
+        stableSamples = delta < GRID_STABLE_DELTA ? stableSamples + 1 : 0;
+
+        if (changed && hasTiles && stableSamples >= requiredSamples) {
             return frame;
         }
 
         previous = frame;
-        await sleep(80);
+        await sleep(GRID_READY_INTERVAL);
     }
 
     console.warn(
@@ -1406,13 +1441,22 @@ function matchesExpected(numbers, expected) {
 async function waitForPanelSettled(initialFrame, timeout = 1800) {
     const started = Date.now();
     let previous = initialFrame || (await captureFrame());
+    let stableSamples = 0;
 
     while (Date.now() - started < timeout) {
         const frame = await captureFrame();
-        if (screen.regionDelta(previous, frame, LAYOUT.valuePanel) < 2) {
+        // 面板是淡入的：单帧「没变化」在淡入开始前也成立，所以要求连续两帧稳定
+        stableSamples =
+            screen.regionDelta(previous, frame, LAYOUT.valuePanel) < 2
+                ? stableSamples + 1
+                : 0;
+
+        if (stableSamples >= 2) {
             return frame;
         }
+
         previous = frame;
+        await sleep(60);
     }
 
     return previous;
@@ -1660,6 +1704,12 @@ async function selectItem(item, options = {}) {
         setApplied = !!filterCache.setApplied;
     }
 
+    // 这次会不会真的重设 chip：只有变了才需要等「重画 -> 稳定」，不然只是白等
+    const wantedChips = wantedFilters(item);
+    const chipsWillChange = ['main', 'sub1', 'sub2', 'sub3', 'sub4'].some(
+        (key) => !filterCache || filterCache[key] !== wantedChips[key]
+    );
+
     const filters = await applyItemFilters(item);
     filters.set = setApplied ? item.set : null;
     // changing a filter resets the list to the top
@@ -1667,7 +1717,9 @@ async function selectItem(item, options = {}) {
 
     // the list re-renders after the last chip; wait until it is drawn and settled instead
     // of assuming the next capture already shows the filtered result
-    let frame = await waitForGridReady();
+    let frame = await waitForGridReady({
+        expectChange: chipsWillChange || setApplied,
+    });
     await assertListNotEmpty(frame);
 
     if (!options.allItems || !item.id) {
@@ -1703,6 +1755,11 @@ async function selectItem(item, options = {}) {
                 !(await looksLikeManagePage(await captureFrame()))
             ) {
                 await recoverToManagePage();
+            }
+
+            // 上一次没点中，很可能只是列表还在刷新/还没滚稳：等它彻底停下来再点下一个
+            if (probeIndex > 0) {
+                await waitForGridReady({ expectChange: false });
             }
 
             const targetRow = Math.floor(candidate / LAYOUT.grid.cols);

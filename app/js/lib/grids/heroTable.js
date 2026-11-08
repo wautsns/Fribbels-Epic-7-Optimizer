@@ -600,6 +600,30 @@ function renderArtifactIcon(params) {
  * - 只有上限 → 速度≤150
  * - 都有 → 130≤速度≤200
  */
+/**
+ * 面板需求的数值缩写，缩短列宽：1400→1k4，13000→1w3。
+ * 规则（保守，仅处理规整数字，避免信息丢失）：
+ *   - 4 位数（1000~9999）且能被 100 整除 → `xky`（1400→1k4，1200→1k2，1250 不变）
+ *   - 5 位数（10000~99999）且能被 1000 整除 → `xwy`（13000→1w3，14000→1w4，12500 不变）
+ *   - 其余原样
+ */
+function compactStatNumber(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return String(value);
+
+    if (n >= 1000 && n <= 9999 && n % 100 === 0) {
+        const whole = Math.floor(n / 1000);
+        const rem = Math.floor((n % 1000) / 100);
+        return rem ? `${whole}k${rem}` : `${whole}k`;
+    }
+    if (n >= 10000 && n <= 99999 && n % 1000 === 0) {
+        const whole = Math.floor(n / 10000);
+        const rem = Math.floor((n % 10000) / 1000);
+        return rem ? `${whole}w${rem}` : `${whole}w`;
+    }
+    return String(n);
+}
+
 function formatStatRequirements(hero) {
     const request = hero && hero.optimizationRequest;
     if (!request) return '';
@@ -619,11 +643,11 @@ function formatStatRequirements(hero) {
         const statKey = definition.minKey.replace('input', '').replace('MinLimit', '');
         const label = i18next.t(STAT_LABEL_KEYS[definition.minKey]);
         if (hasMin && hasMax) {
-            texts[statKey] = `${min}≤${label}≤${max}`;
+            texts[statKey] = `${compactStatNumber(min)}≤${label}≤${compactStatNumber(max)}`;
         } else if (hasMin) {
-            texts[statKey] = `${label}≥${min}`;
+            texts[statKey] = `${label}≥${compactStatNumber(min)}`;
         } else {
-            texts[statKey] = `${label}≤${max}`;
+            texts[statKey] = `${label}≤${compactStatNumber(max)}`;
         }
     }
 

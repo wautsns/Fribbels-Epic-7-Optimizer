@@ -1194,6 +1194,8 @@ function onBuildCellClicked(params) {
     }
 }
 
+const CONFLICT_SLOT_ORDER = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
+
 /*
  * builds 表的「冲突」列：这条配装有几件装备正被别的英雄穿着。
  * 鼠标悬停显示"被谁穿着"，方便决定让谁来穿（tooltip 由列上的
@@ -1220,7 +1222,21 @@ function buildConflictTitle(build) {
     const { count, owners } = buildConflictOwners(build);
     if (!count) return '';
 
-    return `${i18next.t('Gear conflict')}: ${owners.join(' / ')}`;
+    const bySlot = new Map();
+    const slots = api.getBuildConflicts(api.getSelectedRow() && api.getSelectedRow().id, build);
+    slots.forEach((conflict) => {
+        const name = i18next.t(conflict.heroName);
+        const index = Number(conflict.heroIndex);
+        const label = Number.isFinite(index) ? `${name} #${index}` : name;
+        if (!bySlot.has(conflict.slot)) bySlot.set(conflict.slot, []);
+        if (!bySlot.get(conflict.slot).includes(label)) bySlot.get(conflict.slot).push(label);
+    });
+
+    const lines = CONFLICT_SLOT_ORDER
+        .filter((slot) => bySlot.has(slot))
+        .map((slot) => `${i18next.t(slot)}: ${bySlot.get(slot).join(' / ')}`);
+
+    return `${i18next.t('Gear conflict')}:<br>${lines.join('<br>')}`;
 }
 
 function renderConflictBadge(build) {

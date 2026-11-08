@@ -1240,7 +1240,7 @@ function buildConflictTitle(build) {
         .filter((slot) => bySlot.has(slot))
         .map((slot) => `${i18next.t(slot)}: ${bySlot.get(slot).join(' / ')}`);
 
-    return `${i18next.t('Gear conflict')}:<br>${lines.join('<br>')}`;
+    return `${i18next.t('Gear conflict')}:\n${lines.join('\n')}`;
 }
 
 function renderConflictBadge(build) {

@@ -688,6 +688,14 @@ input, button {
   align-items: center;
 }
 
+/* ag-Grid 默认 tooltip 把内容当纯文本渲染（escapeString 只转义 &<>"'，\n 会保留）。
+   冲突提示需多行显示：white-space 默认 normal 会把换行符折叠成空格，这里放开换行。
+   用 .ag-theme-balham 前缀拿高特异性，并 !important 压过主题内其他规则。
+   用 pre 而非 pre-line：行内（含空格处）不折行，只在 \n 处换行。 */
+.ag-theme-balham .ag-tooltip {
+  white-space: pre !important;
+}
+
 .ag-theme-balham .ag-overlay-loading-wrapper {
   background-color: var(--ag-modal-overlay-background-color,hsla(0,0%,100%,.05));
 }

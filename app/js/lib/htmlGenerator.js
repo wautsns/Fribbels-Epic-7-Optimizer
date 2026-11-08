@@ -145,12 +145,12 @@ function wssToText(item) {
     } else {
         if (Reforge.isReforgeable(item)) {
             if (isItemModded(item) && item.substats.filter(x => x.originalType).length > 0) {
-                return item.reforgedWss;
+                return Number(item.reforgedWss).toFixed(2);
             } else {
-                return item.wss + " ➤ " + item.reforgedWss;
+                return `${Number(item.wss).toFixed(2)} ➤ ${Number(item.reforgedWss).toFixed(2)}`;
             }
         } else {
-            return item.wss
+            return Number(item.wss).toFixed(2);
         }
     }
 }

@@ -651,16 +651,64 @@ function formatResultPriority(hero) {
 }
 
 /*
- * 面板需求列：属性要求 + 结果优先级，两段之间用分隔符隔开。
+ * 属性加成段：取出「更改英雄信息」里填的
+ *   - 其他非装备加成（bonus*）→ 攻击+50 攻击+30% 速度+12 …
+ *   - 最终属性加成（final*Multiplier）→ 最终攻击+50% …
+ * 顺序按 STAT_REQUIREMENT_ORDER，同一属性的固定值/百分比并排。
+ */
+const STAT_BONUS_ORDER = [
+    { field: 'bonusSpeed', percent: false, label: 'Spd' },
+    { field: 'bonusAtk',   percent: false, label: 'Atk' },
+    { field: 'bonusAtkPercent', percent: true, label: 'Atk' },
+    { field: 'bonusDef',   percent: false, label: 'Def' },
+    { field: 'bonusDefPercent', percent: true, label: 'Def' },
+    { field: 'bonusHp',    percent: false, label: 'Hp' },
+    { field: 'bonusHpPercent', percent: true, label: 'Hp' },
+    { field: 'bonusCr',    percent: true,  label: 'CRate' },
+    { field: 'bonusCd',    percent: true,  label: 'CDmg' },
+    { field: 'bonusEff',   percent: true,  label: 'Eff' },
+    { field: 'bonusRes',   percent: true,  label: 'Res' },
+];
+
+const FINAL_STAT_ORDER = [
+    { field: 'finalAtkMultiplier', label: 'Final Attack' },
+    { field: 'finalDefMultiplier', label: 'Final Defense' },
+    { field: 'finalHpMultiplier',  label: 'Final Health' },
+];
+
+function formatStatBonuses(hero) {
+    if (!hero) return '';
+
+    const texts = [];
+
+    for (const def of STAT_BONUS_ORDER) {
+        const value = Number(hero[def.field]);
+        if (!Number.isFinite(value) || value <= 0) continue;
+        const label = i18next.t(def.label);
+        texts.push(`${label}+${value}${def.percent ? '%' : ''}`);
+    }
+
+    for (const def of FINAL_STAT_ORDER) {
+        const value = Number(hero[def.field]);
+        if (!Number.isFinite(value) || value <= 0) continue;
+        texts.push(`${i18next.t(def.label)}+${value}%`);
+    }
+
+    return texts.join(' ');
+}
+
+/*
+ * 面板需求列：属性要求 + 结果优先级 + 属性加成，各段之间用分隔符隔开。
  * 用 filter(Boolean) 先去掉空段，所以：
  *   - 只有面板需求 → 不出现分隔符
  *   - 只有结果优先级 → 不出现分隔符
- *   - 两段都有 → 面板需求 | 结果优先级
+ *   - 只有属性加成 → 不出现分隔符
+ *   - 任意多段都有 → 用分隔符拼接
  */
 const PANEL_REQUIREMENT_SEPARATOR = ' · ';
 
 function formatPanelRequirement(hero) {
-    return [formatStatRequirements(hero), formatResultPriority(hero)]
+    return [formatStatRequirements(hero), formatResultPriority(hero), formatStatBonuses(hero)]
         .filter(Boolean)
         .join(PANEL_REQUIREMENT_SEPARATOR);
 }

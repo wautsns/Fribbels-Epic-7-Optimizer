@@ -301,6 +301,10 @@ function matchesHeroFilters(hero) {
      */
     setHeroUniverse: (heroes) => {
         heroUniverse = heroes || [];
+        global.heroIndexById = new Map();
+        heroUniverse.forEach((hero) => {
+            global.heroIndexById.set(String(hero.id), hero.index);
+        });
         rebuildItemOwnerIndex();
 
         api.refreshBuildConflicts();

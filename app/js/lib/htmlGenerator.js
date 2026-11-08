@@ -251,14 +251,26 @@ function getHeroImageAttributes(item) {
     const basePath = getHeroImage(item);
     const highPath = DataLoader.getHighResImagePath(basePath);
 
+    // 同名英雄可以有多条条目：用装备的 equippedById 去匹配英雄条目的 id，取它的优先度。
+    // 没匹配到（或索引未就绪）就不显示 #优先度，只显示名字。
+    const heroId = item && item.equippedById;
+    const index = heroId != null && global.heroIndexById ? global.heroIndexById.get(String(heroId)) : null;
+    let heroTitle = '';
+    if (item && item.equippedByName) {
+        const name = i18next.t(item.equippedByName);
+        heroTitle = (index !== null && index !== undefined && Number.isFinite(Number(index)))
+            ? ` title="${name} #${index}"`
+            : ` title="${name}"`;
+    }
+
     if (!highPath) {
-        return `src="${basePath}"`;
+        return `${heroTitle} src="${basePath}"`;
     }
 
     // srcset 里的路径统一用正斜杠，避免反斜杠在 URL 解析里出意外
     const toUrl = (filePath) => String(filePath).replace(/\\/g, '/');
 
-    return `src="${basePath}" srcset="${toUrl(basePath)} 64w, ${toUrl(highPath)} 96w" sizes="48px"`;
+    return `${heroTitle} src="${basePath}" srcset="${toUrl(basePath)} 64w, ${toUrl(highPath)} 96w" sizes="48px"`;
 }
 
 module.exports = {

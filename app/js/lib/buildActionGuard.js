@@ -30,14 +30,15 @@ async function confirmEquip(instance, hero, build) {
     const conflicts = instance.getBuildConflicts(hero.id, build);
     if (!conflicts.length) return true;
 
-    // 只显示部位（武器 / 头盔 / …）+ 穿着者，不显示具体装备名
+    // 只显示部位（武器 / 头盔 / …）+ 穿着者，不显示具体装备名。
+    // 同名英雄可有多条条目：带上「优先度列」的值（和 builds 冲突提示口径一致）。
     const rows = conflicts
-        .map(
-            (conflict) =>
-                `<li>${escapeHtml(i18next.t(conflict.slot || 'Gear'))} — ${escapeHtml(
-                    i18next.t(conflict.heroName)
-                )}</li>`
-        )
+        .map((conflict) => {
+            const heroIndex = Number(conflict.heroIndex);
+            const ownerName = escapeHtml(i18next.t(conflict.heroName))
+                + (Number.isFinite(heroIndex) ? ` #${heroIndex}` : '');
+            return `<li>${escapeHtml(i18next.t(conflict.slot || 'Gear'))} — ${ownerName}</li>`;
+        })
         .join('');
 
     const html = `

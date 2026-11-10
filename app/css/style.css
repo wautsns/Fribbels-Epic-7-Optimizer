@@ -2447,20 +2447,9 @@ input[type=submit].gvgFilterClear {
 }
 .gvgRowActions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 4px;
-}
-.gvgRowActionsLine {
-  display: flex;
   align-items: center;
   gap: 4px;
   width: 100%;
-}
-/* 第二行的删除按钮推到最右边 */
-.gvgRowActionsLine:last-child .gvgRowButton:last-child {
-  margin-left: auto;
 }
 .gvgRowButton {
   border: none;

@@ -207,40 +207,35 @@ function renderActions(params) {
     const container = document.createElement('div');
     container.className = 'gvgRowActions';
 
-    // 第一行：查看 / 编辑 / 复制
-    const row1 = document.createElement('div');
-    row1.className = 'gvgRowActionsLine';
-    row1.appendChild(
+    container.appendChild(
         iconButton(Assets.getMagnify(), 'View', () => GvgTab.showDetails(id))
     );
-    row1.appendChild(
+    container.appendChild(
         iconButton(Assets.getEdit(), 'Edit', () => GvgTab.editPlan(id))
     );
-    row1.appendChild(
+    container.appendChild(
         iconButton(Assets.getCopy(), 'Copy', () => GvgTab.copyPlan(id))
     );
-
-    // 第二行：置为 1 队 / 置为 2 队 / 删除（删除在最右边）
-    const row2 = document.createElement('div');
-    row2.className = 'gvgRowActionsLine';
+    // 进攻阵容 1 / 2：本机字段（localStorage），当前被置为该进攻阵容的那个用强调色
     const teams = GvgPlans.getTeams();
-    row2.appendChild(
+    container.appendChild(
         pinButton('1', 'Set as first team', teams.first === id, () =>
             GvgTab.pinFirst(id)
         )
     );
-    row2.appendChild(
+    container.appendChild(
         pinButton('2', 'Set as second team', teams.second === id, () =>
             GvgTab.pinSecond(id)
         )
     );
-    // 删除用 FontAwesome：app/assets/blackx.png 是白底不透明的，会在行里显示成灰块
-    row2.appendChild(
-        glyphButton('fa-trash', 'Delete', () => GvgTab.deletePlan(id))
+    // 删除放最右边：container 用 flex + gap，给删除按钮 margin-left:auto 推到末尾
+    const deleteBtn = glyphButton(
+        'fa-trash',
+        'Delete',
+        () => GvgTab.deletePlan(id)
     );
-
-    container.appendChild(row1);
-    container.appendChild(row2);
+    deleteBtn.style.marginLeft = 'auto';
+    container.appendChild(deleteBtn);
 
     return container;
 }

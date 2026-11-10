@@ -147,11 +147,14 @@ function matchesDefenseFilters(plan) {
  * ------------------------------------------------------------------ */
 
 function heroImage(name, size) {
-    const src = HeroesGrid.heroIconSrc(name);
-    return `<img class="gvgHeroIcon" style="width:${size}px;height:${size}px" ${HeroesGrid.iconSrcAttributes(
-        src,
-        `${size}px`
-    )}>`;
+    // 直接用 @96 高清副本，不依赖浏览器在 64/96 之间挑
+    const baseSrc = HeroesGrid.heroIconSrc(name);
+    // heroes 缓存里的每张 cxxx_s.png 都有配套的 @96.png（由 ArtifactImage 处理）
+    // 只对 cachedimages/heroes 路径做替换，避免误伤 ./assets/blank.png 这类兜底路径
+    const useSrc = /[\\/]cachedimages[\\/]heroes[\\/].*\.png$/i.test(baseSrc)
+        ? String(baseSrc).replace(/\.png$/i, '@96.png')
+        : baseSrc;
+    return `<img class="gvgHeroIcon" style="width:${size}px;height:${size}px" src="${useSrc}">`;
 }
 
 function heroNameForCode(code) {

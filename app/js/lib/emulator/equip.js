@@ -206,6 +206,9 @@ async function captureVisible(timeout = 6000) {
 }
 
 // Waits until two consecutive captures are nearly identical (the emulator caught up).
+// IMPORTANT: a stall freezes the frame, so two consecutive captures are also identical
+// during a stall — do NOT use this function after a stall is detected; use
+// waitForStallRecovery() first.
 async function waitForSettledScreen(timeout = 5000) {
     const started = Date.now();
     let previous = await rawCapture();
@@ -220,6 +223,41 @@ async function waitForSettledScreen(timeout = 5000) {
     }
 
     return previous;
+}
+
+// After a stall: the emulator was frozen, so waitForSettledScreen() would have
+// returned immediately (two identical frozen frames). Must wait for the picture
+// to change first — that is the only reliable signal that the stall is over and
+// the emulator is rendering again — THEN wait for normal settle.
+const STALL_RECOVERY_DELTA = 10;
+const STALL_RECOVERY_TIMEOUT = 6000;
+
+async function waitForStallRecovery() {
+    const started = Date.now();
+    const baseline = await rawCapture();
+
+    // phase 1: wait for the frozen frame to actually change (stall ending)
+    let changed = false;
+    while (Date.now() - started < STALL_RECOVERY_TIMEOUT) {
+        await sleep(160);
+        const frame = await rawCapture();
+        if (
+            screen.regionDelta(baseline, frame, fullFrameRegion(frame)) >=
+            STALL_RECOVERY_DELTA
+        ) {
+            changed = true;
+            break;
+        }
+    }
+
+    if (!changed) {
+        // stall never recovered; return whatever we have, the caller will fail loud
+        console.warn('[emulator] stall did not recover within STALL_RECOVERY_TIMEOUT');
+        return baseline;
+    }
+
+    // phase 2: now wait for normal settle (won't short-circuit on a frozen frame anymore)
+    return waitForSettledScreen(3000);
 }
 
 // 出问题时把当前画面存一份到临时目录，方便事后对照（只在失败路径调用）
@@ -262,7 +300,7 @@ async function captureFrame() {
             '[emulator] stall detected: capture took',
             `${captureMs}ms (baseline ${baseline}ms)`
         );
-        const settled = await waitForSettledScreen();
+        const settled = await waitForStallRecovery();
         if (!(await looksLikeManagePage(settled))) {
             await recoverToManagePage();
         }
@@ -442,9 +480,11 @@ async function openSortMenu() {
     }
 
     // 列表还在加载 / 重排时点击会被吞掉，所以每次点之前先等画面稳定，
-    // 并且给三次机会（2s 轮询 + 稳定等待，最坏约 7s）
+    // 并且给三次机会（2s 轮询 + 稳定等待，最坏约 7s）。
+    // captureFrame 内部做 stall 检测 + stall 恢复；stall 时不能用
+    // waitForSettledScreen，因为 stall 画面冻结会让它秒返回
     for (let attempt = 0; attempt < 3; attempt++) {
-        await waitForSettledScreen(1200).catch(() => null);
+        await captureFrame();
         await inputThenWait({ tap: LAYOUT.sortButton }, 250);
 
         const deadline = Date.now() + 2000;
@@ -499,7 +539,10 @@ async function setSortAcquisitionAscending() {
             : LAYOUT.sortAcquisitionRow;
 
         await inputThenWait({ tap: point }, 250);
-        await waitForSettledScreen(1200).catch(() => null);
+        // captureFrame internally handles stall detection + recovery; stall can
+        // kick in right after the sort-menu tap and waitForSettledScreen would
+        // short-circuit on the frozen frame
+        await captureFrame();
     }
 
     await closeSortMenu(await captureFrame().catch(() => null));
@@ -815,7 +858,10 @@ async function openChipPanel(chipPoint, chip) {
         try {
             return await openPanelStable(before, 2500);
         } catch (error) {
-            const settled = await waitForSettledScreen();
+            // stall freezes the frame so waitForSettledScreen returns immediately
+            // on a still-frozen frame. Use stall recovery here instead: it waits
+            // for the stall to end (picture actually changes) *then* settles
+            const settled = await waitForStallRecovery();
 
             if (!(await looksLikeManagePage(settled))) {
                 await recoverToManagePage();
@@ -997,7 +1043,28 @@ async function selectSetInFrame(frame, setKey) {
         return false;
     }
 
-    await inputThenWait({ tap: [icon.x, icon.y] }, 700);
+    await adb.tap(icon.x, icon.y);
+
+    // the dialog closes automatically after selecting a set — poll until it really
+    // disappears instead of sleeping a fixed time; stall delays can push a fixed sleep
+    // off into "tap lands into the wrong place on a still-open dialog" territory
+    const deadline = Date.now() + 2500;
+    while (Date.now() < deadline) {
+        await sleep(120);
+        const postTap = await captureFrame();
+        if (!setDialogVisible(postTap)) {
+            // 选完后 dialog 关了，还要等列表刷新稳定（游戏会重绘一遍）
+            await waitForGridStable(frame, 2000).catch(() => null);
+            return true;
+        }
+    }
+
+    // stall or very slow response: dialog still open after the deadline,
+    // just dismiss and report success — the icon tap most likely landed
+    // and only the close animation is lagging
+    console.warn(
+        '[emulator] set dialog stayed open after set tap, dismissing manually'
+    );
     await dismissOverlay('set dialog');
     return true;
 }
@@ -1228,8 +1295,20 @@ async function waitForRegionStable(baseline, region, timeout = 2000, delta = 4) 
                 motionStarted = true;
                 stablePairs = 0;
             } else if (Date.now() - started > MOTION_START_TIMEOUT) {
-                // the input had no visible effect (e.g. the list is already at that end)
-                return { frame, moved: false };
+                // stall can freeze the picture for > MOTION_START_TIMEOUT; don't jump to
+                // {moved: false} yet — give stall recovery a moment, then confirm once
+                await sleep(500);
+                const confirmFrame = await captureFrame();
+                if (
+                    screen.regionDelta(previous, confirmFrame, region) <
+                    MOTION_START_DELTA
+                ) {
+                    return { frame: confirmFrame, moved: false };
+                }
+                previous = confirmFrame;
+                motionStarted = true;
+                stablePairs = 0;
+                continue;
             }
         } else if (step < delta) {
             stablePairs += 1;
@@ -1497,9 +1576,10 @@ async function waitForPanelSettled(initialFrame, timeout = 1800) {
 
 async function verifyCell(cell, item) {
     await adb.tap(cell.x, cell.y);
-    // let the press ripple pass, then OCR a settled panel
-    await sleep(150);
-    return readPanel(item, await waitForPanelSettled(await captureFrame()));
+    // let waitForPanelSettled handle the timing — it uses a luminance gate +
+    // consecutive stable frames, so a fixed sleep would be at best redundant
+    // and at worst wasted time on a stall
+    return readPanel(item, await waitForPanelSettled());
 }
 
 // Taps a tile and verifies it. Handles the case where the tile was already selected

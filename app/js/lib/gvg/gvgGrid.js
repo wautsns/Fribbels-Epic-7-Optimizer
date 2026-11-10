@@ -4,8 +4,8 @@
  * 列：防守阵容 / 进攻阵容（前下上后，只显示头像）/ 进攻策略（flex:1，左对齐）/ 操作（6 个按钮）
  * 行高 36px，同屏 6 行；排序、筛选、置队全部由 GvgPlans + 本地筛选状态决定。
  */
-const GVG_ROW_HEIGHT = 64;
-const GVG_HERO_ICON_SIZE = 48;
+const GVG_ROW_HEIGHT = 36;
+const GVG_HERO_ICON_SIZE = 32;
 
 const OFFENSE_COL_ID = 'offense';
 
@@ -43,17 +43,17 @@ module.exports = {
                 {
                     colId: 'defense',
                     headerName: i18next.t('Defense team'),
-                    width: 152,
-                    minWidth: 152,
-                    maxWidth: 152,
+                    width: 132,
+                    minWidth: 132,
+                    maxWidth: 132,
                     cellRenderer: renderDefenseTeam,
                 },
                 {
                     colId: OFFENSE_COL_ID,
                     headerName: i18next.t('Offense team'),
-                    width: 152,
-                    minWidth: 152,
-                    maxWidth: 152,
+                    width: 124,
+                    minWidth: 124,
+                    maxWidth: 124,
                     cellRenderer: renderOffenseTeam,
                     tooltipValueGetter: offenseTooltip,
                 },
@@ -147,14 +147,11 @@ function matchesDefenseFilters(plan) {
  * ------------------------------------------------------------------ */
 
 function heroImage(name, size) {
-    // 直接用 @96 高清副本，不依赖浏览器在 64/96 之间挑
-    const baseSrc = HeroesGrid.heroIconSrc(name);
-    // heroes 缓存里的每张 cxxx_s.png 都有配套的 @96.png（由 ArtifactImage 处理）
-    // 只对 cachedimages/heroes 路径做替换，避免误伤 ./assets/blank.png 这类兜底路径
-    const useSrc = /[\\/]cachedimages[\\/]heroes[\\/].*\.png$/i.test(baseSrc)
-        ? String(baseSrc).replace(/\.png$/i, '@96.png')
-        : baseSrc;
-    return `<img class="gvgHeroIcon" style="width:${size}px;height:${size}px" src="${useSrc}">`;
+    const src = HeroesGrid.heroIconSrc(name);
+    return `<img class="gvgHeroIcon" style="width:${size}px;height:${size}px" ${HeroesGrid.iconSrcAttributes(
+        src,
+        `${size}px`
+    )}>`;
 }
 
 function heroNameForCode(code) {

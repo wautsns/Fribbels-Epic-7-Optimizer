@@ -2413,7 +2413,6 @@ input[type=submit].gvgFilterClear {
   object-fit: contain;
   margin-right: 2px;
   vertical-align: middle;
-  border-radius: 4px;
 }
 /* 「清除进攻阵容标记」在筛选行最右侧：margin-left:auto 推到右边，margin-right:0 贴着边框 */
 .gvgFilterRow .gvgClearTeamsButton {

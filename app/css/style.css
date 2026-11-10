@@ -2577,14 +2577,20 @@ input[type=submit].gvgFilterClear {
 .gvgForm .ms-parent.gvgImportSelect {
   width: 140px;
 }
-/* 带入下拉：展开的列表显示「英雄名 — 需求摘要」，收起后只留英雄名 */
-.gvgForm .ms-parent.gvgImportSelect .ms-choice .gvgEntryReq {
+/* 带入下拉：展开的列表显示「英雄名 · 神器名 — 需求摘要」，收起后只留英雄名 */
+.gvgForm .ms-parent.gvgImportSelect .ms-choice .gvgEntryReq,
+.gvgForm .ms-parent.gvgImportSelect .ms-choice .gvgEntryArtifact {
   display: none;
 }
 .gvgForm .ms-parent.gvgImportSelect .ms-drop ul > li span .gvgEntryReq {
   /* 不写死灰色：选中/悬停那一行是彩底，用 inherit + 半透明才看得清 */
   color: inherit;
   opacity: 0.75;
+  font-size: 14px;
+}
+.gvgForm .ms-parent.gvgImportSelect .ms-drop ul > li span .gvgEntryArtifact {
+  color: inherit;
+  opacity: 0.9;
   font-size: 14px;
 }
 /* 神器下拉和英雄下拉同宽（140px）；收起时只显示名字，展开的列表宽度由插件 dropWidth 控制 */

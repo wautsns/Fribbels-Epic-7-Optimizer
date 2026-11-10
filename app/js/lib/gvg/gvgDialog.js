@@ -408,8 +408,10 @@ function buildEntryOptionHtml(entries) {
         entries
             .map(
                 (entry) =>
-                    // 列表里靠 textTemplate 拼上「面板需求」，选中后只显示英雄名（见 gvgEntryReq 的 CSS）
-                    `<option value="${entry.id}" data-req="${escapeHtml(
+                    // 列表里靠 textTemplate 拼上「神器名 + 面板需求」，选中后只显示英雄名（见 gvgEntry* 的 CSS）
+                    `<option value="${entry.id}" data-artifact="${escapeHtml(
+                        entry.artifactText || ''
+                    )}" data-req="${escapeHtml(
                         entry.requirementText || ''
                     )}">${escapeHtml(entry.name)}</option>`
             )
@@ -417,17 +419,25 @@ function buildEntryOptionHtml(entries) {
     );
 }
 
-/** 带入下拉的显示模板：英雄名（+ 需求摘要，选中后由 CSS 隐藏需求那一段） */
+/** 带入下拉的显示模板：英雄名 · 神器名 — 需求摘要（选中后由 CSS 隐藏后面两段） */
 function entryTextTemplate($option) {
     const element = $option[0];
     const name = element.innerHTML.trim();
+    const artifact = (element.getAttribute('data-artifact') || '').trim();
     const requirement = (element.getAttribute('data-req') || '').trim();
 
-    return requirement
-        ? `${name}<span class="gvgEntryReq"> — ${escapeHtml(
-              requirement
-          )}</span>`
-        : name;
+    let html = name;
+    if (artifact) {
+        html += `<span class="gvgEntryArtifact"> · ${escapeHtml(
+            artifact
+        )}</span>`;
+    }
+    if (requirement) {
+        html += `<span class="gvgEntryReq"> — ${escapeHtml(
+            requirement
+        )}</span>`;
+    }
+    return html;
 }
 
 /** 神器下拉的选项：作业里存 code（+ 名字消歧），这里给出 [{ code, name }]（按显示名排序） */
@@ -717,14 +727,14 @@ const SEARCHABLE_SELECTS = [
     {
         pattern: 'gvgImport%d',
         placeholder: 'Hero entry',
-        // 收起时只显示英雄名（需求那段由 CSS 隐藏），展开的列表要够宽才放得下需求摘要。
+        // 收起时只显示英雄名（神器名 / 需求那两段由 CSS 隐藏），展开的列表要够宽才放得下神器名 + 需求摘要。
         // width 必须显式给：插件 initView() 会把「下拉列表最宽的那条 + 20」写成 .ms-parent 的内联宽度。
         options: {
             width: 140,
             textTemplate: entryTextTemplate,
-            // 实测（14px 字号）最长一条如「天秤之主 #3 — 速度≥240 防御≥1600 生命≥20000 抗性≥75 ·
-            // 生命∧ 防御∧ 速度∧ 抗性∧」要 630px，520 会出横向滚动条；660 留点余量
-            dropWidth: 660,
+            // 实测（14px 字号）最长一条如「天秤之主 #3 · 蓝玫瑰尖刺 — 速度≥240 防御≥1600 生命≥20000
+            // 抗性≥75 · 生命∧ 防御∧ 速度∧ 抗性∧」要 730px，660 会出横向滚动条；800 留点余量
+            dropWidth: 800,
             displayTitle: false,
         },
     },
@@ -977,6 +987,22 @@ function validateDraft(draft) {
  * 角色条目（本机英雄列表的一行 = 一个条目）
  * ------------------------------------------------------------------ */
 
+/** 英雄身上的 6 个装备位（和英雄列表一致） */
+const HERO_GEAR_SLOTS = [
+    'Weapon',
+    'Helmet',
+    'Armor',
+    'Necklace',
+    'Ring',
+    'Boots',
+];
+
+/** 6 个装备位是否都穿了装备 */
+function hasFullEquipment(hero) {
+    const equipment = (hero && hero.equipment) || {};
+    return HERO_GEAR_SLOTS.every((slot) => equipment[slot]);
+}
+
 async function loadHeroEntries() {
     try {
         const response = await Api.getAllHeroes();
@@ -985,6 +1011,8 @@ async function loadHeroEntries() {
         // 顺序跟英雄列表一致：按列表里的 rank（hero.index）升序，没有 index 时再按名字
         return heroes
             .slice()
+            // 只带入穿满 6 件装备的角色
+            .filter(hasFullEquipment)
             .sort((a, b) => {
                 const indexA = Number.isFinite(Number(a.index))
                     ? Number(a.index)
@@ -1007,10 +1035,16 @@ async function loadHeroEntries() {
                 const rank = Number.isFinite(Number(hero.index))
                     ? Number(hero.index)
                     : position + 1;
+                // 当前佩戴的神器名（没戴时为空），显示在需求面板 / 结果优先级前面
+                const artifactText =
+                    hero.artifactName && hero.artifactName !== 'None'
+                        ? i18next.t(hero.artifactName)
+                        : '';
 
                 return {
                     id: hero.id,
                     name: `${i18next.t(hero.name)} #${rank}`,
+                    artifactText,
                     requirementText,
                     hero,
                 };

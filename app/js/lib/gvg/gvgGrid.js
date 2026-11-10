@@ -4,8 +4,8 @@
  * 列：防守阵容 / 进攻阵容（前下上后，只显示头像）/ 进攻策略（flex:1，左对齐）/ 操作（6 个按钮）
  * 行高 36px，同屏 6 行；排序、筛选、置队全部由 GvgPlans + 本地筛选状态决定。
  */
-const GVG_ROW_HEIGHT = 76;
-const GVG_HERO_ICON_SIZE = 64;
+const GVG_ROW_HEIGHT = 64;
+const GVG_HERO_ICON_SIZE = 48;
 
 const OFFENSE_COL_ID = 'offense';
 
@@ -43,17 +43,17 @@ module.exports = {
                 {
                     colId: 'defense',
                     headerName: i18next.t('Defense team'),
-                    width: 208,
-                    minWidth: 208,
-                    maxWidth: 208,
+                    width: 152,
+                    minWidth: 152,
+                    maxWidth: 152,
                     cellRenderer: renderDefenseTeam,
                 },
                 {
                     colId: OFFENSE_COL_ID,
                     headerName: i18next.t('Offense team'),
-                    width: 208,
-                    minWidth: 208,
-                    maxWidth: 208,
+                    width: 152,
+                    minWidth: 152,
+                    maxWidth: 152,
                     cellRenderer: renderOffenseTeam,
                     tooltipValueGetter: offenseTooltip,
                 },

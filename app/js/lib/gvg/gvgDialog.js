@@ -181,10 +181,12 @@ module.exports = {
  * ------------------------------------------------------------------ */
 
 function buildEmptyDraft() {
+    // 默认三个进攻槽位 = 前 / 上 / 后（用户偏好，替换原「前下上」）
+    const defaultPositions = ['front', 'top', 'back'];
     return {
         defense: { heroCodes: [] },
         offense: {
-            members: POSITIONS.slice(0, 3).map((position) => ({
+            members: defaultPositions.map((position) => ({
                 heroCode: '',
                 name: '',
                 position,
@@ -193,7 +195,6 @@ function buildEmptyDraft() {
                 requirement: null,
             })),
         },
-        tags: [],
         defenseNote: '',
         intel: '',
         strategy: '',

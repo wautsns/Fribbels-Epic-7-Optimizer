@@ -4,8 +4,8 @@
  * 列：防守阵容 / 进攻阵容（前下上后，只显示头像）/ 进攻策略（flex:1，左对齐）/ 操作（6 个按钮）
  * 行高 36px，同屏 6 行；排序、筛选、置队全部由 GvgPlans + 本地筛选状态决定。
  */
-const GVG_ROW_HEIGHT = 36;
-const GVG_HERO_ICON_SIZE = 32;
+const GVG_ROW_HEIGHT = 76;
+const GVG_HERO_ICON_SIZE = 64;
 
 const OFFENSE_COL_ID = 'offense';
 
@@ -43,17 +43,17 @@ module.exports = {
                 {
                     colId: 'defense',
                     headerName: i18next.t('Defense team'),
-                    width: 132,
-                    minWidth: 132,
-                    maxWidth: 132,
+                    width: 208,
+                    minWidth: 208,
+                    maxWidth: 208,
                     cellRenderer: renderDefenseTeam,
                 },
                 {
                     colId: OFFENSE_COL_ID,
                     headerName: i18next.t('Offense team'),
-                    width: 124,
-                    minWidth: 124,
-                    maxWidth: 124,
+                    width: 208,
+                    minWidth: 208,
+                    maxWidth: 208,
                     cellRenderer: renderOffenseTeam,
                     tooltipValueGetter: offenseTooltip,
                 },
@@ -192,10 +192,11 @@ function offenseTooltip(params) {
         .join('\n');
 }
 
-/** 进攻策略列：直接显示 plan.strategy 纯文本，空的就显示 "-"；超长时省略号 + tooltip */
+/** 进攻策略列：直接显示 plan.strategy 纯文本，空的就显示 "-"；最多显示两行，超出省略号 + tooltip */
 function renderStrategy(params) {
     const strategy = (params.data && params.data.strategy || '').trim();
-    const style = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%';
+    const style =
+        'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%';
     return `<span class="gvgStrategyText" style="${style}">${escapeHtml(
         strategy || '-'
     )}</span>`;
@@ -206,31 +207,40 @@ function renderActions(params) {
     const container = document.createElement('div');
     container.className = 'gvgRowActions';
 
-    container.appendChild(
+    // 第一行：查看 / 编辑 / 复制
+    const row1 = document.createElement('div');
+    row1.className = 'gvgRowActionsLine';
+    row1.appendChild(
         iconButton(Assets.getMagnify(), 'View', () => GvgTab.showDetails(id))
     );
-    container.appendChild(
+    row1.appendChild(
         iconButton(Assets.getEdit(), 'Edit', () => GvgTab.editPlan(id))
     );
-    container.appendChild(
+    row1.appendChild(
         iconButton(Assets.getCopy(), 'Copy', () => GvgTab.copyPlan(id))
     );
-    // 删除用 FontAwesome：app/assets/blackx.png 是白底不透明的，会在行里显示成灰块
-    container.appendChild(
-        glyphButton('fa-trash', 'Delete', () => GvgTab.deletePlan(id))
-    );
-    // 进攻阵容 1 / 2：本机字段（localStorage），当前被置为该进攻阵容的那个用强调色
+
+    // 第二行：置为 1 队 / 置为 2 队 / 删除（删除在最右边）
+    const row2 = document.createElement('div');
+    row2.className = 'gvgRowActionsLine';
     const teams = GvgPlans.getTeams();
-    container.appendChild(
+    row2.appendChild(
         pinButton('1', 'Set as first team', teams.first === id, () =>
             GvgTab.pinFirst(id)
         )
     );
-    container.appendChild(
+    row2.appendChild(
         pinButton('2', 'Set as second team', teams.second === id, () =>
             GvgTab.pinSecond(id)
         )
     );
+    // 删除用 FontAwesome：app/assets/blackx.png 是白底不透明的，会在行里显示成灰块
+    row2.appendChild(
+        glyphButton('fa-trash', 'Delete', () => GvgTab.deletePlan(id))
+    );
+
+    container.appendChild(row1);
+    container.appendChild(row2);
 
     return container;
 }

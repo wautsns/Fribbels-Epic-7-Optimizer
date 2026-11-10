@@ -64,6 +64,8 @@ module.exports = {
                     flex: 1,
                     minWidth: 120,
                     cellRenderer: renderStrategy,
+                    tooltipValueGetter: (params) =>
+                        (params.data && params.data.strategy) || '',
                     // 表头居中（ag-grid 默认），单元格内容左对齐
                     cellStyle: {
                         height: '100%',
@@ -94,6 +96,7 @@ module.exports = {
             // 避免 flex 算出小数宽度后被四舍五入出 1px 溢出、出现"永远有个右滚条"
             suppressHorizontalScroll: true,
             tooltipShowDelay: 300,
+            enableBrowserTooltips: true,
             getRowNodeId: (data) => data.id,
             isExternalFilterPresent: () => filterCodes.some((code) => !!code),
             doesExternalFilterPass: (node) => matchesDefenseFilters(node.data),
@@ -189,10 +192,13 @@ function offenseTooltip(params) {
         .join('\n');
 }
 
-/** 进攻策略列：直接显示 plan.strategy 纯文本，空的就显示 "-" */
+/** 进攻策略列：直接显示 plan.strategy 纯文本，空的就显示 "-"；超长时省略号 + tooltip */
 function renderStrategy(params) {
     const strategy = (params.data && params.data.strategy || '').trim();
-    return `<span class="gvgStrategyText">${escapeHtml(strategy || '-')}</span>`;
+    const style = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%';
+    return `<span class="gvgStrategyText" style="${style}">${escapeHtml(
+        strategy || '-'
+    )}</span>`;
 }
 
 function renderActions(params) {

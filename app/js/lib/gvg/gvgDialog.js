@@ -355,7 +355,7 @@ function buildEditHtml(draft, entries) {
                 <span class="gvgFormLabel" data-t>${i18next.t(
                     'Offense strategy'
                 )}</span>
-                <textarea id="gvgStrategy" class="gvgTextArea" rows="1">${escapeHtml(
+                <textarea id="gvgStrategy" class="gvgTextArea" rows="2">${escapeHtml(
                     draft.strategy
                 )}</textarea>
             </div>

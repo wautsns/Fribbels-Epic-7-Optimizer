@@ -135,10 +135,6 @@ module.exports = {
             )
             .join('');
 
-        const tags = GvgPlans.displayTags(plan)
-            .map((tag) => `<span class="gvgTag">${escapeHtml(tag)}</span>`)
-            .join('');
-
         const defense = plan.defense.heroCodes
             .map((code) => {
                 const name = GvgPlans.heroNameForCode(code) || code;
@@ -167,12 +163,6 @@ module.exports = {
                             'Offense team'
                         )}</span>
                         <div class="gvgDetailRowContent">${members}</div>
-                    </div>
-                    <div class="gvgDetailRow">
-                        <span class="gvgDetailRowLabel">${i18next.t(
-                            'Tags'
-                        )}</span>
-                        <span class="gvgDetailRowContent gvgDetailTags">${tags}</span>
                     </div>
                     ${texts}
                     <div class="gvgDetailFooter">
@@ -934,8 +924,6 @@ function readPlanFromDialog(draft, requirements) {
         defense: { heroCodes },
         offense: { members },
         equipOrder: draft && draft.equipOrder ? draft.equipOrder : [0, 1, 2],
-        // 旧数据兼容：保留已存的用户 tags，但弹窗已不再提供输入入口
-        tags: draft ? draft.tags : [],
         defenseNote: valueOf('gvgDefenseNote'),
         intel: valueOf('gvgIntel'),
         strategy: valueOf('gvgStrategy'),

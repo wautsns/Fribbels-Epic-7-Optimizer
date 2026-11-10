@@ -493,7 +493,6 @@ module.exports = {
         return stableStringify({
             defense: plan.defense.heroCodes.slice().sort(),
             members,
-            tags: plan.tags,
             defenseNote: plan.defenseNote,
             intel: plan.intel,
             strategy: plan.strategy,
@@ -701,7 +700,6 @@ module.exports = {
                 defense,
                 offense: { members },
                 equipOrder: normalizeEquipOrder(raw.equipOrder),
-                tags: normalizeTags(raw.tags),
                 defenseNote: asString(raw.defenseNote),
                 intel: asString(raw.intel),
                 strategy: asString(raw.strategy),
@@ -710,19 +708,6 @@ module.exports = {
             console.warn('GVG: unable to normalize plan', error, raw);
             return null;
         }
-    },
-
-    /** 派生标签（不含已被移除的用户手写 tags）：用于详情区展示 */
-    displayTags: (plan) => {
-        const tags = [];
-        if (asString(plan.defenseNote).trim())
-            tags.push(i18next.t('Depends on defense positions'));
-        tags.push(
-            i18next.t(
-                asString(plan.intel).trim() ? 'Intel blade' : 'Scout blade'
-            )
-        );
-        return tags;
     },
 
     /* ---------------- 副作用出口 ---------------- */
@@ -894,15 +879,4 @@ function normalizeEquipOrder(rawOrder) {
         return [0, 1, 2];
     if (new Set(order).size !== 3) return [0, 1, 2];
     return order;
-}
-
-function normalizeTags(rawTags) {
-    if (!Array.isArray(rawTags)) return [];
-
-    const tags = [];
-    for (const rawTag of rawTags) {
-        const tag = asString(rawTag).trim();
-        if (tag && !tags.includes(tag)) tags.push(tag);
-    }
-    return tags;
 }

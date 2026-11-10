@@ -2445,22 +2445,6 @@ input[type=submit].gvgFilterClear {
   user-select: text;
   cursor: text;
 }
-.gvgTagRow {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-  gap: 4px;
-  overflow: hidden;
-  align-items: center;
-}
-.gvgTag {
-  background: #e4edfb;
-  border-radius: 3px;
-  padding: 1px 6px;
-  font-size: 14px;
-  line-height: 16px;
-  white-space: nowrap;
-}
 .gvgRowActions {
   display: flex;
   align-items: center;
@@ -2765,16 +2749,6 @@ input[type=submit].gvgFilterClear {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 20px;
-}
-.gvgDetailTags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-/* 标签沿用列表里的 .gvgTag（12px，给表格用），弹窗里放大到 14px */
-.gvgDetailTags .gvgTag {
-  font-size: 14px;
-  line-height: 18px;
 }
 .gvgDetailFooter {
   margin-top: 6px;

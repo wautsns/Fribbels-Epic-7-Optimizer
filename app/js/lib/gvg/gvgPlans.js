@@ -712,7 +712,7 @@ module.exports = {
         }
     },
 
-    /** 派生标签 + 用户标签，按 design.md 第 5 节的优先级拼好 */
+    /** 派生标签（不含已被移除的用户手写 tags）：用于详情区展示 */
     displayTags: (plan) => {
         const tags = [];
         if (asString(plan.defenseNote).trim())
@@ -722,7 +722,6 @@ module.exports = {
                 asString(plan.intel).trim() ? 'Intel blade' : 'Scout blade'
             )
         );
-        plan.tags.forEach((tag) => tags.push(tag));
         return tags;
     },
 

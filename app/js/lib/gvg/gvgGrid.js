@@ -1,7 +1,7 @@
 /**
  * GVG 作业列表（ag-grid）—— docs/gvg/design.md 第 6 节。
  *
- * 列：防守阵容 / 进攻阵容（前下上后，只显示头像）/ 作业标签（flex:1，左对齐）/ 操作（6 个按钮）
+ * 列：防守阵容 / 进攻阵容（前下上后，只显示头像）/ 进攻策略（flex:1，左对齐）/ 操作（6 个按钮）
  * 行高 36px，同屏 6 行；排序、筛选、置队全部由 GvgPlans + 本地筛选状态决定。
  */
 const GVG_ROW_HEIGHT = 36;
@@ -58,12 +58,12 @@ module.exports = {
                     tooltipValueGetter: offenseTooltip,
                 },
                 {
-                    colId: 'tags',
-                    headerName: i18next.t('Tags'),
+                    colId: 'strategy',
+                    headerName: i18next.t('Offense strategy'),
                     // 只有这一列伸缩：宽度 = 视口宽 - 其它三列，所以总宽恒等于视口，不会出现横向滚动
                     flex: 1,
                     minWidth: 120,
-                    cellRenderer: renderTags,
+                    cellRenderer: renderStrategy,
                     // 表头居中（ag-grid 默认），单元格内容左对齐
                     cellStyle: {
                         height: '100%',
@@ -90,7 +90,7 @@ module.exports = {
             enableRangeSelection: false,
             suppressScrollOnNewData: true,
             suppressMovableColumns: true,
-            // 4 列宽度总是正好铺满视口（只有 tags 列 flex），关掉横向滚动条，
+            // 4 列宽度总是正好铺满视口（只有 strategy 列 flex），关掉横向滚动条，
             // 避免 flex 算出小数宽度后被四舍五入出 1px 溢出、出现"永远有个右滚条"
             suppressHorizontalScroll: true,
             tooltipShowDelay: 300,
@@ -189,12 +189,10 @@ function offenseTooltip(params) {
         .join('\n');
 }
 
-function renderTags(params) {
-    const tags = GvgPlans.displayTags(params.data);
-    const chips = tags
-        .map((tag) => `<span class="gvgTag">${escapeHtml(tag)}</span>`)
-        .join('');
-    return `<div class="gvgTagRow">${chips}</div>`;
+/** 进攻策略列：直接显示 plan.strategy 纯文本，空的就显示 "-" */
+function renderStrategy(params) {
+    const strategy = (params.data && params.data.strategy || '').trim();
+    return `<span class="gvgStrategyText">${escapeHtml(strategy || '-')}</span>`;
 }
 
 function renderActions(params) {

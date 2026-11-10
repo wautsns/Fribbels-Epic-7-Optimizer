@@ -337,14 +337,6 @@ function buildEditHtml(draft, entries) {
 
         <div class="gvgFormSection">
             <div class="gvgFormRow">
-                <span class="gvgFormLabel" data-t>${i18next.t('Tags')}</span>
-                <input type="text" id="gvgTags" class="gvgTextInput"
-                       value="${escapeHtml(draft.tags.join(', '))}"
-                       placeholder="${escapeHtml(
-                           i18next.t('Separate tags with commas')
-                       )}">
-            </div>
-            <div class="gvgFormRow">
                 <span class="gvgFormLabel" data-t>${i18next.t(
                     'Defense positioning'
                 )}</span>
@@ -669,7 +661,7 @@ function wireEditDialog(entries, requirements) {
         if (defense) bindChange(defense, validate);
     });
 
-    ['gvgTags', 'gvgDefenseNote', 'gvgIntel', 'gvgStrategy'].forEach((id) => {
+    ['gvgDefenseNote', 'gvgIntel', 'gvgStrategy'].forEach((id) => {
         const element = document.getElementById(id);
         if (element) element.addEventListener('input', validate);
     });
@@ -936,22 +928,14 @@ function readPlanFromDialog(draft, requirements) {
         };
     });
 
-    const tags = [];
-    valueOf('gvgTags')
-        .split(/[,，]/)
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-        .forEach((tag) => {
-            if (!tags.includes(tag)) tags.push(tag);
-        });
-
     return {
         id: draft ? draft.id : undefined,
         createdAt: draft ? draft.createdAt : undefined,
         defense: { heroCodes },
         offense: { members },
         equipOrder: draft && draft.equipOrder ? draft.equipOrder : [0, 1, 2],
-        tags,
+        // 旧数据兼容：保留已存的用户 tags，但弹窗已不再提供输入入口
+        tags: draft ? draft.tags : [],
         defenseNote: valueOf('gvgDefenseNote'),
         intel: valueOf('gvgIntel'),
         strategy: valueOf('gvgStrategy'),

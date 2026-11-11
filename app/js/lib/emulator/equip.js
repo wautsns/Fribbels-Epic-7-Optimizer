@@ -102,8 +102,11 @@ const LAYOUT = {
     },
     equipButton: [1130, 670],
     valuePanel: { x: 265, y: 265, w: 140, h: 200 },
-    // main value + four substats only (the score row is excluded)
-    valuePanelNumbers: { x: 255, y: 262, w: 95, h: 162 },
+    // 只截四个 substat —— 主属性（攻击 525 / 生命 8% 这类）不进 OCR：
+    //   武器/头盔/盔甲主属性固定，项链/戒指/鞋子靠 chip 筛选类型
+    // 旧坐标 y:262,h:162 包含主属性行（OCR y=14 处读到 525），
+    // 改后 y:298,h:125 只卡 substat 那四行（OCR y=0~105 读到 4 个值）
+    valuePanelNumbers: { x: 255, y: 298, w: 95, h: 125 },
     gridRegion: { x: 723, y: 240, w: 542, h: 380 },
 };
 

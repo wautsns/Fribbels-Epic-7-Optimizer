@@ -1645,9 +1645,20 @@ function looksLikePanelOCR(numbers) {
 }
 
 async function verifyCell(cell, item) {
+    const t0 = Date.now();
     await adb.tap(cell.x, cell.y);
+    // 首次点击装备后固定等 1 秒 —— 用户实测 panel 淡入 + 数值渲染总共需要
+    // ~800ms 左右，留 200ms 余量。waitForPanelSettled 还在后面做兜底
+    // （数值真的渲染完才返回），所以 1s 是下限不是上限
+    await sleep(1000);
     const settledFrame = await waitForPanelSettled();
     let result = await readPanel(item, settledFrame);
+    console.debug(
+        '[emulator:ocr] slot=%s tap→ocr=%dms ok=%s',
+        (item && item.slot) || '?',
+        Date.now() - t0,
+        result.ok
+    );
 
     // OCR 结果里有明显不属于 substat 的数值 → panel 截偏了，重等一次再读
     if (result.numbers && !looksLikePanelOCR(result.numbers)) {

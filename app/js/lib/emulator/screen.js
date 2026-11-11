@@ -82,6 +82,29 @@ function luminance(image, region) {
     return count ? sum / count : 0;
 }
 
+// 区域内像素亮度的方差 —— 用来检测"背景上有没有叠加白色文字"：
+//  - panel 淡入到一半，背景均匀，方差 < 30
+//  - 数值文字渲染完，亮暗像素混合，方差立刻跳到 50+
+// 方差不依赖亮度绝对值，只依赖对比度，DPI 缩放 / 模拟器亮度 / 主题都漂不动它
+function luminanceVariance(image, region) {
+    const { data, width } = image.bitmap;
+    const maxX = Math.min(image.bitmap.width, region.x + region.w);
+    const maxY = Math.min(image.bitmap.height, region.y + region.h);
+    const lums = [];
+
+    for (let y = Math.max(0, region.y); y < maxY; y += 2) {
+        for (let x = Math.max(0, region.x); x < maxX; x += 2) {
+            const idx = (y * width + x) * 4;
+            lums.push(data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114);
+        }
+    }
+
+    if (lums.length < 4) return 0;
+    const mean = lums.reduce((a, b) => a + b, 0) / lums.length;
+    const sq = lums.reduce((a, b) => a + (b - mean) * (b - mean), 0) / lums.length;
+    return sq; // 方差
+}
+
 function regionDiff(image, template, x, y) {
     const a = image.bitmap;
     const b = template.bitmap;

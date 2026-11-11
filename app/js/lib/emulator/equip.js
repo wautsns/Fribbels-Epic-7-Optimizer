@@ -2,11 +2,49 @@
 // Flow: verify page -> verify/set acquisition-ascending sort -> pick slot ->
 //       apply filters -> select candidates -> verify values -> equip.
 
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const adb = require('./adb');
 const screen = require('./screen');
+
+// OCR 调试：把 panel / chip 裁切图和各轮 OCR 识别结果落盘，
+// 方便排查"第一件明明选中了却没识别出来"这类问题。
+// 目录自动创建在系统临时目录下，改完代码重打包后手动清理。
+const OCR_DEBUG_DIR = (() => {
+    const dir = path.join(os.tmpdir(), 'fribbels_ocr');
+    try {
+        fs.mkdirSync(dir, { recursive: true });
+    } catch (_) {}
+    return dir;
+})();
+
+// 给每次换装备分配唯一的前缀（线程不安全但够用）
+let _ocrDebugSeq = 0;
+function ocrDebugPrefix(slotName) {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const seq = String(++_ocrDebugSeq).padStart(3, '0');
+    return `${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+        now.getHours()
+    )}${pad(now.getMinutes())}${pad(now.getSeconds())}_${seq}_${slotName || '?'}_`;
+}
+
+// 把 Jimp 图存到 OCR_DEBUG_DIR，返回相对路径
+async function saveOcrImage(jimpImage, slotName, tag) {
+    if (!jimpImage) return null;
+    try {
+        const buf = await jimpImage.getBufferAsync('image/png');
+        if (!buf) return null;
+        const name = ocrDebugPrefix(slotName) + tag + '.png';
+        const p = path.join(OCR_DEBUG_DIR, name);
+        fs.writeFileSync(p, buf);
+        return p;
+    } catch (e) {
+        return null;
+    }
+}
 
 const LAYOUT = {
     // measured icon centers (pitch ~59px); the rightmost tab is at ~1061, not 1095
@@ -1623,16 +1661,35 @@ async function readPanel(item, settledFrame) {
     const values = screen.crop(frame, LAYOUT.valuePanelNumbers);
 
     const expectedSets = expectedValueSets(item);
+    const slotName = (item && item.slot) || '?';
+
+    // ---- 调试：把 OCR 输入图落盘 ----
+    const panelPath = await saveOcrImage(values, slotName, 'panel');
+    console.debug(
+        '[emulator:ocr] readPanel slot=%s panel=%s expected=%O',
+        slotName,
+        panelPath,
+        expectedSets
+    );
 
     // Tesseract.js (bundled wasm) with a digit whitelist reads this panel far more
     // reliably than the Windows engine; the Windows OCR stays as the fallback.
+    const tessInput = await saveOcrImage(values, slotName, 'tess-input');
     const tessJs = await screen.tesseractJsNumbers(
         frame,
         LAYOUT.valuePanelNumbers
     );
+    console.debug(
+        '[emulator:ocr] slot=%s tesseract-js input=%s numbers=%O',
+        slotName,
+        tessInput,
+        tessJs
+    );
     if (tessJs && tessJs.length >= 5) {
         const numbers = tessJs.map((value) => ({ value }));
-        if (matchesAny(numbers, expectedSets)) {
+        const ok = matchesAny(numbers, expectedSets);
+        console.debug('[emulator:ocr] slot=%s tesseract-js match=%s', slotName, ok);
+        if (ok) {
             return { ok: true, numbers, source: 'tesseract-js' };
         }
     }
@@ -1640,8 +1697,16 @@ async function readPanel(item, settledFrame) {
     // The zh engine is the more accurate one for this panel; the en engine is only run
     // when the first pass does not match (it covers percentages the zh pass sometimes
     // drops, at the cost of one extra OCR round).
+    const zhInput = await saveOcrImage(values, slotName, 'zh-input');
     const chineseLines = await screen.ocr(values, '', 4);
     const chineseNumbers = screen.extractNumbers(chineseLines);
+    console.debug(
+        '[emulator:ocr] slot=%s winocr-zh input=%s lines=%O numbers=%O',
+        slotName,
+        zhInput,
+        chineseLines,
+        chineseNumbers
+    );
 
     if (matchesAny(chineseNumbers, expectedSets)) {
         return {
@@ -1652,8 +1717,17 @@ async function readPanel(item, settledFrame) {
         };
     }
 
+    const enInput = await saveOcrImage(values, slotName, 'en-input');
     const englishLines = await screen.ocr(values, 'en-US', 4);
     const numbers = chineseNumbers.concat(screen.extractNumbers(englishLines));
+    console.debug(
+        '[emulator:ocr] slot=%s winocr-en input=%s lines=%O numbers=%O match=%s',
+        slotName,
+        enInput,
+        englishLines,
+        numbers,
+        matchesAny(numbers, expectedSets)
+    );
 
     return {
         ok: matchesAny(numbers, expectedSets),

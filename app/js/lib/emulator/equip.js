@@ -1587,38 +1587,39 @@ function matchesExpected(numbers, expected) {
     return true;
 }
 
-// The game fades the item panel in after a selection. Capturing in the middle of that
-// fade gives dimmer glyphs and the OCR then silently drops a value (measured: the flat
-// speed substat), which looks like "wrong item" and triggers a walk over the neighbour
-// tiles. So wait until the panel region stops changing instead of sleeping a fixed delay.
+// The game fades the item panel in after a selection, and the substat values are
+// rendered *after* the panel chrome settles. Waiting for "panel region stops changing"
+// (regionDelta) is not enough — the chrome is done but the values row is still blank,
+// so OCR reads nothing and the run walks to the neighbour tile.
 //
-// 额外加两道保险：
-//   1. 亮度门：panel 区域平均亮度必须高于 BLACK_FRAME_LUMINANCE，避免截到全黑帧
-//   2. 特征检测：valuePanelNumbers 区域的亮度必须"像 panel"（而不是装备主图那种
-//      大面积亮色背景）。主图颜色鲜艳，valuePanelNumbers 里 substat 数值区域
-//      相对均匀，用"标准差"区分 —— 主图标准差大（颜色杂乱），panel 标准差小
-async function waitForPanelSettled(initialFrame, timeout = 2500) {
+// 现在直接等两件事都成立：
+//   1. valuePanelNumbers 区域平均亮度在「有白色文字」区间 [100, 190] 内
+//      （暗色 panel 背景亮度 ~50~80，叠加白色数值 ≈ 100~180；
+//       淡入未完成 <60，主图亮色区 >200 —— 都挡在外面）
+//   2. 连续两帧 valuePanelNumbers 区域稳定（文字内容也没在变动）
+async function waitForPanelSettled(initialFrame, timeout = 3000) {
     const started = Date.now();
 
-    // phase 1：先等 panel 真的出现（不是黑屏、不是主图、不是上一个装备的残留）
+    // phase 1：等数值区真的有白色文字（亮度进入目标区间）
     let lastFrame = initialFrame || (await captureFrame());
     while (Date.now() - started < timeout) {
         const lum = screen.luminance(lastFrame, LAYOUT.valuePanelNumbers);
-        if (lum > BLACK_FRAME_LUMINANCE && lum < 200) {
-            // 亮度过了门槛且不是纯亮底（200 是游戏主图那种高饱和区域的上限）
+        if (lum >= 100 && lum <= 190) {
             break;
         }
+        // 亮度 >190 是主图亮色背景，说明 panel 还没覆盖上来
+        // 亮度 <100 要么是还在淡入，要么是数值还没渲染
         await sleep(60);
         lastFrame = await captureFrame();
     }
 
-    // phase 2：连续两帧稳定（panel 内容不再变）
+    // phase 2：连续两帧稳定
     let previous = lastFrame;
     let stableSamples = 0;
     while (Date.now() - started < timeout) {
         const frame = await captureFrame();
         stableSamples =
-            screen.regionDelta(previous, frame, LAYOUT.valuePanel) < 2
+            screen.regionDelta(previous, frame, LAYOUT.valuePanelNumbers) < 2
                 ? stableSamples + 1
                 : 0;
 

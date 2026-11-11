@@ -1652,12 +1652,20 @@ async function verifyCell(cell, item) {
     // （数值真的渲染完才返回），所以 1s 是下限不是上限
     await sleep(1000);
     const settledFrame = await waitForPanelSettled();
+    // DEBUG：把 settledFrame 里的数值区裁出来存 %TEMP%\fribbels_ocr\
+    // 事后对照游戏画面看 panel 上显示的 substat 值 vs OCR 读到的
+    await dumpFrame(
+        screen.crop(settledFrame, LAYOUT.valuePanelNumbers),
+        `panel-${(item && item.slot) || '?'}`
+    ).catch(() => null);
     let result = await readPanel(item, settledFrame);
     console.debug(
-        '[emulator:ocr] slot=%s tap→ocr=%dms ok=%s',
+        '[emulator:ocr] slot=%s tap→ocr=%dms ok=%s numbers=%O expected=%O',
         (item && item.slot) || '?',
         Date.now() - t0,
-        result.ok
+        result.ok,
+        result.numbers && result.numbers.map((n) => (typeof n === 'object' ? n.value : n)),
+        item && item.baseValues && item.baseValues.map((v) => v || 0)
     );
 
     // OCR 结果里有明显不属于 substat 的数值 → panel 截偏了，重等一次再读
@@ -1668,6 +1676,10 @@ async function verifyCell(cell, item) {
         );
         await sleep(150);
         const retryFrame = await waitForPanelSettled();
+        await dumpFrame(
+            screen.crop(retryFrame, LAYOUT.valuePanelNumbers),
+            `panel-${(item && item.slot) || '?'}-retry`
+        ).catch(() => null);
         result = await readPanel(item, retryFrame);
     }
 

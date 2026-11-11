@@ -1751,7 +1751,10 @@ async function readPanel(item, settledFrame) {
         tessInput,
         tessJs
     );
-    if (tessJs && tessJs.length >= 5) {
+    // 裁图范围已经切掉了主属性行（commit 8e4db4f），tesseract-js 读到的就是
+    // 4 个 substat 数值。之前的 >=5 是留着主属性时的阈值，现在必须改成 >=4
+    // 否则 tess 永远被跳过、每次都白跑 zh + en 两轮 OCR
+    if (tessJs && tessJs.length >= 4) {
         const numbers = tessJs.map((value) => ({ value }));
         const ok = matchesAny(numbers, expectedSets);
         console.debug('[emulator:ocr] slot=%s tesseract-js match=%s', slotName, ok);

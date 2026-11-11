@@ -1,0 +1,70 @@
+[emulator:ocr] readPanel slot=Weapon panel=C:\Users\wautsns\AppData\Local\Temp\fribbels_ocr\1111-214127_001_Weapon_panel.png expected=
+Array(2)
+0: (4) [9, 42, 231, 7]
+1: (4) [9, 42, 231, 7]
+length: 2
+lastIndex: （…）
+lastItem: （…）
+[[Prototype]]: Array(0)
+D:\project\github\wa…lator\equip.js:1682 [emulator:ocr] slot=Weapon tesseract-js input=C:\Users\wautsns\AppData\Local\Temp\fribbels_ocr\1111-214127_002_Weapon_tess-input.png numbers=
+Array(5)
+0: 2
+1: 5
+2: 4534
+3: 1859
+4: 1
+length: 5
+lastIndex: （…）
+lastItem: （…）
+[[Prototype]]: Array(0)
+D:\project\github\wa…lator\equip.js:1691 [emulator:ocr] slot=Weapon tesseract-js match=false
+D:\project\github\wa…lator\equip.js:1703 [emulator:ocr] slot=Weapon winocr-zh input=C:\Users\wautsns\AppData\Local\Temp\fribbels_ocr\1111-214128_003_Weapon_zh-input.png lines=
+Array(3)
+ numbers=
+Array(3)
+0: {value: 534, percent: false, x: 22, y: 75}
+1: {value: 1859, percent: false, x: 27, y: 116}
+2: {value: 1517, percent: false, x: 28, y: 140}
+length: 3
+lastIndex: （…）
+lastItem: （…）
+[[Prototype]]: Array(0)
+D:\project\github\wa…lator\equip.js:1723 [emulator:ocr] slot=Weapon winocr-en input=C:\Users\wautsns\AppData\Local\Temp\fribbels_ocr\1111-214129_004_Weapon_en-input.png lines=
+Array(2)
+ numbers=
+Array(5)
+0: {value: 534, percent: false, x: 22, y: 75}
+1: {value: 1859, percent: false, x: 27, y: 116}
+2: {value: 1517, percent: false, x: 28, y: 140}
+3: {value: 1859, percent: false, x: 27, y: 116}
+4: {value: 1517, percent: false, x: 28, y: 140}
+length: 5
+lastIndex: （…）
+lastItem: （…）
+[[Prototype]]: Array(0)
+ match=false
+D:\project\github\wa…lator\equip.js:1668 [emulator:ocr] readPanel slot=Weapon panel=C:\Users\wautsns\AppData\Local\Temp\fribbels_ocr\1111-214133_005_Weapon_panel.png expected=
+Array(2)
+D:\project\github\wa…lator\equip.js:1682 [emulator:ocr] slot=Weapon tesseract-js input=C:\Users\wautsns\AppData\Local\Temp\fribbels_ocr\1111-214133_006_Weapon_tess-input.png numbers=
+Array(4)
+0: 525
+1: 9
+2: 42
+3: 231
+length: 4
+lastIndex: （…）
+lastItem: （…）
+[[Prototype]]: Array(0)
+D:\project\github\wa…lator\equip.js:1703 [emulator:ocr] slot=Weapon winocr-zh input=C:\Users\wautsns\AppData\Local\Temp\fribbels_ocr\1111-214133_007_Weapon_zh-input.png lines=
+Array(5)
+ numbers=
+Array(5)
+0: {value: 525, percent: false, x: 45, y: 14}
+1: {value: 9, percent: true, x: 54, y: 62}
+2: {value: 42, percent: true, x: 40, y: 88}
+3: {value: 231, percent: false, x: 50, y: 114}
+4: {value: 7, percent: false, x: 74, y: 141}
+length: 5
+lastIndex: （…）
+lastItem: （…）
+[[Prototype]]: Array(0)

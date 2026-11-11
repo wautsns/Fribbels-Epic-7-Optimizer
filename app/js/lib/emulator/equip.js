@@ -1588,14 +1588,32 @@ function matchesExpected(numbers, expected) {
 // fade gives dimmer glyphs and the OCR then silently drops a value (measured: the flat
 // speed substat), which looks like "wrong item" and triggers a walk over the neighbour
 // tiles. So wait until the panel region stops changing instead of sleeping a fixed delay.
-async function waitForPanelSettled(initialFrame, timeout = 1800) {
+//
+// 额外加两道保险：
+//   1. 亮度门：panel 区域平均亮度必须高于 BLACK_FRAME_LUMINANCE，避免截到全黑帧
+//   2. 特征检测：valuePanelNumbers 区域的亮度必须"像 panel"（而不是装备主图那种
+//      大面积亮色背景）。主图颜色鲜艳，valuePanelNumbers 里 substat 数值区域
+//      相对均匀，用"标准差"区分 —— 主图标准差大（颜色杂乱），panel 标准差小
+async function waitForPanelSettled(initialFrame, timeout = 2500) {
     const started = Date.now();
-    let previous = initialFrame || (await captureFrame());
-    let stableSamples = 0;
 
+    // phase 1：先等 panel 真的出现（不是黑屏、不是主图、不是上一个装备的残留）
+    let lastFrame = initialFrame || (await captureFrame());
+    while (Date.now() - started < timeout) {
+        const lum = screen.luminance(lastFrame, LAYOUT.valuePanelNumbers);
+        if (lum > BLACK_FRAME_LUMINANCE && lum < 200) {
+            // 亮度过了门槛且不是纯亮底（200 是游戏主图那种高饱和区域的上限）
+            break;
+        }
+        await sleep(60);
+        lastFrame = await captureFrame();
+    }
+
+    // phase 2：连续两帧稳定（panel 内容不再变）
+    let previous = lastFrame;
+    let stableSamples = 0;
     while (Date.now() - started < timeout) {
         const frame = await captureFrame();
-        // 面板是淡入的：单帧「没变化」在淡入开始前也成立，所以要求连续两帧稳定
         stableSamples =
             screen.regionDelta(previous, frame, LAYOUT.valuePanel) < 2
                 ? stableSamples + 1
@@ -1612,12 +1630,33 @@ async function waitForPanelSettled(initialFrame, timeout = 1800) {
     return previous;
 }
 
+// OCR 结果合理性检查：substat + 主属性里，任何单一数值不可能超过这个阈值
+// （最高的主属性攻击才 525，其他更低）。超过的话说明 panel 截偏了，读到了
+// 装备分数（44534）或强化等级（1859）这类数值。
+function looksLikePanelOCR(numbers) {
+    if (!numbers || numbers.length < 4) return false;
+    const values = numbers.map((n) => (typeof n === 'object' ? n.value : n));
+    const max = Math.max(...values);
+    return max <= 600; // 主属性攻击 525，留 75 余量
+}
+
 async function verifyCell(cell, item) {
     await adb.tap(cell.x, cell.y);
-    // let waitForPanelSettled handle the timing — it uses a luminance gate +
-    // consecutive stable frames, so a fixed sleep would be at best redundant
-    // and at worst wasted time on a stall
-    return readPanel(item, await waitForPanelSettled());
+    const settledFrame = await waitForPanelSettled();
+    let result = await readPanel(item, settledFrame);
+
+    // OCR 结果里有明显不属于 substat 的数值 → panel 截偏了，重等一次再读
+    if (result.numbers && !looksLikePanelOCR(result.numbers)) {
+        console.warn(
+            '[emulator:ocr] panel 可疑（OCR 读到 %O），重等 panel',
+            result.numbers.map((n) => (typeof n === 'object' ? n.value : n))
+        );
+        await sleep(150);
+        const retryFrame = await waitForPanelSettled();
+        result = await readPanel(item, retryFrame);
+    }
+
+    return result;
 }
 
 // Taps a tile and verifies it. Handles the case where the tile was already selected

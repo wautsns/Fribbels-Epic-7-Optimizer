@@ -365,12 +365,10 @@ module.exports = {
         );
         if (existingIndex >= 0) {
             normalized.createdAt = plans[existingIndex].createdAt;
-            normalized.updatedAt = nowMillis();
             normalized.lastUsedAt = plans[existingIndex].lastUsedAt;
             plans[existingIndex] = normalized;
         } else {
             normalized.createdAt = nowMillis();
-            normalized.updatedAt = nowMillis();
             normalized.lastUsedAt = null;
             plans.push(normalized);
         }
@@ -404,7 +402,7 @@ module.exports = {
             .sort((a, b) => b.lastUsedAt - a.lastUsedAt || byIdDesc(a, b));
         const unused = list
             .filter((plan) => plan.lastUsedAt == null)
-            .sort((a, b) => b.updatedAt - a.updatedAt || byIdDesc(a, b));
+            .sort((a, b) => b.createdAt - a.createdAt || byIdDesc(a, b));
 
         return used.concat(unused);
     },
@@ -507,7 +505,7 @@ module.exports = {
                     module.exports.dedupeKey(plan)
         ) || null,
 
-    /** 保留 updatedAt 较早的那条；被删副本的 lastUsedAt 更晚时继承给保留者 */
+    /** 保留 createdAt 较早的那条；被删副本的 lastUsedAt 更晚时继承给保留者 */
     dedupe: () => {
         const groups = new Map();
         for (const plan of plans) {
@@ -527,7 +525,6 @@ module.exports = {
                 .slice()
                 .sort(
                     (a, b) =>
-                        a.updatedAt - b.updatedAt ||
                         (a.createdAt || 0) - (b.createdAt || 0) ||
                         (a.id < b.id ? -1 : 1)
                 );
@@ -587,7 +584,7 @@ module.exports = {
     }),
 
     /**
-     * 导入/粘贴的统一入口：一律新 id、updatedAt = 现在、lastUsedAt = null；
+     * 导入/粘贴的统一入口：一律新 id、createdAt = 现在、lastUsedAt = null；
      * 与现有作业重复（design.md 10 口径）则跳过并计数。
      */
     importPlans: (rawList) => {
@@ -611,7 +608,6 @@ module.exports = {
             seenKeys.add(key);
             normalized.id = uuidv4();
             normalized.createdAt = nowMillis();
-            normalized.updatedAt = nowMillis();
             normalized.lastUsedAt = null;
             incoming.push(normalized);
             result.added++;
@@ -684,9 +680,6 @@ module.exports = {
             const createdAt = Number.isFinite(Number(raw.createdAt))
                 ? Number(raw.createdAt)
                 : nowMillis();
-            const updatedAt = Number.isFinite(Number(raw.updatedAt))
-                ? Number(raw.updatedAt)
-                : createdAt;
             const lastUsedAt = Number.isFinite(Number(raw.lastUsedAt))
                 ? Number(raw.lastUsedAt)
                 : null;
@@ -695,7 +688,6 @@ module.exports = {
                 schemaVersion: SCHEMA_VERSION,
                 id,
                 createdAt,
-                updatedAt,
                 lastUsedAt,
                 defense,
                 offense: { members },

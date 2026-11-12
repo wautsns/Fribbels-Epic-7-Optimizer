@@ -166,9 +166,9 @@ module.exports = {
                     </div>
                     ${texts}
                     <div class="gvgDetailFooter">
-                        ${i18next.t('Last modified')}: ${escapeHtml(
-                new Date(plan.updatedAt).toLocaleString()
-            )}
+                        ${i18next.t('Created')}: ${escapeHtml(
+                new Date(plan.createdAt).toLocaleString()
+            )}${plan.lastUsedAt ? ` · ${i18next.t('Last used')}: ${escapeHtml(new Date(plan.lastUsedAt).toLocaleDateString())}` : ''}
                     </div>
                 </div>`,
             confirmButtonText: i18next.t('OK'),

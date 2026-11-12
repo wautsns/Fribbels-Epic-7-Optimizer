@@ -17,6 +17,16 @@ const POSITION_LABEL_KEYS = {
     back: 'Back',
 };
 
+/** 毫秒时间戳 → yyyy-MM-dd（本地时区） */
+function formatDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
 /* 3 个防守筛选框的当前值（按 hero code 匹配；空串 = 不筛） */
 const filterCodes = ['', '', ''];
 
@@ -56,6 +66,17 @@ module.exports = {
                     maxWidth: 124,
                     cellRenderer: renderOffenseTeam,
                     tooltipValueGetter: offenseTooltip,
+                },
+                {
+                    colId: 'lastUsed',
+                    headerName: i18next.t('Last used'),
+                    width: 110,
+                    minWidth: 110,
+                    maxWidth: 110,
+                    valueGetter: (params) =>
+                        (params.data && params.data.lastUsedAt) || 0,
+                    valueFormatter: (params) =>
+                        params.value ? formatDate(params.value) : i18next.t('Never used'),
                 },
                 {
                     colId: 'strategy',

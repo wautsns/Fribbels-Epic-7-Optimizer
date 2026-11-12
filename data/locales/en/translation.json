@@ -1267,5 +1267,8 @@
   "No useless builds to clear.": "No useless builds to clear.",
   "No useless builds to clear — all configurations have gear contested by other heroes.": "No useless builds to clear — all configurations have gear contested by other heroes.",
   "Delete {{count}} useless build(s)? Keeps the top {{keep}} configuration(s).": "Delete {{count}} useless build(s)? Keeps the top {{keep}} configuration(s).",
-  "Deleted {{count}} useless build(s).": "Deleted {{count}} useless build(s)."
+  "Deleted {{count}} useless build(s).": "Deleted {{count}} useless build(s).",
+  "Last used": "Last used",
+  "Never used": "Never used",
+  "Created": "Created"
 }

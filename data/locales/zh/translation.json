@@ -1566,5 +1566,8 @@
     "No useless builds to clear.": "没有无用配置可清除。",
     "No useless builds to clear — all configurations have gear contested by other heroes.": "所有配置的装备都在被其他英雄占用，没有可清除的无用配置。",
     "Delete {{count}} useless build(s)? Keeps the top {{keep}} configuration(s).": "删除 {{count}} 条无用配置？将保留排在前 {{keep}} 条的配置。",
-    "Deleted {{count}} useless build(s).": "已删除 {{count}} 条无用配置。"
+    "Deleted {{count}} useless build(s).": "已删除 {{count}} 条无用配置。",
+    "Last used": "最近使用",
+    "Never used": "未被使用",
+    "Created": "创建时间"
 }

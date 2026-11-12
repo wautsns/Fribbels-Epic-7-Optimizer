@@ -131,9 +131,9 @@ module.exports = {
                 defaultPath : Files.path(Settings.getDefaultPath()),
                 buttonLabel : "Load file",
                 filters :[
-                    {name: 'All save files', extensions: ['json', 'json.zlib', 'zjson']},
+                    {name: 'All save files', extensions: ['json', 'json.zlib']},
                     {name: 'JSON', extensions: ['json']},
-                    {name: 'Compressed save (zlib)', extensions: ['json.zlib', 'zjson']},
+                    {name: 'Compressed save (zlib)', extensions: ['json.zlib']},
                 ]
             }
             const filenames = dialog.showOpenDialogSync(currentWindow, options);

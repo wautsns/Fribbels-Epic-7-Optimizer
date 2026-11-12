@@ -2586,6 +2586,10 @@ input[type=submit].gvgFilterClear {
   height: 28px;
   line-height: 26px;
   font-size: 14px;
+  /* multiple-select.css 里只给 .ms-offscreen 和 .ms-search input 加了 outline: 0，
+     没有给 .ms-choice button 加 —— 浏览器默认 focus outline（粗黄框）会在弹窗初始化
+     过程中短暂闪一下（焦点从原生 select 跳到 .ms-choice 再消失）。这里显式消掉。 */
+  outline: none;
 }
 .gvgFormSection {
   margin-bottom: 6px;

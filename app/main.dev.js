@@ -347,7 +347,7 @@ ipcMain.on('restart_app', () => {
 
 // 模拟器自动化的数字识别：tesseract.js 需要 worker 线程，只有主进程能满足，
 // 渲染进程把裁剪好的 PNG 发过来，这里返回识别出的纯文本。
-ipcMain.handle(tesseractOcr.CHANNEL, (_event, png) => tesseractOcr.recognise(png));
+ipcMain.handle(tesseractOcr.CHANNEL, (_event, png, opts) => tesseractOcr.recognise(png, opts || {}));
 
 autoUpdater.on('update-available', (data) => {
   mainWindow.webContents.send('update_available');

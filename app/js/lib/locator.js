@@ -282,6 +282,10 @@ function locateSingleItem(itemId, items, width) {
     const chipOrder = EmulatorEquip.planChipOrders([item], items, false)[0];
     const target = EmulatorEquip.buildTarget(item, chipOrder);
     const filters = equip.wantedFilters(target);
+    // 关键: 一键换装会在 selectItem 主流程里手动补 filters.set (L2028),
+    // wantedFilters 本身不包含 set, 所以这里也要补 — 不然定位提示的排名
+    // 是「全套装下」的, 和一键换装应用 set 筛选后的排名对不上
+    filters.set = item.set || null;
     const info = equip.computeRank(target, items, filters, true, true) || { index: -1, total: 0, rank: -1 };
 
     const found = info.index >= 0;

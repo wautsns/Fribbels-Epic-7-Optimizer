@@ -177,6 +177,9 @@ function rankRowsOf(item, order, allItems) {
 
     const target = buildTarget(item, order);
     const filters = equip.wantedFilters(target);
+    // 和一键换装的 selectItem 主流程保持一致: 手动补 set filter
+    // (wantedFilters 本身不包含 set)
+    filters.set = item.set || null;
     const info = equip.computeRank(target, allItems, filters, true, true);
     if (!info || info.rank < 0) {
         return 0;
@@ -357,9 +360,34 @@ async function resolveItems(entries) {
         items.push(item);
     }
 
-    return items.sort(
-        (a, b) => SLOT_ORDER.indexOf(a.gear) - SLOT_ORDER.indexOf(b.gear)
-    );
+    // ---- 按套装分组排序 ----
+    // filterCache 在跨 slot 切换时保持:
+    //   filterCache.set === item.set → 跳过整个 applySetFilter (openDialog + reset All
+    //   + 回顶 + swipe + 固定坐标 tap + 等关闭 ≈ 4-6s/次)
+    // 按套装分组后, 同组内第一件设好 filterCache.set, 后面的直接跳过。
+    // 组间按 size 降序 (先处理成员多的套装组) → 最大化 cache 命中收益
+    const bySet = {};
+    for (const item of items) {
+        const key = item.set || '_none_';
+        if (!bySet[key]) bySet[key] = [];
+        bySet[key].push(item);
+    }
+
+    const groups = Object.values(bySet).sort((a, b) => b.length - a.length);
+
+    const ordered = [];
+    for (const group of groups) {
+        group.sort(
+            (a, b) => SLOT_ORDER.indexOf(a.gear) - SLOT_ORDER.indexOf(b.gear)
+        );
+        ordered.push(...group);
+    }
+
+    console.log('[emulator] resolveItems order:');
+    for (const it of ordered) {
+        console.log('  %-9s set=%s', it.gear, it.set);
+    }
+    return ordered;
 }
 
 /**

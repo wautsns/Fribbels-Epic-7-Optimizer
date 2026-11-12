@@ -604,8 +604,50 @@ function wireEditDialog(entries, requirements) {
         if (confirmButton) confirmButton.disabled = !!error;
     };
 
+    // --- 焦点跳动修复 ---
+    // Swal.fire 里 focusConfirm=false 并不会阻止它自动 focus 弹窗里「第一个可聚焦元素」，
+    // 它会把焦点给原生 <select id="gvgDefense0"> → 浏览器给原生 select 默认的 focus outline。
+    // 紧接着 multipleSelect() 把原生 select 隐藏、替换成 .ms-choice button →
+    // 焦点从原生 select 跳到新 button（button 天生可聚焦）→ 又黄框闪一下 → 然后消失。
+    // 整个过程 <50ms，但肉眼看到「跳一下 + 粗黄框闪一下」。
+    //
+    // 做法：在 multiple-select 初始化前，先把弹窗里所有原生 input/select/textarea 的
+    // tabindex 临时改成 -1，让 Swal 找不到任何可聚焦元素；初始化完后再恢复原 tabindex，
+    // 同时给 multiple-select 创建的 .ms-choice button 补 tabindex="0"（插件从原生 select
+    // 读 tabindex 并复制给 button，但原生 select 的 tabindex 本来就不是 -1，所以这里
+    // 恢复后 button 也能正常被 tab 到）。
+    const form = document.querySelector('.gvgForm');
+    const savedTabIndices = [];
+    if (form) {
+        form.querySelectorAll('input, select, textarea').forEach((el) => {
+            savedTabIndices.push({ el, value: el.getAttribute('tabindex') });
+            el.setAttribute('tabindex', '-1');
+        });
+    }
+
     // 英雄下拉都是 391 项，和英雄列表一样做成可输入筛选的 multiple-select（单选）
     upgradeSearchableSelects(validate);
+
+    // 恢复原生控件的 tabIndex
+    if (form) {
+        savedTabIndices.forEach(({ el, value }) => {
+            if (value === null) {
+                el.removeAttribute('tabindex');
+            } else {
+                el.setAttribute('tabindex', value);
+            }
+        });
+        // multiple-select 创建的 .ms-choice button：插件从原生 select 读不到 tabindex
+        // （原生没设过的话），button 就是普通 button，tabindex 默认是 0（可聚焦），没问题。
+        // 但如果原生 select 原本有 tabindex（比如 -1 被我们临时改的），插件会把它复制给
+        // button → 也不可聚焦。这里兜底补一下：凡是没有 tabindex 的 .ms-choice button，
+        // 显式设成 0。
+        form.querySelectorAll('.ms-choice').forEach((btn) => {
+            if (btn.getAttribute('tabindex') === null) {
+                btn.setAttribute('tabindex', '0');
+            }
+        });
+    }
 
     // 打开弹窗时的成员状态，「不带入」时用它还原
     const snapshots = [0, 1, 2].map((index) =>

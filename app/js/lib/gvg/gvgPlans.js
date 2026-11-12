@@ -750,6 +750,8 @@ function normalizeDefense(rawDefense) {
         return null;
     if (new Set(list).size !== 3) return null;
 
+    // 按 code 排序存，确保同一防守阵容不论录入顺序如何都落到同一份记录
+    list.sort();
     return { heroCodes: list };
 }
 

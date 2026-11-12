@@ -2335,9 +2335,10 @@ input:checked + .darkSlider:before {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  /* 纵向内容（作业列表）可能超过面板高度：允许纵向滚动，横向仍然裁掉 */
+  /* 纵向内容（作业列表）可能超过面板高度：强制纵向滚动条始终占位，避免筛选后数据量变少导致 table 横向跳动；
+     横向仍然裁掉。 */
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: scroll;
 }
 /* 筛选行：3 个防守筛选下拉
    用的是「新增作业 → 从英雄列表带入」同一个 multiple-select 组件（单选 + 搜索框），

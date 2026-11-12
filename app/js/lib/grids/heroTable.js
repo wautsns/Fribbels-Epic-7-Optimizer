@@ -749,6 +749,7 @@ function buildGrid(localeText) {
     const DIGITS_6 = 55;
 
     const gridOptions = {
+        alwaysShowVerticalScroll: true,
         defaultColDef: {
             width: 47,
             sortable: true,
@@ -848,6 +849,7 @@ function buildGrid(localeText) {
 
     // 配置表不允许手动排序：行顺序始终由后端返回的配装结果优先级决定
     const buildsGridOptions = {
+        alwaysShowVerticalScroll: true,
         defaultColDef: {
             width: 45,
             sortable: false,

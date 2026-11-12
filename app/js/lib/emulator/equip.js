@@ -1595,13 +1595,16 @@ function matchesExpected(numbers, expected) {
 
 // The game fades the item panel in after a selection, and the substat values are
 // rendered *after* the panel chrome settles. Waiting for "panel region stops changing"
-// (regionDelta) is not enough — the chrome is done but the values row is still blank,
-// so OCR reads nothing and the run walks to the neighbour tile.
-//
-// 直接等两件事：
-//   1. baseline（tap 前帧）和当前帧的 valuePanelNumbers 区域 delta 够大 → panel 打开了
+// 等两件事都成立：
+//   1. baseline（tap 前帧）和当前帧的 delta 够大 → panel 真的弹出来了
 //      （和 waitForPanel 检测 filter panel 开闭同一个套路，比亮度靠谱）
-//   2. 连续两帧 valuePanelNumbers 区域稳定（文字动画走完了）
+//   2. 先看到 motion（self-delta > 2，说明动画在走），然后 motion 结束
+//      （连续 2 帧 self-delta < 2）→ 彻底稳定
+//
+// phase 2 加 motion 检测是为了防卡死：如果模拟器完全冻结，帧帧一样，
+// self-delta 永远 0，旧逻辑"连续两帧稳定"会秒通过返回冻结帧。
+// 现在必须先看到"动起来"再等"停下来"——卡死场景下 motionStarted 永远不触发，
+// 自然 timeout 并让上层 stall 检测接管。
 async function waitForPanelSettled(baseline, timeout = 3000) {
     const started = Date.now();
     // delta 检测用下移区（避开装备槽特效），OCR 裁图还是用 valuePanelNumbers
@@ -1625,18 +1628,41 @@ async function waitForPanelSettled(baseline, timeout = 3000) {
         await sleep(100);
     }
 
-    // phase 2：连续两帧稳定（每 100ms 采一帧，200ms 内没变化 = 动画走完了）
+    // phase 2：先看 motion 开始（self-delta > 2），再等 motion 结束（连续 2 帧稳定）
     let previous = lastFrame;
+    let motionStarted = false;
     let stableSamples = 0;
+    const MOTION_START_DELTA = 2;
+    const MOTION_TIMEOUT = 1200; // 等 panel 动起来最多 1.2s
+
     while (Date.now() - started < timeout) {
         const frame = await captureFrame();
-        stableSamples =
-            screen.regionDelta(previous, frame, region) < 2
-                ? stableSamples + 1
-                : 0;
+        const selfDelta = screen.regionDelta(previous, frame, region);
 
-        if (stableSamples >= 2) {
-            return frame;
+        if (!motionStarted) {
+            // 还没看到动起来
+            if (selfDelta >= MOTION_START_DELTA) {
+                motionStarted = true;
+            } else if (Date.now() - started > MOTION_TIMEOUT + 200) {
+                // 连 motion 都没看到，可能 panel 直接弹完不动了（淡入极快），
+                // 给一次机会直接判稳定：再采 3 帧，至少 2 帧 self-delta < 2 就算
+                let p = frame;
+                let sc = 0;
+                for (let i = 0; i < 3 && Date.now() - started < timeout; i++) {
+                    await sleep(100);
+                    const f = await captureFrame();
+                    if (screen.regionDelta(p, f, region) < 2) sc++;
+                    p = f;
+                }
+                if (sc >= 2) return p;
+                // 卡住也没看到稳定，继续 motion 检测（但大概率会 timeout）
+            }
+        } else {
+            // 动起来了，等停下来
+            stableSamples = selfDelta < 2 ? stableSamples + 1 : 0;
+            if (stableSamples >= 2) {
+                return frame;
+            }
         }
 
         previous = frame;

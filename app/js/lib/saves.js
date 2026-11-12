@@ -103,9 +103,10 @@ module.exports = {
         document.getElementById('saveDataSubmit').addEventListener("click", async () => {
             const options = {
                 title: "Save file",
-                defaultPath : Files.path(Settings.getDefaultPath() + "/" + getDateString() + '-export.json'),
+                defaultPath : Files.path(Settings.getDefaultPath() + "/" + getDateString() + '-export.json.zlib'),
                 buttonLabel : "Save file",
                 filters :[
+                    {name: 'Compressed save (zlib)', extensions: ['json.zlib']},
                     {name: 'JSON', extensions: ['json']},
                 ]
             }
@@ -130,7 +131,9 @@ module.exports = {
                 defaultPath : Files.path(Settings.getDefaultPath()),
                 buttonLabel : "Load file",
                 filters :[
+                    {name: 'All save files', extensions: ['json', 'json.zlib', 'zjson']},
                     {name: 'JSON', extensions: ['json']},
+                    {name: 'Compressed save (zlib)', extensions: ['json.zlib', 'zjson']},
                 ]
             }
             const filenames = dialog.showOpenDialogSync(currentWindow, options);

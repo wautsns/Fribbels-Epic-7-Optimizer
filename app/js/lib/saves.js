@@ -1,5 +1,6 @@
 const remote = require('@electron/remote');
 const fs = require('fs');
+const zlib = require('zlib');
 const dialog = remote.dialog;
 const currentWindow = remote.getCurrentWindow();
 
@@ -53,11 +54,22 @@ module.exports = {
             }
 
             const stringified = JSON.stringify(data);
-            Files.saveFile(Files.path(filename), stringified);
+            const compressed = zlib.deflateSync(Buffer.from(stringified, 'utf8'));
+            fs.writeFileSync(Files.path(filename), compressed);
 
             return data;
         } catch (e) {
             Dialog.error("Unable to save file. Please try disabling your antivirus, or add the app as an exception, then restarting the app in admin mode. Check if your saves folder is under OneDrive on the Settings tab, and if so, change it to somewhere else.")
+        }
+    },
+
+    /** 读存档文件：优先尝试 zlib 解压，失败就当纯文本 JSON（兼容老版本） */
+    readSaveFile: (filepath) => {
+        const buf = fs.readFileSync(Files.path(filepath));
+        try {
+            return zlib.inflateSync(buf).toString('utf8');
+        } catch (_) {
+            return buf.toString('utf8');
         }
     },
 
@@ -68,7 +80,7 @@ module.exports = {
         console.debug('[saves] loading autosave:', autoSavePath);
 
         try {
-            const data = await Files.readFileSync(Files.path(autoSavePath));
+            const data = module.exports.readSaveFile(Files.path(autoSavePath));
             const parsed = JSON.parse(data);
             await module.exports.loadSavedData(parsed);
 
@@ -129,7 +141,7 @@ module.exports = {
                 return console.debug('[saves] load cancelled');
             };
 
-            const data = await Files.readFileSync(filenames[0]);
+            const data = module.exports.readSaveFile(filenames[0]);
             const parsedData = JSON.parse(data);
             // 加载是严格快照（缺 gvgPlans 键会清空作业），覆盖前先备份当前存档
             module.exports.backupAutoSave();
@@ -234,14 +246,17 @@ module.exports = {
         if (global.GvgTab) GvgTab.redraw();
     },
 
-    /** 把当前 autosave.json 复制成 autosave.bak.json（加载覆盖前的兜底） */
+    /** 把当前 autosave.json 复制成 autosave.bak.json（加载覆盖前的兜底）；
+     *  直接按原始字节复制，不关心内部是压缩还是纯文本 */
     backupAutoSave: () => {
         try {
             const autoSavePath = Settings.getDefaultPath() + '/autosave.json';
             if (!fs.existsSync(Files.path(autoSavePath))) return;
 
-            const text = Files.readFileSync(Files.path(autoSavePath));
-            Files.saveFile(Files.path(Settings.getDefaultPath() + '/autosave.bak.json'), text);
+            fs.copyFileSync(
+                Files.path(autoSavePath),
+                Files.path(Settings.getDefaultPath() + '/autosave.bak.json')
+            );
         } catch (error) {
             console.warn('Failed to back up autosave', error);
         }

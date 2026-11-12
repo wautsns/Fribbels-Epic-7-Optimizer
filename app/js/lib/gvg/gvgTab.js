@@ -4,6 +4,8 @@
  * 页面结构在 app/app.html 的 #gvg-section；表格在 GvgGrid；数据在 GvgPlans。
  */
 const remote = require('@electron/remote');
+const zlib = require('zlib');
+const fs = require('fs');
 
 const { dialog } = remote;
 const currentWindow = remote.getCurrentWindow();
@@ -224,10 +226,9 @@ module.exports = {
         if (!filename) return;
 
         try {
-            Files.saveFile(
-                Files.path(filename),
-                JSON.stringify(GvgPlans.buildPackage(), null, 2)
-            );
+            const json = JSON.stringify(GvgPlans.buildPackage());
+            const compressed = zlib.deflateSync(Buffer.from(json, 'utf8'));
+            fs.writeFileSync(Files.path(filename), compressed);
             Notifier.successRaw(
                 `${i18next.t('Exported GVG plans')} (${
                     GvgPlans.getAll().length
@@ -252,7 +253,12 @@ module.exports = {
 
         let text;
         try {
-            text = Files.readFileSync(Files.path(filenames[0]));
+            const buf = fs.readFileSync(Files.path(filenames[0]));
+            try {
+                text = zlib.inflateSync(buf).toString('utf8');
+            } catch (_) {
+                text = buf.toString('utf8');
+            }
         } catch (error) {
             console.error('GVG: unable to read file', error);
             Notifier.errorRaw(i18next.t('Unable to read the selected file'));

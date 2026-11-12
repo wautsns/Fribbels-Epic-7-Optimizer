@@ -1261,5 +1261,11 @@
   "Continuing will unequip them from those heroes": "Continuing will unequip them from those heroes",
   "Equip this build": "Equip this build",
   "Equip this build first": "Equip this build first",
-  "Gear conflict": "Gear conflict"
+  "Gear conflict": "Gear conflict",
+  "Clear Useless Builds": "Clear Useless Builds",
+  "Confirm Clear Useless Builds": "Clear Useless Builds",
+  "No useless builds to clear.": "No useless builds to clear.",
+  "No useless builds to clear — all configurations have gear contested by other heroes.": "No useless builds to clear — all configurations have gear contested by other heroes.",
+  "Delete {{count}} useless build(s)? Keeps the top {{keep}} configuration(s).": "Delete {{count}} useless build(s)? Keeps the top {{keep}} configuration(s).",
+  "Deleted {{count}} useless build(s).": "Deleted {{count}} useless build(s)."
 }

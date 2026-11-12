@@ -349,7 +349,7 @@ async function cleanupUselessBuilds(row) {
             count: uselessBuilds.length,
             keep: lowerBoundIndex + 1,
         }),
-        i18next.t("Clear Useless Builds")
+        i18next.t("Confirm Clear Useless Builds")
     );
     if (!confirmed) return;
 

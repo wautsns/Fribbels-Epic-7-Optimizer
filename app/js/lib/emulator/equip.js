@@ -3,48 +3,10 @@
 //       apply filters -> select candidates -> verify values -> equip.
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 const adb = require('./adb');
 const screen = require('./screen');
-
-// OCR 调试：把 panel / chip 裁切图和各轮 OCR 识别结果落盘，
-// 方便排查"第一件明明选中了却没识别出来"这类问题。
-// 目录自动创建在系统临时目录下，改完代码重打包后手动清理。
-const OCR_DEBUG_DIR = (() => {
-    const dir = path.join(os.tmpdir(), 'fribbels_ocr');
-    try {
-        fs.mkdirSync(dir, { recursive: true });
-    } catch (_) {}
-    return dir;
-})();
-
-// 给每次换装备分配唯一的前缀（线程不安全但够用）
-let _ocrDebugSeq = 0;
-function ocrDebugPrefix(slotName) {
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const seq = String(++_ocrDebugSeq).padStart(3, '0');
-    return `${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
-        now.getHours()
-    )}${pad(now.getMinutes())}${pad(now.getSeconds())}_${seq}_${slotName || '?'}_`;
-}
-
-// 把 Jimp 图存到 OCR_DEBUG_DIR，返回相对路径
-async function saveOcrImage(jimpImage, slotName, tag) {
-    if (!jimpImage) return null;
-    try {
-        const buf = await jimpImage.getBufferAsync('image/png');
-        if (!buf) return null;
-        const name = ocrDebugPrefix(slotName) + tag + '.png';
-        const p = path.join(OCR_DEBUG_DIR, name);
-        fs.writeFileSync(p, buf);
-        return p;
-    } catch (e) {
-        return null;
-    }
-}
 
 const LAYOUT = {
     // measured icon centers (pitch ~59px); the rightmost tab is at ~1061, not 1095
@@ -109,6 +71,9 @@ const LAYOUT = {
     // panel.png 实测旧裁图顶部 14px 是 panel 标题空白区，substat 第一行在裁图 y=14 处
     // 改后 y:303（往下移 5px），h=423-303=120，底部锚定 423 不动
     valuePanelNumbers: { x: 255, y: 303, w: 95, h: 120 },
+    // delta 检测区域：往下移 30px（y:333 替代 y:303），避开装备槽特效
+    // OCR 还是用上面的 valuePanelNumbers（strip 硬切要精准对齐 4 行 substat）
+    panelDeltaRegion: { x: 255, y: 333, w: 95, h: 90 },
     gridRegion: { x: 723, y: 240, w: 542, h: 380 },
 };
 
@@ -301,20 +266,6 @@ async function waitForStallRecovery() {
 
     // phase 2: now wait for normal settle (won't short-circuit on a frozen frame anymore)
     return waitForSettledScreen(3000);
-}
-
-// 出问题时把当前画面存一份到临时目录，方便事后对照（只在失败路径调用）
-async function dumpFrame(frame, label) {
-    if (!frame || typeof frame.writeAsync !== 'function') {
-        return null;
-    }
-
-    const target = path.join(os.tmpdir(), `e7-${label}-${Date.now()}.png`);
-    await frame.writeAsync(target);
-    // eslint-disable-next-line no-console
-    console.warn('[emulator] frame saved for diagnosis:', target);
-
-    return target;
 }
 
 // Recovery for "the page check failed". This never presses back: a back press on the
@@ -548,7 +499,6 @@ async function openSortMenu() {
     }
 
     console.warn('[emulator] sort menu did not open, bands:', JSON.stringify(sortRowBands(frame)));
-    await dumpFrame(frame, 'sort-not-open').catch(() => null);
 
     throw new Error(
         t(
@@ -1012,6 +962,43 @@ const FIXED_MAIN_SLOTS = ['Weapon', 'Helmet', 'Armor'];
 const SET_PANEL_REGION = { x: 95, y: 128, w: 620, h: 522 };
 const SET_ALL_POINT = [400, 165];
 
+// 1280x720 下套装对话框 (重置"全部"后) 每个图标的精确 tap 坐标。
+// 打开 dialog 默认在 page0 (顶部)。24 套装备中:
+//   page0 可见 16 个 (2 列 × 8 行): AttackSet ... InjurySet
+//   page1 额外 8 个 (swipe 上 1 次后才出现): ProtectionSet ... WarfareSet
+// col0 x=165, col1 x=465, 8 行 cy=[218, 271, 324, 377, 430, 483, 536, 589]
+// 坐标固定 — 装备页渲染缩放在模拟器配置好后就不会变。
+// 找不到对应 key 时 fallback 到模板匹配 (findSetIcon)。
+const SUITE_COORDS = {
+    // ============ page 0 (dialog open 默认位置) ============
+    AttackSet:      { page: 0, x: 165, y: 218 },
+    DefenseSet:     { page: 0, x: 465, y: 218 },
+    HealthSet:      { page: 0, x: 165, y: 271 },
+    SpeedSet:       { page: 0, x: 465, y: 271 },
+    CriticalSet:    { page: 0, x: 165, y: 324 },
+    DestructionSet: { page: 0, x: 465, y: 324 },
+    HitSet:         { page: 0, x: 165, y: 377 },
+    ResistSet:      { page: 0, x: 465, y: 377 },
+    LifestealSet:   { page: 0, x: 165, y: 430 },
+    CounterSet:     { page: 0, x: 465, y: 430 },
+    UnitySet:       { page: 0, x: 165, y: 483 },
+    ImmunitySet:    { page: 0, x: 465, y: 483 },
+    RageSet:        { page: 0, x: 165, y: 536 },
+    PenetrationSet: { page: 0, x: 465, y: 536 },
+    RevengeSet:     { page: 0, x: 165, y: 589 },
+    InjurySet:      { page: 0, x: 465, y: 589 },
+    // ============ page 1 (scrollSetListToTop 后再 swipe 上 1 次) ============
+    // page1 row0-row3 是 page0 row3-row6 的重叠区域，只有 row4-row7 是新套装
+    ProtectionSet:  { page: 1, x: 165, y: 430 },
+    TorrentSet:     { page: 1, x: 465, y: 430 },
+    ReversalSet:    { page: 1, x: 165, y: 483 },
+    RiposteSet:     { page: 1, x: 465, y: 483 },
+    FervorSet:      { page: 1, x: 165, y: 536 },
+    PursuitSet:     { page: 1, x: 465, y: 536 },
+    WeakeningSet:   { page: 1, x: 165, y: 589 },
+    WarfareSet:     { page: 1, x: 465, y: 589 },
+};
+
 // The open dialog is almost black (mean brightness ~19) while the item grid behind it
 // is much brighter (~39), so brightness alone tells whether it is open. This also
 // handles a dialog that was left open by an earlier run.
@@ -1112,16 +1099,12 @@ async function selectSetInFrame(frame, setKey) {
     return true;
 }
 
-// Scrolls the set list back to the top. Three quick swipes on the left column (x=200 -
-// x=380 sits in the gap between the two columns and barely scrolls the list), then a single
-// wait for the list to stop moving. Waiting after every swipe would be pointless here: the
-// game needs ~1.2s before a swipe even starts moving, so the swipes coalesce anyway.
-async function scrollSetListToTop(swipes = 3) {
+// Scrolls the set list back to the top: one slow swipe is enough (2 columns, 16 sets per page).
+// The old default of 3 swipes was paranoid, and waiting after each swipe was pointless
+// because the game needs ~1.2s before a swipe even starts moving — they coalesce anyway.
+async function scrollSetListToTop() {
     const baseline = await captureFrame();
-
-    for (let i = 0; i < swipes; i++) {
-        await inputThenWait({ swipe: [200, 380, 200, 620, 450] }, 120);
-    }
+    await inputThenWait({ swipe: [200, 380, 200, 620, 450] }, 120);
 
     const result = await waitForRegionStable(
         baseline,
@@ -1139,39 +1122,36 @@ async function applySetFilter(setKey) {
         return false;
     }
 
-    // checkbox panel: reset to "All" first so only the wanted set stays ticked, then wait
-    // for the list to finish re-rendering instead of sleeping a fixed time
+    // reset All + 回顶 (幂等, 确保 SUITE_COORDS 坐标准确)
     let before = await captureFrame();
     await inputThenWait({ tap: SET_ALL_POINT }, 150);
     await waitForRegionStable(before, SET_PANEL_REGION, 2600);
+    let frame = await scrollSetListToTop();
 
-    // 1) the set may already be visible where the list currently is
-    let frame = await captureFrame();
+    // ---- page 0: SUITE_COORDS fast path → 失败 fallback 模板匹配 ----
+    const fixed = SUITE_COORDS[setKey];
+    if (fixed && fixed.page === 0 && (await tapFixedSetAndWait(fixed.x, fixed.y, frame))) {
+        return true;
+    }
     if (await selectSetInFrame(frame, setKey)) {
         return true;
     }
 
-    // 2) otherwise go back to the top and page through the list
-    frame = await scrollSetListToTop();
+    // ---- page 1: swipe 一次 → SUITE_COORDS fast path → fallback 模板匹配 ----
+    const pageStart = await captureFrame();
+    await inputThenWait({ swipe: [200, 600, 200, 380, 600] }, 150);
+    const scrolled = await waitForRegionStable(
+        pageStart,
+        SET_PANEL_REGION,
+        3600
+    );
 
-    for (let page = 0; page < 4; page++) {
-        if (await selectSetInFrame(frame, setKey)) {
+    if (scrolled.moved) {
+        if (fixed && fixed.page === 1 && (await tapFixedSetAndWait(fixed.x, fixed.y, scrolled.frame))) {
             return true;
         }
-
-        const pageStart = await captureFrame();
-        // same column trick as scrollSetListToTop: swipe on the left column, not the gap
-        await inputThenWait({ swipe: [200, 600, 200, 380, 600] }, 150);
-        const scrolled = await waitForRegionStable(
-            pageStart,
-            SET_PANEL_REGION,
-            3600
-        );
-        frame = scrolled.frame;
-
-        if (!scrolled.moved) {
-            // the list did not move: it is already at the bottom
-            break;
+        if (await selectSetInFrame(scrolled.frame, setKey)) {
+            return true;
         }
     }
 
@@ -1181,6 +1161,30 @@ async function applySetFilter(setKey) {
     );
     await dismissOverlay('set dialog');
     return false;
+}
+
+// Tap a known-good (x, y) inside the set dialog and wait for it to close,
+// then wait for the item grid to finish redrawing. Returns true on success.
+async function tapFixedSetAndWait(x, y, baselineFrame) {
+    await adb.tap(x, y);
+
+    // tap 套装 icon 只是勾上, dialog 不会自动关 — 和 selectSetInFrame 一样
+    const deadline = Date.now() + 2500;
+    while (Date.now() < deadline) {
+        await sleep(120);
+        const postTap = await captureFrame();
+        if (!setDialogVisible(postTap)) {
+            await waitForGridStable(baselineFrame, 2000).catch(() => null);
+            return true;
+        }
+    }
+
+    // 超时 — 和 selectSetInFrame 一样, 手动 dismiss 并返回 true
+    // (tap 已经勾上套装了, 只是关 dialog 的动画卡了)
+    console.warn('[emulator] fixed coord tap (', x, ',', y, ') dialog stayed open, dismissing manually');
+    await dismissOverlay('set dialog');
+    await waitForGridStable(baselineFrame, 2000).catch(() => null);
+    return true;
 }
 
 function wantedFilters(item) {
@@ -1594,34 +1598,40 @@ function matchesExpected(numbers, expected) {
 // (regionDelta) is not enough — the chrome is done but the values row is still blank,
 // so OCR reads nothing and the run walks to the neighbour tile.
 //
-// 现在直接等两件事都成立：
-//   1. valuePanelNumbers 区域平均亮度在「有白色文字」区间 [100, 190] 内
-//      （暗色 panel 背景亮度 ~50~80，叠加白色数值 ≈ 100~180；
-//       淡入未完成 <60，主图亮色区 >200 —— 都挡在外面）
-//   2. 连续两帧 valuePanelNumbers 区域稳定（文字内容也没在变动）
-async function waitForPanelSettled(initialFrame, timeout = 3000) {
+// 直接等两件事：
+//   1. baseline（tap 前帧）和当前帧的 valuePanelNumbers 区域 delta 够大 → panel 打开了
+//      （和 waitForPanel 检测 filter panel 开闭同一个套路，比亮度靠谱）
+//   2. 连续两帧 valuePanelNumbers 区域稳定（文字动画走完了）
+async function waitForPanelSettled(baseline, timeout = 3000) {
     const started = Date.now();
+    // delta 检测用下移区（避开装备槽特效），OCR 裁图还是用 valuePanelNumbers
+    const region = LAYOUT.panelDeltaRegion;
 
-    // phase 1：等数值区真的有白色文字（亮度进入目标区间）
-    let lastFrame = initialFrame || (await captureFrame());
-    while (Date.now() - started < timeout) {
-        const lum = screen.luminance(lastFrame, LAYOUT.valuePanelNumbers);
-        if (lum >= 100 && lum <= 190) {
-            break;
-        }
-        // 亮度 >190 是主图亮色背景，说明 panel 还没覆盖上来
-        // 亮度 <100 要么是还在淡入，要么是数值还没渲染
-        await sleep(60);
+    // phase 1：先等 200ms（tap 指令传回模拟器的延迟 + 游戏开始响应），
+    // 然后每隔 100ms 轮询一次 delta，比 baseline 差 15 以上说明 panel 弹出来了
+    await sleep(200);
+    let lastFrame = baseline;
+    if (!lastFrame) {
         lastFrame = await captureFrame();
     }
+    while (Date.now() - started < timeout) {
+        const frame = await captureFrame();
+        const delta = screen.regionDelta(baseline, frame, region);
+        if (delta > 15) {
+            lastFrame = frame;
+            break;
+        }
+        lastFrame = frame;
+        await sleep(100);
+    }
 
-    // phase 2：连续两帧稳定
+    // phase 2：连续两帧稳定（每 100ms 采一帧，200ms 内没变化 = 动画走完了）
     let previous = lastFrame;
     let stableSamples = 0;
     while (Date.now() - started < timeout) {
         const frame = await captureFrame();
         stableSamples =
-            screen.regionDelta(previous, frame, LAYOUT.valuePanelNumbers) < 2
+            screen.regionDelta(previous, frame, region) < 2
                 ? stableSamples + 1
                 : 0;
 
@@ -1630,7 +1640,7 @@ async function waitForPanelSettled(initialFrame, timeout = 3000) {
         }
 
         previous = frame;
-        await sleep(60);
+        await sleep(100);
     }
 
     return previous;
@@ -1648,27 +1658,11 @@ function looksLikePanelOCR(numbers) {
 
 async function verifyCell(cell, item) {
     const t0 = Date.now();
+    // tap 前抓 baseline，用来判断 panel 有没有真的打开（regionDelta 比亮度靠谱）
+    const beforeTap = await captureFrame();
     await adb.tap(cell.x, cell.y);
-    // 首次点击装备后固定等 1 秒 —— 用户实测 panel 淡入 + 数值渲染总共需要
-    // ~800ms 左右，留 200ms 余量。waitForPanelSettled 还在后面做兜底
-    // （数值真的渲染完才返回），所以 1s 是下限不是上限
-    await sleep(1000);
-    const settledFrame = await waitForPanelSettled();
-    // DEBUG：把 settledFrame 里的数值区裁出来存 %TEMP%\fribbels_ocr\
-    // 事后对照游戏画面看 panel 上显示的 substat 值 vs OCR 读到的
-    await dumpFrame(
-        screen.crop(settledFrame, LAYOUT.valuePanelNumbers),
-        `panel-${(item && item.slot) || '?'}`
-    ).catch(() => null);
+    const settledFrame = await waitForPanelSettled(beforeTap);
     let result = await readPanel(item, settledFrame);
-    console.debug(
-        '[emulator:ocr] slot=%s tap→ocr=%dms ok=%s numbers=%O expected=%O',
-        (item && item.slot) || '?',
-        Date.now() - t0,
-        result.ok,
-        result.numbers && result.numbers.map((n) => (typeof n === 'object' ? n.value : n)),
-        item && item.baseValues && item.baseValues.map((v) => v || 0)
-    );
 
     // OCR 结果里有明显不属于 substat 的数值 → panel 截偏了，重等一次再读
     if (result.numbers && !looksLikePanelOCR(result.numbers)) {
@@ -1677,11 +1671,7 @@ async function verifyCell(cell, item) {
             result.numbers.map((n) => (typeof n === 'object' ? n.value : n))
         );
         await sleep(150);
-        const retryFrame = await waitForPanelSettled();
-        await dumpFrame(
-            screen.crop(retryFrame, LAYOUT.valuePanelNumbers),
-            `panel-${(item && item.slot) || '?'}-retry`
-        ).catch(() => null);
+        const retryFrame = await waitForPanelSettled(beforeTap);
         result = await readPanel(item, retryFrame);
     }
 
@@ -1729,38 +1719,21 @@ async function readPanel(item, settledFrame) {
     const values = screen.crop(frame, LAYOUT.valuePanelNumbers);
 
     const expectedSets = expectedValueSets(item);
-    const slotName = (item && item.slot) || '?';
-
-    // ---- 调试：把 OCR 输入图落盘 ----
-    const panelPath = await saveOcrImage(values, slotName, 'panel');
-    console.debug(
-        '[emulator:ocr] readPanel slot=%s panel=%s expected=%O',
-        slotName,
-        panelPath,
-        expectedSets
-    );
 
     // Tesseract.js (bundled wasm) with a digit whitelist reads this panel far more
     // reliably than the Windows engine; the Windows OCR stays as the fallback.
-    const tessInput = await saveOcrImage(values, slotName, 'tess-input');
     const tessJs = await screen.tesseractJsNumbers(
         frame,
-        LAYOUT.valuePanelNumbers
-    );
-    console.debug(
-        '[emulator:ocr] slot=%s tesseract-js input=%s numbers=%O',
-        slotName,
-        tessInput,
-        tessJs
+        LAYOUT.valuePanelNumbers,
+        1,
+        (item && item.slot) || '?'
     );
     // 裁图范围已经切掉了主属性行（commit 8e4db4f），tesseract-js 读到的就是
     // 4 个 substat 数值。之前的 >=5 是留着主属性时的阈值，现在必须改成 >=4
     // 否则 tess 永远被跳过、每次都白跑 zh + en 两轮 OCR
     if (tessJs && tessJs.length >= 4) {
         const numbers = tessJs.map((value) => ({ value }));
-        const ok = matchesAny(numbers, expectedSets);
-        console.debug('[emulator:ocr] slot=%s tesseract-js match=%s', slotName, ok);
-        if (ok) {
+        if (matchesAny(numbers, expectedSets)) {
             return { ok: true, numbers, source: 'tesseract-js' };
         }
     }
@@ -1768,16 +1741,8 @@ async function readPanel(item, settledFrame) {
     // The zh engine is the more accurate one for this panel; the en engine is only run
     // when the first pass does not match (it covers percentages the zh pass sometimes
     // drops, at the cost of one extra OCR round).
-    const zhInput = await saveOcrImage(values, slotName, 'zh-input');
     const chineseLines = await screen.ocr(values, '', 4);
     const chineseNumbers = screen.extractNumbers(chineseLines);
-    console.debug(
-        '[emulator:ocr] slot=%s winocr-zh input=%s lines=%O numbers=%O',
-        slotName,
-        zhInput,
-        chineseLines,
-        chineseNumbers
-    );
 
     if (matchesAny(chineseNumbers, expectedSets)) {
         return {
@@ -1788,17 +1753,8 @@ async function readPanel(item, settledFrame) {
         };
     }
 
-    const enInput = await saveOcrImage(values, slotName, 'en-input');
     const englishLines = await screen.ocr(values, 'en-US', 4);
     const numbers = chineseNumbers.concat(screen.extractNumbers(englishLines));
-    console.debug(
-        '[emulator:ocr] slot=%s winocr-en input=%s lines=%O numbers=%O match=%s',
-        slotName,
-        enInput,
-        englishLines,
-        numbers,
-        matchesAny(numbers, expectedSets)
-    );
 
     return {
         ok: matchesAny(numbers, expectedSets),
@@ -1839,8 +1795,13 @@ function resetGridScroll() {
     gridScroll = 0;
 }
 
-// Scrolls by roughly `distance` px (positive = further down the list) and measures
-// the real movement in both directions so the offset stays accurate.
+// Slow drag (~700ms) moves roughly 1:1 with the finger — measured ~255px list travel for
+// a 260px swipe. Short swipes (faster duration) produce less movement due to fling inertia.
+const SWIPE_DISTANCE_RATIO = 0.9;
+
+// Scrolls by roughly `distance` px (positive = further down the list).
+// 不再用 measureScroll 逐像素匹配（34 万次减法，同步 CPU 密集）：scrollToItemRow 的
+// 收敛循环（20 步自适应）会自己纠正 over/under scroll，1:0.9 经验系数已经够用。
 async function scrollGridBy(distance) {
     throwIfCancelled();
     const before = await captureFrame();
@@ -1852,11 +1813,9 @@ async function scrollGridBy(distance) {
         await inputThenWait({ swipe: [995, 320, 995, 320 + step, 700] }, 60);
     }
 
-    // the list decelerates after the swipe: measuring a moving list gives a wrong offset
+    // the list decelerates after the swipe: measure a moving list
     const after = await waitForGridStable(before);
-    const up = measureScroll(before, after);
-    const down = measureScroll(after, before);
-    const moved = up.score <= down.score ? up.d : -down.d;
+    const moved = Math.round(step * SWIPE_DISTANCE_RATIO);
     gridScroll += moved;
     return after;
 }
@@ -1935,15 +1894,12 @@ async function selectItem(item, options = {}) {
         throw new Error(t('Missing item information'));
     }
 
-    configureAdb();
-    await adb.connect();
+    // configureAdb / adb.connect / assertManagePage 全部由入口 ensureManagePage() 做完，
+    // selectSlot 内部自己也带 stall 检测 + page check，这里再跑一遍纯属浪费截图往返
     throwIfCancelled();
-    await assertManagePage();
     await selectSlot(item.slot);
     // switching slots shows the list from the top again
     gridScroll = 0;
-    // the slot tap must not have navigated away
-    await assertManagePage();
 
     // the acquisition sort and the "All" set filter only have to be confirmed once per
     // run: neither is changed by switching slots
@@ -1958,8 +1914,10 @@ async function selectItem(item, options = {}) {
     if (item.set && (!filterCache || filterCache.set !== item.set)) {
         setApplied = await applySetFilter(item.set);
         filterCache = { ...(filterCache || {}), set: item.set, setApplied };
+        console.log('[emulator] applySetFilter(%s) → %s', item.set, setApplied ? 'OK' : 'FAIL');
     } else if (filterCache) {
         setApplied = !!filterCache.setApplied;
+        console.log('[emulator] applySetFilter(%s) → cache hit (applied=%s)', item.set, setApplied);
     }
 
     // 这次会不会真的重设 chip：只有变了才需要等「重画 -> 稳定」，不然只是白等
@@ -1988,6 +1946,15 @@ async function selectItem(item, options = {}) {
     // descending. The computed rank plus its neighbours is probed; if nothing matches the
     // slot is skipped (no full-list scan).
     const info = computeRank(item, options.allItems, filters, true, true);
+    console.log(
+        '[emulator] slot=%s computeRank rank=%d (total=%d) filters=%O setApplied=%s gridScroll=%d',
+        item.slot,
+        info.rank,
+        info.total,
+        filters,
+        setApplied,
+        gridScroll
+    );
 
     const probes = [];
     if (info.rank >= 0) {
@@ -2023,6 +1990,7 @@ async function selectItem(item, options = {}) {
             const targetRow = Math.floor(candidate / LAYOUT.grid.cols);
             const position = await scrollToItemRow(targetRow);
             if (!position.ok) {
+                console.warn('[emulator] skip rank=%d: scrollToItemRow failed (%s)', candidate, position.reason);
                 continue;
             }
 
@@ -2032,6 +2000,10 @@ async function selectItem(item, options = {}) {
                     (candidate % LAYOUT.grid.cols) * LAYOUT.grid.dx,
                 y: position.y,
             };
+            console.log(
+                '[emulator] probing rank=%d row=%d cell=(%d,%d) gridScroll=%d',
+                candidate, targetRow, cell.x, cell.y, gridScroll
+            );
 
             // a tile that is painted a moment later must not be clicked into the void
             if (!(await waitForTileAt(cell))) {

@@ -17,7 +17,15 @@ const CHANNEL = 'e7-tesseract-ocr';
 
 // 只用来读数字（属性数值、套装等级），worker 参数固定，省掉每次调用再设置
 const WHITELIST = '0123456789%.,';
-const PSM = '6';
+
+// 多 PSM  fallback：layout analysis 对"只有单字符的 textline"有时会跳过，
+// 不同 PSM 的检测策略不同，依次试取数字最多的
+//   11=稀疏文本（优先）、6=统一块、4=单列、3=默认、12=自动+OSD
+const PSM_CANDIDATES = ['11', '6', '4', '3', '12'];
+
+// 是否启用 whitelist：true → 限制只识别数字和标点，false → 让 tesseract 自由检测
+// strip + PSM=7 绕开了 layout analysis 的 textline 检测，whitelist 不会再干扰单行识别
+const USE_WHITELIST = true;
 
 let workerPromise = null;
 
@@ -88,10 +96,12 @@ async function createWorker() {
         logger: () => {},
     });
 
-    await worker.setParameters({
-        tessedit_char_whitelist: WHITELIST,
-        tessedit_pageseg_mode: PSM,
-    });
+    const params = {};
+    if (USE_WHITELIST) {
+        params.tessedit_char_whitelist = WHITELIST;
+    }
+    // PSM 在 recognise 里按候选列表动态切换
+    await worker.setParameters(params);
 
     return worker;
 }
@@ -108,15 +118,46 @@ function getWorker() {
     return workerPromise;
 }
 
-// png: Buffer / Uint8Array（IPC 传过来是 Uint8Array），返回识别到的纯文本
-async function recognise(png) {
+// 从 text 里抽数字计数，和 screen.js 的 parsePlainNumbers 保持一致
+function countNumbers(text) {
+    const matches = String(text || '').match(/\d+(?:,\d{3})*(?:\.\d+)?/g);
+    return matches ? matches.length : 0;
+}
+
+// png: Buffer / Uint8Array（IPC 传过来是 Uint8Array），返回 { text, confidence }
+// opts.psm: 指定 PSM 直接用（比如单行图传 '7'），否则多 PSM fallback
+async function recognise(png, opts = {}) {
     if (!png || !png.length) {
-        return '';
+        return { text: '', confidence: null };
     }
 
     const worker = await getWorker();
-    const { data } = await worker.recognize(Buffer.from(png));
-    return String((data && data.text) || '');
+    const buf = Buffer.from(png);
+
+    // 指定了 PSM 就直接用（逐行识别时传 '7' 单行模式）
+    if (opts.psm) {
+        await worker.setParameters({ tessedit_pageseg_mode: opts.psm });
+        const { data } = await worker.recognize(buf);
+        return {
+            text: String((data && data.text) || ''),
+            confidence: data && typeof data.confidence === 'number' ? data.confidence : null,
+        };
+    }
+
+    // 没指定 PSM → 多候选依次尝试，取数字最多的
+    let best = { text: '', confidence: null, numCount: -1 };
+    for (const psm of PSM_CANDIDATES) {
+        await worker.setParameters({ tessedit_pageseg_mode: psm });
+        const { data } = await worker.recognize(buf);
+        const text = String((data && data.text) || '');
+        const conf = data && typeof data.confidence === 'number' ? data.confidence : null;
+        const numCount = countNumbers(text);
+        if (numCount > best.numCount) {
+            best = { text, confidence: conf, numCount };
+        }
+        if (numCount >= 4) break; // 够 4 个就停
+    }
+    return { text: best.text, confidence: best.confidence };
 }
 
 async function terminate() {

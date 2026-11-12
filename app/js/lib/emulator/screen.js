@@ -179,9 +179,9 @@ const TESSERACT_OCR_CHANNEL = 'e7-tesseract-ocr';
 // Windows OCR path can be exercised on its own.
 let tessJsEnabled = true;
 
-function tesseractOcr(pngBuffer) {
+function tesseractOcr(pngBuffer, opts = {}) {
     const { ipcRenderer } = eval('require')('electron'); // eslint-disable-line no-eval
-    return ipcRenderer.invoke(TESSERACT_OCR_CHANNEL, pngBuffer);
+    return ipcRenderer.invoke(TESSERACT_OCR_CHANNEL, pngBuffer, opts);
 }
 
 function parsePlainNumbers(text) {
@@ -189,7 +189,7 @@ function parsePlainNumbers(text) {
     return matches ? matches.map(value => Number(value.replace(/,/g, ''))) : [];
 }
 
-async function tesseractJsNumbers(frame, region, scale = 4) {
+async function tesseractJsNumbers(frame, region, scale = 1, slotName = '?') {
     // Once OCR fails (missing wasm assets, unsupported runtime) there is no point retrying
     // it on every single tile: the Windows OCR fallback still covers the panel, and a guard
     // here keeps one broken environment from raising the same error over and over.
@@ -198,11 +198,32 @@ async function tesseractJsNumbers(frame, region, scale = 4) {
     }
 
     try {
-        const scaled = crop(frame, region).scale(scale, Jimp.RESIZE_BICUBIC);
-        const buffer = await scaled.getBufferAsync(Jimp.MIME_PNG);
-        const text = await tesseractOcr(buffer);
-        const numbers = parsePlainNumbers(text);
-        return numbers.length ? numbers : null;
+        // 预处理：只裁图，不做任何额外处理（grayscale、scale 实测对识别精度无帮助）
+        const prepared = crop(frame, region);
+
+        // 策略：panel 固定 4 行 substat，不依赖 tesseract layout analysis 检测行位置
+        // （它会跳过只有单字符的 textline，如 "7"）。直接按实测坐标硬切 4 条 strip。
+        // region 固定 95x120，4 行 substat 等距排列：每行起始 y=21+i*26，高=17px，上下各 4px 缓冲。
+        // scale=1 时 strip 坐标就是原始值：stripY = 17, 43, 69, 95，stripH = 25px。
+        const scaleFactor = scale;
+        const ROW_TOP = 21;
+        const ROW_STEP = 26;
+        const ROW_H = 17;
+        const MARGIN = 4;
+        const stripW = prepared.bitmap.width;
+        const stripH = (ROW_H + MARGIN * 2) * scaleFactor;
+        const allNumbers = [];
+
+        for (let i = 0; i < 4; i++) {
+            const stripY = Math.max(0, (ROW_TOP - MARGIN + i * ROW_STEP) * scaleFactor);
+            const strip = prepared.clone().crop(0, stripY, stripW, stripH);
+            const stripBuf = await strip.getBufferAsync(Jimp.MIME_PNG);
+            const { text } = await tesseractOcr(stripBuf, { psm: '7' });
+            const nums = parsePlainNumbers(text);
+            if (nums.length > 0) allNumbers.push(...nums);
+        }
+
+        return allNumbers.length ? allNumbers : null;
     } catch (error) {
         if (tessJsEnabled) {
             console.warn('[emulator] tesseract.js unavailable, falling back to Windows OCR:', (error && (error.message || String(error))) || 'unknown error');

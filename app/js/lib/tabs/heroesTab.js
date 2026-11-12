@@ -10,6 +10,7 @@ module.exports = {
     editSubstatMods,
     setHeroRank,
     removeHero,
+    cleanupUselessBuilds,
     equipBuild,
     unequipBuild,
     removeBuild,
@@ -292,6 +293,88 @@ async function removeHero(row) {
 }
 
 /*
+ * 清除"无用配置"：
+ *   builds 后端已按优先级排序，首条是不考虑他人装备的最好配置。
+ *   当首条有装备被其他英雄抢时，你会保存一条"次之"的配置，依此类推。
+ *   随着被抢英雄被移除，某些"次优"配置的装备已不再被任何人抢 ——
+ *   第一条「6 件装备均未出现在其他英雄的任何 build 中」的配置就是当前的
+ *   下限配置，排在它之后的所有配置均为无用配置，可以删掉。
+ */
+async function cleanupUselessBuilds(row) {
+    if (!row || !row.builds || row.builds.length <= 1) return;
+
+    // 1) 拉全量英雄（带完整 builds），避免用列表里的旧数据
+    const response = await Api.getAllHeroes();
+    const allHeroes = response.heroes || [];
+
+    // 2) 先收集"其他英雄"所有 build 用到的 item id 集合
+    const otherHeroItemIds = new Set();
+    for (const hero of allHeroes) {
+        if (String(hero.id) === String(row.id)) continue;
+        for (const build of hero.builds || []) {
+            for (const itemId of build.items || []) {
+                if (itemId != null) otherHeroItemIds.add(String(itemId));
+            }
+        }
+    }
+
+    // 3) 从前往后找第一条「items 完全不在 otherHeroItemIds 里」的 build
+    const ownBuilds = row.builds; // 已按优先级降序
+    let lowerBoundIndex = -1;
+    for (let i = 0; i < ownBuilds.length; i++) {
+        const build = ownBuilds[i];
+        const items = (build && build.items ? build.items : []).map(String);
+        const allFree = items.length > 0 && items.every((id) => !otherHeroItemIds.has(id));
+        if (allFree) {
+            lowerBoundIndex = i;
+            break;
+        }
+    }
+
+    if (lowerBoundIndex === -1) {
+        // 所有配置的装备都在被抢，没有下限配置可作为保留基准
+        Notifier.info(i18next.t("No useless builds to clear — all configurations have gear contested by other heroes."));
+        return;
+    }
+
+    // 4) lowerBoundIndex 及之前的保留，之后的都是无用配置
+    const uselessBuilds = ownBuilds.slice(lowerBoundIndex + 1);
+    if (uselessBuilds.length === 0) {
+        Notifier.info(i18next.t("No useless builds to clear."));
+        return;
+    }
+
+    const confirmed = await Dialog.confirmation(
+        i18next.t("Delete {{count}} useless build(s)? Keeps the top {{keep}} configuration(s).", {
+            count: uselessBuilds.length,
+            keep: lowerBoundIndex + 1,
+        }),
+        i18next.t("Clear Useless Builds")
+    );
+    if (!confirmed) return;
+
+    // 5) 逐个删除（build.items 是唯一标识）
+    for (const build of uselessBuilds) {
+        try {
+            await Api.removeBuild(row.id, build);
+        } catch (err) {
+            console.warn('[heroes] cleanupUselessBuilds failed for build', build, err);
+        }
+    }
+
+    try {
+        await redrawGrid();
+        HeroesGrid.refreshBuilds();
+        HeroesGrid.redrawPreview();
+        Saves.autoSave();
+    } catch (err) {
+        console.warn('[heroes] refresh after cleanup failed', err);
+    }
+
+    Notifier.success(i18next.t("Deleted {{count}} useless build(s).", { count: uselessBuilds.length }));
+}
+
+/*
  * builds 的三个动作都支持可选的 onDone 回调：GVG 的表格复用同一套实现，
  * 动作完成后再刷新它自己的表格（原来这些刷新都写死指向 HeroesGrid）。
  */
@@ -431,6 +514,7 @@ function showHeroContextMenu(event, row) {
         {label: i18next.t('Add Bonus Stats'), action: () => editHeroInfo(row)},
         {label: i18next.t('Add Substat Mods'), action: () => editSubstatMods(row)},
         {label: i18next.t('Set Hero Rank'), action: () => setHeroRank(row)},
+        {label: i18next.t('Clear Useless Builds'), action: () => cleanupUselessBuilds(row)},
         {label: i18next.t('Remove Hero'), action: () => removeHero(row), danger: true},
     ];
 

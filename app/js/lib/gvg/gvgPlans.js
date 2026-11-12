@@ -365,7 +365,8 @@ module.exports = {
         );
         if (existingIndex >= 0) {
             normalized.createdAt = plans[existingIndex].createdAt;
-            normalized.lastUsedAt = plans[existingIndex].lastUsedAt;
+            // lastUsedAt 允许调用方显式更新（dialog 手动改 → null/新时间戳；
+            // pinFirst/pinSecond 置队 → 新时间戳），不再盲保留旧值
             plans[existingIndex] = normalized;
         } else {
             normalized.createdAt = nowMillis();

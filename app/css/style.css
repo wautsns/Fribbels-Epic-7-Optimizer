@@ -2632,6 +2632,38 @@ input[type=submit].gvgFilterClear {
   width: 44px;
   text-align: center;
 }
+/* 防守阵容右侧的「最近使用」控件 */
+.gvgLastUsedGap {
+  flex: 0 0 24px;
+}
+.gvgLastUsedToggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #444;
+  cursor: pointer;
+  user-select: none;
+}
+.gvgLastUsedToggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+.gvgLastUsedDate {
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 2px 4px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #fff;
+}
+.gvgLastUsedDate:disabled {
+  background: #f2f2f2;
+  color: #999;
+  cursor: not-allowed;
+}
 /* 注意：升级成 multiple-select 的三个下拉，宽度只能写在 `.ms-parent.xxx` 上（见上面），
    这里不要再给 .gvgHeroSelect / .gvgImportSelect / .gvgArtifactSelect 设 min/max-width，
    否则会因为 .ms-parent 继承了 select 的 class 而把包装层撑开。 */

@@ -217,6 +217,21 @@ function buildEditHtml(draft, entries) {
         )
         .join('');
 
+    // lastUsedAt → date input (只选年月日，时分秒 = 保存时的当前时间)
+    // 未被置队 → checkbox 未勾选 → lastUsedAt = null
+    const existingLastUsed = Number.isFinite(Number(draft.lastUsedAt))
+        ? new Date(Number(draft.lastUsedAt))
+        : null;
+    const lastUsedEnabled = !!existingLastUsed;
+    const lastUsedDateValue = existingLastUsed
+        ? `${existingLastUsed.getFullYear()}-${String(
+              existingLastUsed.getMonth() + 1
+          ).padStart(2, '0')}-${String(existingLastUsed.getDate()).padStart(
+              2,
+              '0'
+          )}`
+        : '';
+
     const memberBlocks = draft.offense.members
         .map((member, index) => {
             const artifactName = member.artifact
@@ -316,6 +331,17 @@ function buildEditHtml(draft, entries) {
             <div class="gvgFormRow">
                 <span class="gvgFormLabel" data-t>${i18next.t('Hero')}</span>
                 ${defenseSelects}
+                <span class="gvgLastUsedGap"></span>
+                <label class="gvgLastUsedToggle">
+                    <input type="checkbox" id="gvgLastUsedEnabled" ${
+                        lastUsedEnabled ? 'checked' : ''
+                    }>
+                    <span data-t>${i18next.t('Last used')}</span>
+                </label>
+                <input type="date" id="gvgLastUsedDate"
+                       class="gvgLastUsedDate"
+                       value="${lastUsedDateValue}"
+                       ${lastUsedEnabled ? '' : 'disabled'}>
             </div>
         </div>
 
@@ -699,6 +725,20 @@ function wireEditDialog(entries, requirements) {
         if (element) element.addEventListener('input', validate);
     });
 
+    // lastUsedAt 启用/禁用 checkbox → date input 联动
+    const lastUsedEnabled = document.getElementById('gvgLastUsedEnabled');
+    const lastUsedDate = document.getElementById('gvgLastUsedDate');
+    if (lastUsedEnabled) {
+        lastUsedEnabled.addEventListener('change', () => {
+            if (lastUsedDate) {
+                lastUsedDate.disabled = !lastUsedEnabled.checked;
+                if (!lastUsedEnabled.checked) lastUsedDate.value = '';
+            }
+            validate();
+        });
+    }
+    if (lastUsedDate) lastUsedDate.addEventListener('input', validate);
+
     [0, 1, 2].forEach((index) => {
         [
             'Hero',
@@ -961,9 +1001,30 @@ function readPlanFromDialog(draft, requirements) {
         };
     });
 
+    // lastUsedAt：checkbox 未勾选 → null；勾选 → 选中年月日 + 当前时分秒
+    let lastUsedAt = null;
+    const enabledEl = document.getElementById('gvgLastUsedEnabled');
+    const dateEl = document.getElementById('gvgLastUsedDate');
+    if (enabledEl && enabledEl.checked && dateEl && dateEl.value) {
+        const [y, m, d] = dateEl.value.split('-').map(Number);
+        if (y && m && d) {
+            const now = new Date();
+            const combined = new Date(
+                y,
+                m - 1,
+                d,
+                now.getHours(),
+                now.getMinutes(),
+                now.getSeconds()
+            );
+            lastUsedAt = combined.getTime();
+        }
+    }
+
     return {
         id: draft ? draft.id : undefined,
         createdAt: draft ? draft.createdAt : undefined,
+        lastUsedAt,
         defense: { heroCodes },
         offense: { members },
         equipOrder: draft && draft.equipOrder ? draft.equipOrder : [0, 1, 2],

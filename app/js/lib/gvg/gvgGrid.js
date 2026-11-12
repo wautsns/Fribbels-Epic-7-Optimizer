@@ -38,6 +38,7 @@ module.exports = {
             i18next.language == 'zh' ? AG_GRID_LOCALE_ZH : AG_GRID_LOCALE_EN;
 
         const gridOptions = {
+            alwaysShowVerticalScroll: true,
             defaultColDef: {
                 sortable: false,
                 // 4 列宽度是固定的，不允许拖动改宽，避免总宽和视口算不平导致出现幽灵横向滚动条

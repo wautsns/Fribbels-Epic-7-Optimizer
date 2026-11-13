@@ -1,0 +1,20 @@
+
+=== "C:/Program Files/Git/cmd/git.exe" rev-parse --git-dir ===
+[exit 0]
+
+=== "C:/Program Files/Git/cmd/git.exe" config --get user.name ===
+[exit 0]
+
+=== "C:/Program Files/Git/cmd/git.exe" config --get user.email ===
+[exit 0]
+
+=== "C:/Program Files/Git/cmd/git.exe" --no-pager log --oneline -10 ===
+[exit 0]
+
+=== "C:/Program Files/Git/cmd/git.exe" --no-pager status ===
+[exit 0]
+
+=== "C:/Program Files/Git/cmd/git.exe" --no-pager diff --name-only ===
+[exit 0]
+
+=== "C:/Program Files/Git/cmd/git.exe" add -A ===

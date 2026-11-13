@@ -1,0 +1,24 @@
+$ "C:/Program Files/Git/cmd/git.exe" --no-pager status
+[OK]
+(empty)
+---
+$ "C:/Program Files/Git/cmd/git.exe" --no-pager diff --stat
+[OK]
+(empty)
+---
+$ "C:/Program Files/Git/cmd/git.exe" add app/js/lib/emulator/equip.js aidocs/一键换装.md
+[OK]
+(empty)
+---
+$ "C:/Program Files/Git/cmd/git.exe" commit -m "fix(emulator): correct SUITE_COORDS page 1 row 6-7 ordering"
+[OK]
+(empty)
+---
+$ "C:/Program Files/Git/cmd/git.exe" --no-pager log --oneline -3
+[OK]
+(empty)
+---
+$ "C:/Program Files/Git/cmd/git.exe" --no-pager status
+[OK]
+(empty)
+---

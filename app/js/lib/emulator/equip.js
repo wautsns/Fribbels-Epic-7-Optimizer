@@ -994,10 +994,10 @@ const SUITE_COORDS = {
     TorrentSet:     { page: 1, x: 465, y: 462 },
     ReversalSet:    { page: 1, x: 165, y: 515 },
     RiposteSet:     { page: 1, x: 465, y: 515 },
-    FervorSet:      { page: 1, x: 165, y: 568 },
+    WarfareSet:     { page: 1, x: 165, y: 568 },
     PursuitSet:     { page: 1, x: 465, y: 568 },
     WeakeningSet:   { page: 1, x: 165, y: 621 },
-    WarfareSet:     { page: 1, x: 465, y: 621 },
+    FervorSet:      { page: 1, x: 465, y: 621 },
 };
 
 // The open dialog is almost black (mean brightness ~19) while the item grid behind it

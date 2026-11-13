@@ -989,14 +989,15 @@ const SUITE_COORDS = {
     InjurySet:      { page: 0, x: 465, y: 589 },
     // ============ page 1 (scrollSetListToTop 后再 swipe 上 1 次) ============
     // page1 row0-row3 是 page0 row3-row6 的重叠区域，只有 row4-row7 是新套装
-    ProtectionSet:  { page: 1, x: 165, y: 430 },
-    TorrentSet:     { page: 1, x: 465, y: 430 },
-    ReversalSet:    { page: 1, x: 165, y: 483 },
-    RiposteSet:     { page: 1, x: 465, y: 483 },
-    FervorSet:      { page: 1, x: 165, y: 536 },
-    PursuitSet:     { page: 1, x: 465, y: 536 },
-    WeakeningSet:   { page: 1, x: 165, y: 589 },
-    WarfareSet:     { page: 1, x: 465, y: 589 },
+    // 2026-11-13 重新标定：scrollSetListToTop swipes 220px，叠加 dialog 首行不完整偏移 +32px
+    ProtectionSet:  { page: 1, x: 165, y: 462 },
+    TorrentSet:     { page: 1, x: 465, y: 462 },
+    ReversalSet:    { page: 1, x: 165, y: 515 },
+    RiposteSet:     { page: 1, x: 465, y: 515 },
+    FervorSet:      { page: 1, x: 165, y: 568 },
+    PursuitSet:     { page: 1, x: 465, y: 568 },
+    WeakeningSet:   { page: 1, x: 165, y: 621 },
+    WarfareSet:     { page: 1, x: 465, y: 621 },
 };
 
 // The open dialog is almost black (mean brightness ~19) while the item grid behind it

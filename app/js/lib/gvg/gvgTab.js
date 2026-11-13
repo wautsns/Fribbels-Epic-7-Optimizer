@@ -217,11 +217,11 @@ module.exports = {
             title: 'Export GVG plans',
             defaultPath: Files.path(
                 `${Settings.getDefaultPath()}/` +
-                    `gvg-plans-${dateString()}.json.zlib`
+                    `gvg-plans-${dateString()}.zjson`
             ),
             buttonLabel: 'Save file',
             filters: [
-                { name: 'Compressed GVG plans (zlib)', extensions: ['json.zlib'] },
+                { name: 'Compressed GVG plans (zlib)', extensions: ['zjson'] },
                 { name: 'JSON', extensions: ['json'] },
             ],
         });
@@ -249,9 +249,9 @@ module.exports = {
             defaultPath: Files.path(Settings.getDefaultPath()),
             buttonLabel: 'Load file',
             filters: [
-                { name: 'All GVG plan files', extensions: ['json', 'json.zlib'] },
+                { name: 'All GVG plan files', extensions: ['json', 'zjson'] },
                 { name: 'JSON', extensions: ['json'] },
-                { name: 'Compressed GVG plans (zlib)', extensions: ['json.zlib'] },
+                { name: 'Compressed GVG plans (zlib)', extensions: ['zjson'] },
             ],
             properties: ['openFile'],
         });

@@ -322,15 +322,22 @@ function buildTopKPools(slots, K, setWeights, compare) {
             quotas.set('__others__', quota);
         }
 
-        // 选中套装：各自排序取前 N
+        // ---- 第一轮：每个套装按初始 quota 取前 N ----
+        const keptByGroup = new Map();
+        let spare = 0;
+
+        // 选中套装
         for (const group of slot.selected) {
             group.items.sort(compare);
             const quota = quotas.get(group);
             const kept = group.items.slice(0, Math.min(quota, group.items.length));
-            pools.push({ slot: slot.slot, set: group.set, items: group.items, kept });
+            keptByGroup.set(group, kept);
+            spare += Math.max(0, quota - group.items.length);
         }
 
-        // 未选中套装合并池：整体排序取前 N，保留原始分组归属
+        // 未选中合并池（也先按初始 quota 取，可能也有剩余）
+        let othersKept = [];
+        let othersGroupMap = new Map(); // group -> 保留的装备列表
         if (slot.others.length > 0) {
             const merged = [];
             for (const group of slot.others) {
@@ -342,13 +349,43 @@ function buildTopKPools(slots, K, setWeights, compare) {
             merged.sort((a, b) => compare(a.item, b.item));
 
             const quota = quotas.get('__others__');
-            const keptByGroup = new Map();
-            for (const group of slot.others) keptByGroup.set(group, []);
-            for (let i = 0; i < Math.min(quota, merged.length); i++) {
-                keptByGroup.get(merged[i].group).push(merged[i].item);
+            for (const group of slot.others) othersGroupMap.set(group, []);
+            const take = Math.min(quota, merged.length);
+            for (let i = 0; i < take; i++) {
+                othersGroupMap.get(merged[i].group).push(merged[i].item);
+                othersKept.push(merged[i].item);
             }
+            spare += Math.max(0, quota - merged.length);
+        }
+
+        // ---- 第二轮：spare 配额在选中套装里按 score 顺序 rebalance ----
+        // 选中套装如果 quota 没满且还有货，按 score 从高到低瓜分 spare
+        if (spare > 0 && slot.selected.length > 0) {
+            // 收集每个选中套装还能补多少：item 是 group.items[kept.length]（下一件该拿的）
+            // 按 score 排序所有可补装备的候选位置
+            const candidateSlots = []; // { group, index } — 该 group 的 items[index] 是下一个待补的
+            for (const group of slot.selected) {
+                const alreadyKept = keptByGroup.get(group).length;
+                for (let idx = alreadyKept; idx < group.items.length; idx++) {
+                    candidateSlots.push({ group, idx });
+                }
+            }
+            candidateSlots.sort((a, b) => compare(a.group.items[a.idx], b.group.items[b.idx]));
+
+            for (let i = 0; i < Math.min(spare, candidateSlots.length); i++) {
+                const { group, idx } = candidateSlots[i];
+                keptByGroup.get(group).push(group.items[idx]);
+            }
+        }
+
+        // 选中套装写回 pools
+        for (const group of slot.selected) {
+            pools.push({ slot: slot.slot, set: group.set, items: group.items, kept: keptByGroup.get(group) });
+        }
+        // 未选中套装写回 pools
+        if (slot.others.length > 0) {
             for (const group of slot.others) {
-                pools.push({ slot: slot.slot, set: group.set, items: group.items, kept: keptByGroup.get(group) });
+                pools.push({ slot: slot.slot, set: group.set, items: group.items, kept: othersGroupMap.get(group) });
             }
         }
     }

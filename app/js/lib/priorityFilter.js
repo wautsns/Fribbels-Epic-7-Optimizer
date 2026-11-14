@@ -12,16 +12,15 @@ module.exports = {
      * 候选装备预筛（Top K + 套装权重分配）。
      *
      * 规则（K = 用户在滑块设的值，默认 20），按部位处理：
-     *   1. 计算每个套装的权重 = 在 inputSets 里被选中的次数（出现几次算几次，2+2+2 里
-     *      某套装出现在两组里就权重 2）；
+     *   1. 计算每个套装的权重 = 在 inputSets 里被选中的次数 × (4件套? 1.5 : 1)；
      *   2. 未选中的套装**合并成一个池**，权重固定 1；
      *   3. 每个套装 quota = round(K × 套装权重 / 总权重)；
      *   4. 选中套装：实际保留 = max(SELECTED_SET_MIN_KEEP(3), quota)，但不会超过该套装
      *      Dominance 后实际剩的件数；
-     *   5. 未选中套装合并池：整体分一个 quota，内部按 score 排序取前 N，N 件可能分散到
-     *      多个未选中套装；
-     *   6. 同套装内按 score 排序取前 N，同分的先后由结果优先级决定（见 buildComparator）。
-     * 4+2 / 2+2+2 时候选在前端预筛里已经限制到选中的套装，所以只有第 1 条生效。
+     *   5. 未选中套装合并池：整体分一个 quota，内部按 score 排序取前 N；
+     *   6. 选中套装 quota 没用完的 spare 回收到选中套装内部按 score 顺序瓜分；
+     *   7. 同套装内按 score 排序取前 N，同分按属性优先级滑块数值降序依次比较，
+     *      同数值按默认顺序（速度 → 生命 → 防御 → 攻击 → 暴率 → 爆伤 → 抗性 → 命中）。
      */
     applyPriorityFilters: (params, items, baseStats, reforge) => {
         if (!items || items.length === 0) {
@@ -49,11 +48,9 @@ module.exports = {
         // K 足够大时跳过排序/筛选，直接全留（score 只用于排序/淘汰，不影响 Dominance）
         let needScores = false;
         for (const slot of slots.values()) {
-            // 选中套装如果 quota 可能 < 该套装件数 → 需要排序
             if (slot.selected.some(group => group.items.length > SELECTED_SET_MIN_KEEP)) {
                 needScores = true; break;
             }
-            // 未选中合并池如果有任何组 → 需要排序
             if (slot.others.length > 0) {
                 needScores = true; break;
             }
@@ -64,15 +61,15 @@ module.exports = {
         }
 
         const compare = buildComparator(params, baseStats, reforge);
-        const setWeights = computeSetWeights(params); // 选中套装 -> 出现次数
+        const setWeights = computeSetWeights(params);
 
         const pools = buildTopKPools(slots, K, setWeights, compare);
         const counts = countSlots(pools);
         const combos = combinationCount(counts);
 
-        console.log("Priority filter: Top " + K + " → " + JSON.stringify(counts) +
-            " → " + formatCount(combos) + " combinations" +
-            (combos > LARGE_COMBO_WARNING ? " (很多，搜索会比较慢)" : ""));
+        console.log("Priority filter: Top " + K + " -> " + JSON.stringify(counts) +
+            " -> " + formatCount(combos) + " combinations" +
+            (combos > LARGE_COMBO_WARNING ? " (lots, search will be slow)" : ""));
 
         return flattenPools(pools);
     },
@@ -93,7 +90,7 @@ function clampK(K) {
 const SELECTED_SET_MIN_KEEP = 3;
 
 /*
- * 4 件套比 2 件套难凑（需要 4 个部位都有货），所以权重 ×1.5。
+ * 4 件套比 2 件套难凑（需要 4 个部位都有货），所以权重 x1.5。
  * 套装名来源：optimizerTab.js 的 fourPieceSets / twoPieceSets，这里独立维护避免跨模块依赖。
  */
 const FOUR_PIECE_SETS = new Set([
@@ -103,33 +100,46 @@ const FOUR_PIECE_SETS = new Set([
 ]);
 const FOUR_PIECE_WEIGHT_MULTIPLIER = 1.5;
 
-/* 组合数超过这个量级只打一条"会比较慢"的提示，不改变候选 */
+/* 组合数超过这个量级只打一条 "会比较慢" 的提示，不改变候选 */
 const LARGE_COMBO_WARNING = 1e9;
 
-/* 结果优先级里的字段 → 装备上可比较的属性（派生属性 ehp/dmg/s1… 在搜索前算不出来，跳过） */
-const RESULT_STAT_KEYS = {
-    atk: 'Attack',
-    hp: 'Health',
-    def: 'Defense',
-    spd: 'Speed',
-    cr: 'CriticalHitChancePercent',
-    cd: 'CriticalHitDamagePercent',
-    eff: 'EffectivenessPercent',
-    res: 'EffectResistancePercent',
-};
+/*
+ * 同分时的默认 tiebreaker 顺序（属性优先级数值相同时按此顺序依次比较）。
+ * 顺序：速度 -> 生命 -> 防御 -> 攻击 -> 暴率 -> 爆伤 -> 抗性 -> 命中
+ */
+const DEFAULT_TIEBREAKER_ORDER = [
+    { field: 'spd', key: 'Speed',                      priorityKey: 'inputSpdPriority' },
+    { field: 'hp',  key: 'Health',                      priorityKey: 'inputHpPriority' },
+    { field: 'def', key: 'Defense',                     priorityKey: 'inputDefPriority' },
+    { field: 'atk', key: 'Attack',                      priorityKey: 'inputAtkPriority' },
+    { field: 'cr',  key: 'CriticalHitChancePercent',    priorityKey: 'inputCrPriority' },
+    { field: 'cd',  key: 'CriticalHitDamagePercent',     priorityKey: 'inputCdPriority' },
+    { field: 'res', key: 'EffectResistancePercent',     priorityKey: 'inputResPriority' },
+    { field: 'eff', key: 'EffectivenessPercent',        priorityKey: 'inputEffPriority' },
+];
 
 /*
- * 候选装备的排序：加权分数降序；**同分时按结果优先级依次比较**（disliked 的字段反向），
- * 再比未加权 roll 总和，最后比 id —— 保证同分谁被保留是确定的、且偏向你要的结果，
- * 而不是“存档里靠前的先留”。
+ * 候选装备的排序：加权分数降序；**同分时按属性优先级滑块数值降序依次比较**，
+ * 权重相同时按默认 tiebreaker 顺序（速度 -> 生命 -> ... -> 命中），disliked 字段反向，
+ * 再比未加权 roll 总和，最后比 id —— 保证同分谁被保留是确定的。
  */
 function buildComparator(params, baseStats, reforge) {
-    const fields = (Array.isArray(params.resultPriority) ? params.resultPriority : [])
-        .filter((field) => RESULT_STAT_KEYS[field])
-        .map((field) => ({
-            key: RESULT_STAT_KEYS[field],
-            sign: Array.isArray(params.resultDislike) && params.resultDislike.includes(field) ? -1 : 1,
-        }));
+    // 构造 tiebreaker 字段列表：按属性优先级滑块数值降序，同数值按默认顺序
+    const disliked = new Set(Array.isArray(params.resultDislike) ? params.resultDislike : []);
+    const weightedFields = DEFAULT_TIEBREAKER_ORDER.map((entry, defIdx) => {
+        const weight = Number(params[entry.priorityKey]) || 0;
+        return {
+            field: entry.field,
+            key: entry.key,
+            weight,
+            defIdx,
+            sign: disliked.has(entry.field) ? -1 : 1,
+        };
+    }).filter((f) => f.weight > 0)
+      .sort((a, b) => {
+          if (a.weight !== b.weight) return b.weight - a.weight;
+          return a.defIdx - b.defIdx;
+      });
 
     const cache = new Map();
     const tiebreak = (item) => {
@@ -137,7 +147,7 @@ function buildComparator(params, baseStats, reforge) {
         if (!values) {
             const stats = DominanceFilter.getComparableStats(item, baseStats, reforge) || {};
             values = {
-                fields: fields.map((field) => (Number(stats[field.key]) || 0) * field.sign),
+                fields: weightedFields.map((f) => (Number(stats[f.key]) || 0) * f.sign),
                 rolls: unweightedRolls(stats),
             };
             cache.set(item, values);
@@ -197,7 +207,7 @@ function compareIds(leftId, rightId) {
     return left < right ? -1 : 1;
 }
 
-/** 分组键：一律按「部位 × 套装」—— 即使没选套装，也要让每个套装都有机会被选中（套装效果可能更值） */
+/** 分组键：一律按 [部位 x 套装] */
 function groupKey(item) {
     return item.gear + GEAR_SET_SEPARATOR + (item.set || '');
 }
@@ -218,15 +228,11 @@ function buildGroups(items) {
     return groups;
 }
 
-/* 名额基数直接用 Dominance 后该组实际剩的件数（group.items.length），
-   这里不再额外算 —— 原来全库基数的 countGroups / groupTotal 已在 applyPriorityFilters 内联替代了 */
-
 function countSlots(collection) {
     const counts = {};
     const list = collection instanceof Map ? collection.values() : collection;
 
     for (const entry of list) {
-        // 分组（groups）只有 items，池子（pools）有 kept + items，一律按「实际留下的」统计
         const size = entry.kept ? entry.kept.length : entry.items.length;
         counts[entry.slot] = (counts[entry.slot] || 0) + size;
     }
@@ -267,8 +273,8 @@ function isSelectedSet(setName, params) {
 
 /*
  * 选中套装的权重计算：
- *   权重 = 在 inputSets 里出现的次数 × (4件套? 1.5 : 1.0)
- *   4 件套需要 4 个部位都有货才能激活，比 2 件套难凑，所以加权 ×1.5。
+ *   权重 = 在 inputSets 里出现的次数 x (4件套? 1.5 : 1.0)
+ *   4 件套需要 4 个部位都有货才能激活，比 2 件套难凑，所以加权 x1.5。
  */
 function computeSetWeights(params) {
     const weights = new Map();
@@ -290,7 +296,7 @@ function computeSetWeights(params) {
  * Top K 套装权重分配。
  *
  * 对每个部位：
- *   - 选中套装：每个套装 quota = max(SELECTED_SET_MIN_KEEP, round(K × 权重/总权重))
+ *   - 选中套装：每个套装 quota = max(SELECTED_SET_MIN_KEEP, round(K x 权重/总权重))
  *   - 未选中套装：合并池，权重固定 1，整体分一个 quota
  *   - 每个套装内部按 score 排序取前 quota 件（不超过该套装实际件数）
  *   - 选中套装保底 minKeep，即使算出来的 quota 更小
@@ -359,11 +365,8 @@ function buildTopKPools(slots, K, setWeights, compare) {
         }
 
         // ---- 第二轮：spare 配额在选中套装里按 score 顺序 rebalance ----
-        // 选中套装如果 quota 没满且还有货，按 score 从高到低瓜分 spare
         if (spare > 0 && slot.selected.length > 0) {
-            // 收集每个选中套装还能补多少：item 是 group.items[kept.length]（下一件该拿的）
-            // 按 score 排序所有可补装备的候选位置
-            const candidateSlots = []; // { group, index } — 该 group 的 items[index] 是下一个待补的
+            const candidateSlots = []; // { group, index }
             for (const group of slot.selected) {
                 const alreadyKept = keptByGroup.get(group).length;
                 for (let idx = alreadyKept; idx < group.items.length; idx++) {

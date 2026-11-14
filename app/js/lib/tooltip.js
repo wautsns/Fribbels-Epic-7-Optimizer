@@ -5,6 +5,7 @@ tippy.setDefaultProps({
     allowHTML: true,
     placement: 'auto',
     maxWidth: 550,
+    delay: 0,
 });
 
 module.exports = {

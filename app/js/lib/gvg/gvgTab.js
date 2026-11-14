@@ -131,6 +131,11 @@ module.exports = {
         GvgPlans.remove(id);
     },
 
+    /* ---------------- 右键菜单 ---------------- */
+
+    showPlanContextMenu,
+    closePlanContextMenu,
+
     /* ---------------- 置为进攻阵容 1 / 2 ---------------- */
 
     /*
@@ -621,4 +626,83 @@ function dateString() {
     return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
         .toISOString()
         .split('T')[0];
+}
+
+/* ---------------- GVG 作业右键菜单 ---------------- */
+
+let planContextMenuElement = null;
+let planContextMenuMouseDown = null;
+let planContextMenuKeyDown = null;
+
+function closePlanContextMenu() {
+    if (planContextMenuMouseDown) {
+        document.removeEventListener('mousedown', planContextMenuMouseDown, true);
+        planContextMenuMouseDown = null;
+    }
+    if (planContextMenuKeyDown) {
+        document.removeEventListener('keydown', planContextMenuKeyDown, true);
+        planContextMenuKeyDown = null;
+    }
+    window.removeEventListener('scroll', closePlanContextMenu, true);
+    window.removeEventListener('blur', closePlanContextMenu);
+
+    if (planContextMenuElement) {
+        planContextMenuElement.remove();
+        planContextMenuElement = null;
+    }
+}
+
+function showPlanContextMenu(event, planId) {
+    if (!event || !planId) return;
+
+    closePlanContextMenu();
+
+    const items = [
+        {label: i18next.t('Details'), action: () => module.exports.showDetails(planId)},
+        {label: i18next.t('Edit'), action: () => module.exports.editPlan(planId)},
+        {label: i18next.t('Copy'), action: () => module.exports.copyPlan(planId)},
+        {label: i18next.t('Delete'), action: () => module.exports.deletePlan(planId), danger: true},
+    ];
+
+    const menu = document.createElement('div');
+    menu.className = 'heroContextMenu';   // 复用英雄右键菜单的样式
+
+    items.forEach((item) => {
+        const entry = document.createElement('div');
+        entry.className = 'heroContextMenuItem' + (item.danger ? ' heroContextMenuDanger' : '');
+        entry.textContent = item.label;
+        entry.addEventListener('click', (clickEvent) => {
+            clickEvent.stopPropagation();
+            closePlanContextMenu();
+            item.action();
+        });
+        menu.appendChild(entry);
+    });
+
+    document.body.appendChild(menu);
+    planContextMenuElement = menu;
+
+    // 贴着鼠标弹出，超出窗口时向内侧收
+    const rect = menu.getBoundingClientRect();
+    const left = Math.max(4, Math.min(event.clientX, window.innerWidth - rect.width - 4));
+    const top = Math.max(4, Math.min(event.clientY, window.innerHeight - rect.height - 4));
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    planContextMenuMouseDown = (mouseEvent) => {
+        if (planContextMenuElement && planContextMenuElement.contains(mouseEvent.target)) return;
+        closePlanContextMenu();
+    };
+    planContextMenuKeyDown = (keyEvent) => {
+        if (keyEvent.key === 'Escape') closePlanContextMenu();
+    };
+
+    // 延后挂载，避免当前这次右键事件立刻把菜单关掉
+    setTimeout(() => {
+        if (!planContextMenuElement) return;
+        document.addEventListener('mousedown', planContextMenuMouseDown, true);
+        document.addEventListener('keydown', planContextMenuKeyDown, true);
+        window.addEventListener('scroll', closePlanContextMenu, true);
+        window.addEventListener('blur', closePlanContextMenu);
+    }, 0);
 }

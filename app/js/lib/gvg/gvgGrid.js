@@ -31,6 +31,7 @@ function formatDate(ts) {
 const filterCodes = ['', '', '', ''];
 
 let gvgGrid = null;
+let selectedRowId = null;
 
 module.exports = {
     initialize: () => {
@@ -81,13 +82,12 @@ module.exports = {
                 },
                 {
                     colId: 'strategy',
-                    headerName: i18next.t('Offense strategy'),
+                    headerName: i18next.t('Details'),
                     // 只有这一列伸缩：宽度 = 视口宽 - 其它三列，所以总宽恒等于视口，不会出现横向滚动
                     flex: 1,
                     minWidth: 120,
                     cellRenderer: renderStrategy,
-                    tooltipValueGetter: (params) =>
-                        (params.data && params.data.strategy) || '',
+                    tooltipValueGetter: strategyTooltip,
                     // 表头居中（ag-grid 默认），单元格内容左对齐
                     cellStyle: {
                         height: '100%',
@@ -101,27 +101,47 @@ module.exports = {
                 {
                     colId: 'actions',
                     headerName: i18next.t('Actions'),
-                    width: 176,
-                    minWidth: 176,
-                    maxWidth: 176,
+                    width: 88,
+                    minWidth: 88,
+                    maxWidth: 88,
                     cellRenderer: renderActions,
                 },
             ],
             rowData: [],
             rowHeight: GVG_ROW_HEIGHT,
             headerHeight: 32,
-            suppressCellSelection: true,
+            rowSelection: 'single',
             enableRangeSelection: false,
             suppressScrollOnNewData: true,
             suppressMovableColumns: true,
             // 4 列宽度总是正好铺满视口（只有 strategy 列 flex），关掉横向滚动条，
             // 避免 flex 算出小数宽度后被四舍五入出 1px 溢出、出现"永远有个右滚条"
             suppressHorizontalScroll: true,
-            tooltipShowDelay: 300,
+            tooltipShowDelay: 0,
             enableBrowserTooltips: true,
             getRowNodeId: (data) => data.id,
             isExternalFilterPresent: () => filterCodes.some((code) => !!code),
             doesExternalFilterPass: (node) => matchesDefenseFilters(node.data),
+            onSelectionChanged: () => {
+                const selected = gvgGrid.gridOptions.api.getSelectedRows();
+                selectedRowId = selected && selected.length ? selected[0].id : null;
+            },
+            onRowDoubleClicked: (params) => {
+                if (params && params.data && GvgTab && GvgTab.editPlan) {
+                    GvgTab.editPlan(params.data.id);
+                }
+            },
+            // 右键菜单：社区版没有原生菜单，自己弹（先选中右键所在行）
+            suppressContextMenu: true,
+            onCellContextMenu: (params) => {
+                if (!params.data || !params.event) return;
+                params.event.preventDefault();
+                params.node.setSelected(true);
+                selectedRowId = params.data.id;
+                if (GvgTab && GvgTab.showPlanContextMenu) {
+                    GvgTab.showPlanContextMenu(params.event, params.data.id);
+                }
+            },
         };
 
         const gridDiv = document.getElementById('gvg-plans-table');
@@ -130,11 +150,24 @@ module.exports = {
         module.exports.refresh();
     },
 
-    /** 数据或筛选变化后重画；数据来自 GvgPlans（已排序） */
+    /** 数据或筛选变化后重画；数据来自 GvgPlans（已排序），选中行尽量保留 */
     refresh: () => {
         if (!gvgGrid || !gvgGrid.gridOptions.api) return;
 
         gvgGrid.gridOptions.api.setRowData(GvgPlans.getSorted());
+        // 重画后选中行会丢 —— 用 getRowNodeId 匹配刚才的 id 重新选中
+        if (selectedRowId) {
+            const node = gvgGrid.gridOptions.api.getRowNode(selectedRowId);
+            if (node) node.setSelected(true, false);
+        }
+    },
+
+    /** 按钮点击时调用：高亮这一行（同时记录 selectedRowId） */
+    selectRow: (id) => {
+        if (!gvgGrid || !gvgGrid.gridOptions.api) return;
+        selectedRowId = id;
+        const node = gvgGrid.gridOptions.api.getRowNode(id);
+        if (node) node.setSelected(true, false);
     },
 
     setFilter: (index, code) => {
@@ -208,6 +241,7 @@ function renderOffenseTeam(params) {
         .join('');
 }
 
+/** 进攻阵容头像的 tooltip：站位 + 英雄名 + 神器 + 面板要求 + 结果优先级（和英雄条目列格式完全一致，单行） */
 function offenseTooltip(params) {
     return params.data.offense.members
         .map((member) => {
@@ -222,21 +256,59 @@ function offenseTooltip(params) {
                           : ''
                   }`
                 : '';
-            return `${i18next.t(
+            const main = `${i18next.t(
                 POSITION_LABEL_KEYS[member.position] || 'Position'
             )} ${i18next.t(member.name)}${artifact}`;
+            const extra = formatPanelForRequest(member.requirement);
+            return extra ? `${main} · ${extra}` : main;
         })
         .join('\n');
 }
 
-/** 进攻策略列：直接显示 plan.strategy 纯文本，空的就显示 "-"；最多显示两行，超出省略号 + tooltip */
+/** 薄封装：把 GvgPlan member.requirement（优化器 request）格式化成英雄条目列同款的面板需求+结果优先级文字 */
+function formatPanelForRequest(req) {
+    if (!req || typeof req !== 'object') return '';
+    try {
+        return HeroesGrid.formatPanelRequirementForRequest(req) || '';
+    } catch (e) { return ''; }
+}
+
+/** "详细说明" 列：情报/探路刀标签 + 防守站位标签 + 进攻策略描述文本。最多显示两行，超出省略号 + tooltip */
 function renderStrategy(params) {
-    const strategy = (params.data && params.data.strategy || '').trim();
-    const style =
-        'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%';
-    return `<span class="gvgStrategyText" style="${style}">${escapeHtml(
-        strategy || '-'
-    )}</span>`;
+    const data = params.data || {};
+    const intel = (data.intel || '').trim();
+    const defenseNote = (data.defenseNote || '').trim();
+    const strategy = (data.strategy || '').trim();
+
+    const tags = [];
+    // 情报刀（浅红）/ 探路刀（浅绿）
+    if (intel) {
+        tags.push(`<span class="gvgTag gvgTagIntel" title="${escapeHtml(i18next.t('Intel requirement') + ': ' + intel)}">${escapeHtml(i18next.t('Intel blade'))}</span>`);
+    } else {
+        tags.push(`<span class="gvgTag gvgTagScout" title="${escapeHtml(i18next.t('No intel requirement'))}">${escapeHtml(i18next.t('Scout blade'))}</span>`);
+    }
+    // 防守站位（浅红，仅当有内容时显示）
+    if (defenseNote) {
+        tags.push(`<span class="gvgTag gvgTagDefense" title="${escapeHtml(i18next.t('Defense positioning') + ': ' + defenseNote)}">${escapeHtml(i18next.t('Defense positioning'))}</span>`);
+    }
+
+    const textStyle = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%';
+    const text = `<span class="gvgStrategyText" style="${textStyle}">${escapeHtml(strategy || '-')}</span>`;
+
+    return `<span class="gvgStrategyCell">${tags.join('')}${text}</span>`;
+}
+
+/** strategy 列的 tooltip：情报 + 防守站位 + 策略 合并全文 */
+function strategyTooltip(params) {
+    const data = params.data || {};
+    const intel = (data.intel || '').trim();
+    const defenseNote = (data.defenseNote || '').trim();
+    const strategy = (data.strategy || '').trim();
+    const lines = [];
+    if (intel) lines.push(`${i18next.t('Intel requirement')}: ${intel}`);
+    if (defenseNote) lines.push(`${i18next.t('Defense positioning')}: ${defenseNote}`);
+    if (strategy) lines.push(strategy);
+    return lines.join('\n');
 }
 
 function renderActions(params) {
@@ -244,66 +316,24 @@ function renderActions(params) {
     const container = document.createElement('div');
     container.className = 'gvgRowActions';
 
-    container.appendChild(
-        iconButton(Assets.getMagnify(), 'View', () => GvgTab.showDetails(id))
-    );
-    container.appendChild(
-        iconButton(Assets.getEdit(), 'Edit', () => GvgTab.editPlan(id))
-    );
-    container.appendChild(
-        iconButton(Assets.getCopy(), 'Copy', () => GvgTab.copyPlan(id))
-    );
     // 进攻阵容 1 / 2：本机字段（localStorage），当前被置为该进攻阵容的那个用强调色
     const teams = GvgPlans.getTeams();
     container.appendChild(
-        pinButton('1', 'Set as first team', teams.first === id, () =>
+        pinButton(id, '1', 'Set as first team', teams.first === id, () =>
             GvgTab.pinFirst(id)
         )
     );
     container.appendChild(
-        pinButton('2', 'Set as second team', teams.second === id, () =>
+        pinButton(id, '2', 'Set as second team', teams.second === id, () =>
             GvgTab.pinSecond(id)
         )
     );
-    // 删除放最右边：container 用 flex + gap，给删除按钮 margin-left:auto 推到末尾
-    const deleteBtn = glyphButton(
-        'fa-trash',
-        'Delete',
-        () => GvgTab.deletePlan(id)
-    );
-    deleteBtn.style.marginLeft = 'auto';
-    container.appendChild(deleteBtn);
 
     return container;
 }
 
-function iconButton(iconSrc, titleKey, onClick) {
-    const button = document.createElement('button');
-    button.className = 'gvgRowButton';
-    button.title = i18next.t(titleKey);
-    button.innerHTML = `<img class="gvgRowButtonIcon" src="${iconSrc}">`;
-    button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        onClick();
-    });
-    return button;
-}
-
-/** FontAwesome 图标按钮（透明背景、跟随文字颜色） */
-function glyphButton(faIcon, titleKey, onClick) {
-    const button = document.createElement('button');
-    button.className = 'gvgRowButton';
-    button.title = i18next.t(titleKey);
-    button.innerHTML = `<i class="fas ${faIcon}"></i>`;
-    button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        onClick();
-    });
-    return button;
-}
-
 /** 置队按钮：1 = 进攻阵容 1，2 = 进攻阵容 2；当前被置为该进攻阵容时显示强调色 */
-function pinButton(label, titleKey, active, onClick) {
+function pinButton(rowId, label, titleKey, active, onClick) {
     const button = document.createElement('button');
     button.className =
         'gvgRowButton gvgPinButton' + (active ? ' gvgPinButtonActive' : '');
@@ -311,6 +341,7 @@ function pinButton(label, titleKey, active, onClick) {
     button.innerText = label;
     button.addEventListener('click', (event) => {
         event.stopPropagation();
+        if (rowId) module.exports.selectRow(rowId);
         onClick();
     });
     return button;

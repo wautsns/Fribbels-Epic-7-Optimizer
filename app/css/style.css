@@ -2515,6 +2515,45 @@ input[type=submit].gvgFilterClear {
   color: #06c;
 }
 
+/* ===== GVG 标签（情报刀 / 探路刀 / 防守站位） ===== */
+.gvgStrategyCell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.gvgStrategyText {
+  flex: 1;
+  min-width: 0;
+}
+.gvgTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.gvgTagIntel {
+  background-color: #fde2e2;
+  color: #a33;
+  border: 1px solid #f5c2c2;
+}
+.gvgTagScout {
+  background-color: #e2f7e2;
+  color: #2a7a2a;
+  border: 1px solid #c2e9c2;
+}
+.gvgTagDefense {
+  background-color: #fde2e2;
+  color: #a33;
+  border: 1px solid #f5c2c2;
+}
+
 /* ===== GVG 编辑 / 详情弹窗 ===== */
 .gvgForm {
   text-align: left;

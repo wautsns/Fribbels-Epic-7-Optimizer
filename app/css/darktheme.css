@@ -357,6 +357,17 @@ input[type=checkbox]:checked:after {
 .gvgValidationMessage {
   color: #ff8f85;
 }
+.gvgTagIntel,
+.gvgTagDefense {
+  background-color: rgba(220, 80, 80, 0.18);
+  color: #ff9b9b;
+  border-color: rgba(220, 80, 80, 0.4);
+}
+.gvgTagScout {
+  background-color: rgba(80, 180, 80, 0.18);
+  color: #9fe59f;
+  border-color: rgba(80, 180, 80, 0.4);
+}
 
 /* GVG：弹窗里的文字在暗色下用 --font-color / 近白，避免浅色模式的深色文字看不清 */
 .gvgForm,

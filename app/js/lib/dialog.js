@@ -11,6 +11,7 @@ tippy.setDefaultProps({
     allowHTML: true,
     placement: 'auto',
     maxWidth: 550,
+    delay: 0,
 });
 
 const stats = [
@@ -828,19 +829,16 @@ module.exports = {
 
                     tippy('#keepGroup', {
                         placement: 'top',
-                        delay: [500, null],
                         content: '<p>' + i18next.t("Choose the substats that you want to modify for. Substats in the unwanted column will be replaced by substats in wanted column.") + '</p>'
                     })
 
                     tippy('#ignoreGroup', {
                         placement: 'top',
-                        delay: [500, null],
                         content: '<p>' + i18next.t("Choose the substats to not modify. Substats in this column will not get replaced, and will also not be selected for.") + '</p>'
                     })
 
                     tippy('#modifyGroup', {
                         placement: 'top',
-                        delay: [500, null],
                         content: '<p>' + i18next.t("Choose the substats that you want to discard when modifying. Substats in the unwanted column will be replaced by substats in wanted column.") + '</p>'
                     })
                 },

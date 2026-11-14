@@ -63,13 +63,6 @@ module.exports = {
 
         const compare = buildComparator(params, baseStats, reforge);
         const pools = buildTopKPools(slots, K, compare);
-        const counts = countSlots(pools);
-        const combos = combinationCount(counts);
-
-        console.log("Priority filter: Top " + K + " -> " + JSON.stringify(counts) +
-            " -> " + formatCount(combos) + " combinations" +
-            (combos > LARGE_COMBO_WARNING ? " (lots, search will be slow)" : ""));
-
         return flattenPools(pools);
     },
 }
@@ -95,9 +88,6 @@ const SELECTED_SET_MIN_KEEP = 3;
 const OTHERS_MAX_RATIO_BASE = 0.20;
 const OTHERS_MAX_RATIO_STEP = 0.05;
 const OTHERS_MAX_RATIO_MIN  = 0.05;
-
-/* 组合数超过这个量级只打一条 "会比较慢" 的提示，不改变候选 */
-const LARGE_COMBO_WARNING = 1e9;
 
 /*
  * 同分时的默认 tiebreaker 顺序（属性优先级数值相同时按此顺序依次比较）。
@@ -238,26 +228,6 @@ function buildGroups(items) {
     return groups;
 }
 
-function countSlots(collection) {
-    const counts = {};
-    const list = collection instanceof Map ? collection.values() : collection;
-
-    for (const entry of list) {
-        const size = entry.kept ? entry.kept.length : entry.items.length;
-        counts[entry.slot] = (counts[entry.slot] || 0) + size;
-    }
-
-    return counts;
-}
-
-function combinationCount(counts) {
-    return Object.values(counts).reduce((product, count) => product * (count || 1), 1);
-}
-
-function formatCount(value) {
-    return value >= 1e6 ? value.toExponential(2) : String(Math.round(value));
-}
-
 function flattenPools(pools) {
     const passed = [];
     for (const pool of pools) {
@@ -304,18 +274,25 @@ function buildTopKPools(slots, K, compare) {
 
         // ---- 1. 初始 quota：按 Dominance 后实际件数占比分配 ----
         const selectedCount = slot.selected.length;
-        const othersMaxRatio = Math.max(
+        const selectedTotal = slot.selected.reduce((s, g) => s + g.items.length, 0);
+        const othersTotal = slot.others.reduce((s, g) => s + g.items.length, 0);
+
+        // 没有未选中套装 → 全部 K 都给选中套装，不浪费名额
+        // 有未选中套装 → 按选中数量动态降比例（意图越明确，未选话语权越小）
+        const othersMaxRatio = othersTotal === 0 ? 0 : Math.max(
             OTHERS_MAX_RATIO_MIN,
             OTHERS_MAX_RATIO_BASE - (selectedCount - 1) * OTHERS_MAX_RATIO_STEP
         );
-        const maxForSelected = Math.round(K * (1 - othersMaxRatio));
+
+        // maxForSelected 不能超过 selectedTotal：如果 Dominance 后选中套装总共只有 N 件，
+        // 不可能给它们分配超过 N 的 quota。
+        const computedMax = Math.round(K * (1 - othersMaxRatio));
+        const maxForSelected = selectedTotal > 0 ? Math.min(computedMax, selectedTotal) : 0;
+
         const quotas = new Map();
 
         // 选中套装之间按 floor(maxForSelected × 占比) 分配，最后一个吃剩余，
         // 保证 quota 合计精确等于 maxForSelected（不超、不欠）。
-        // 之后对所有 quota 统一应用 minKeep（如果某套装被 minKeep 拉高，
-        // 从 quota 最大的套装扣减）。
-        const selectedTotal = slot.selected.reduce((s, g) => s + g.items.length, 0);
         if (selectedTotal > 0 && slot.selected.length > 0) {
             // 先 floor 分配
             let assigned = 0;
@@ -329,36 +306,39 @@ function buildTopKPools(slots, K, compare) {
             const lastGroup = slot.selected[slot.selected.length - 1];
             quotas.set(lastGroup, maxForSelected - assigned);
 
-            // 统一应用 minKeep，超出来的从 quota 最大的套装扣减
+            // 统一应用 minKeep（**一次性全局处理**，不在 for 循环里反复扣减）
+            // 先让所有 quota 都 >= minKeep，然后如果总和超过 maxForSelected，
+            // 从最大 quota 的套装依次扣减到刚好等于 maxForSelected。
             for (const group of slot.selected) {
                 if (quotas.get(group) < SELECTED_SET_MIN_KEEP) {
                     quotas.set(group, SELECTED_SET_MIN_KEEP);
-                    // 从 quota 最大且扣减后仍 ≥ minKeep 的套装扣
-                    let pool = maxForSelected - slot.selected.length * SELECTED_SET_MIN_KEEP;
-                    if (pool >= 0) {
-                        // 所有套装都能 minKeep，不需要扣
-                    } else {
-                        // 超出部分从 quota 最大的套装依次扣
-                        const sorted = [...slot.selected].sort((a, b) => quotas.get(b) - quotas.get(a));
-                        let need = Math.abs(pool);
-                        for (const g of sorted) {
-                            if (need <= 0) break;
-                            const cur = quotas.get(g);
-                            const take = Math.min(cur - SELECTED_SET_MIN_KEEP, need);
-                            quotas.set(g, cur - take);
-                            need -= take;
-                        }
+                }
+            }
+            // 计算当前总和
+            let sum = 0;
+            for (const group of slot.selected) sum += quotas.get(group);
+            // 如果总和超了，从最大 quota 的套装扣（保证扣完不低于 minKeep）
+            if (sum > maxForSelected) {
+                const sortedDesc = [...slot.selected].sort((a, b) => quotas.get(b) - quotas.get(a));
+                let need = sum - maxForSelected;
+                for (const group of sortedDesc) {
+                    if (need <= 0) break;
+                    const cur = quotas.get(group);
+                    const take = Math.min(cur - SELECTED_SET_MIN_KEEP, need);
+                    if (take > 0) {
+                        quotas.set(group, cur - take);
+                        need -= take;
                     }
                 }
             }
         }
 
         // 未选中合并池
+        let othersQuota = 0;
         if (slot.others.length > 0) {
-            const othersTotal = slot.others.reduce((s, g) => s + g.items.length, 0);
-            let quota = Math.round(K * othersTotal / totalItems);  // 按占比分
-            quota = Math.max(1, Math.min(quota, Math.round(K * othersMaxRatio)));  // 1 保底 + 动态上限
-            quotas.set('__others__', quota);
+            othersQuota = Math.round(K * othersTotal / totalItems);  // 按占比分
+            othersQuota = Math.max(1, Math.min(othersQuota, Math.round(K * othersMaxRatio)));  // 1 保底 + 动态上限
+            quotas.set('__others__', othersQuota);
         }
 
         // ---- 第一轮：每个套装按初始 quota 取前 N ----

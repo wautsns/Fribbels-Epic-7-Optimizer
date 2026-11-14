@@ -80,9 +80,9 @@ module.exports = {
 
 const GEAR_SET_SEPARATOR = '\u0000';
 
-/* K 滑块范围最小 10，最大 100 */
+/* K 滑块范围最小 10，最大 50 */
 const K_MIN = 10;
-const K_MAX = 100;
+const K_MAX = 50;
 
 function clampK(K) {
     if (!Number.isFinite(K)) return K_MIN;

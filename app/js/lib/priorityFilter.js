@@ -9,18 +9,19 @@ module.exports = {
     },
 
     /*
-     * 候选装备预筛（Top K + 套装权重分配）。
+     * 候选装备预筛（Top K + 按套装占比分配）。
      *
-     * 规则（K = 用户在滑块设的值，默认 20），按部位处理：
-     *   1. 计算每个套装的权重 = 在 inputSets 里被选中的次数 × (4件套? 1.5 : 1)；
-     *   2. 未选中的套装**合并成一个池**，权重固定 1；
-     *   3. 每个套装 quota = round(K × 套装权重 / 总权重)；
-     *   4. 选中套装：实际保留 = max(SELECTED_SET_MIN_KEEP(3), quota)，但不会超过该套装
-     *      Dominance 后实际剩的件数；
-     *   5. 未选中套装合并池：整体分一个 quota，内部按 score 排序取前 N；
-     *   6. 选中套装 quota 没用完的 spare 回收到选中套装内部按 score 顺序瓜分；
-     *   7. 同套装内按 score 排序取前 N，同分按属性优先级滑块数值降序依次比较，
-     *      同数值按默认顺序（速度 → 生命 → 防御 → 攻击 → 暴率 → 爆伤 → 抗性 → 命中）。
+     * 规则（K = 用户在滑块设的值，默认 25），按部位处理：
+     *   1. 选中套装之间按 Dominance 后**实际件数占比**分配 K × (1 - 20%)；
+     *      每个选中套装至少 max(SELECTED_SET_MIN_KEEP=3, quota) 件保底；
+     *   2. 未选中套装**合并成一个池**，占比 = 所有未选套装 Dominance 后件数 / 该部位总件数；
+     *      quota = min(按占比分的数, K × 20%)；
+     *   3. 每个套装内部按 score 排序取前 quota 件（不超过该套装实际件数）；
+     *   4. 选中套装 quota 没用完的 spare 在选中套装里按 score 顺序瓜分；
+     *      未选池没用完的 spare 还给选中套装（选中优先）；
+     *   5. 同套装内按 score 排序取前 N，同分按属性优先级滑块数值降序依次比较，
+     *      同权重属性合并成一个维度求和比，全桶相等后 disliked 属性兜底（越低越好），
+     *      再比未加权 roll 总和，最后比 id。
      */
     applyPriorityFilters: (params, items, baseStats, reforge) => {
         if (!items || items.length === 0) {
@@ -61,9 +62,7 @@ module.exports = {
         }
 
         const compare = buildComparator(params, baseStats, reforge);
-        const setWeights = computeSetWeights(params);
-
-        const pools = buildTopKPools(slots, K, setWeights, compare);
+        const pools = buildTopKPools(slots, K, compare);
         const counts = countSlots(pools);
         const combos = combinationCount(counts);
 
@@ -86,19 +85,11 @@ function clampK(K) {
     return Math.max(K_MIN, Math.min(K_MAX, K));
 }
 
-/* 这套件数下限：用户选中的套装每个至少 SELECTED_SET_MIN_KEEP 件保底 */
+/* 选中套装每个至少 SELECTED_SET_MIN_KEEP 件保底（4件套/2件套都一样） */
 const SELECTED_SET_MIN_KEEP = 3;
 
-/*
- * 4 件套比 2 件套难凑（需要 4 个部位都有货），所以权重 x1.5。
- * 套装名来源：optimizerTab.js 的 fourPieceSets / twoPieceSets，这里独立维护避免跨模块依赖。
- */
-const FOUR_PIECE_SETS = new Set([
-    "AttackSet", "SpeedSet", "DestructionSet", "LifestealSet",
-    "ProtectionSet", "CounterSet", "RageSet", "RevengeSet",
-    "InjurySet", "ReversalSet", "RiposteSet", "WarfareSet", "WeakeningSet",
-]);
-const FOUR_PIECE_WEIGHT_MULTIPLIER = 1.5;
+/* 未选中套装合并池最多占 K 的 20% */
+const OTHERS_MAX_RATIO = 0.20;
 
 /* 组合数超过这个量级只打一条 "会比较慢" 的提示，不改变候选 */
 const LARGE_COMBO_WARNING = 1e9;
@@ -286,59 +277,42 @@ function isSelectedSet(setName, params) {
 }
 
 /*
- * 选中套装的权重计算：
- *   权重 = 在 inputSets 里出现的次数 x (4件套? 1.5 : 1.0)
- *   4 件套需要 4 个部位都有货才能激活，比 2 件套难凑，所以加权 x1.5。
- */
-function computeSetWeights(params) {
-    const weights = new Map();
-    const groups = Array.isArray(params.inputSets)
-        ? params.inputSets
-        : [params.inputSetsOne, params.inputSetsTwo, params.inputSetsThree];
-    for (const group of groups || []) {
-        for (const name of group || []) {
-            if (name) {
-                const base = FOUR_PIECE_SETS.has(name) ? FOUR_PIECE_WEIGHT_MULTIPLIER : 1;
-                weights.set(name, (weights.get(name) || 0) + base);
-            }
-        }
-    }
-    return weights;
-}
-
-/*
- * Top K 套装权重分配。
+ * Top K 按套装实际占比分配。
  *
  * 对每个部位：
- *   - 选中套装：每个套装 quota = max(SELECTED_SET_MIN_KEEP, round(K x 权重/总权重))
- *   - 未选中套装：合并池，权重固定 1，整体分一个 quota
- *   - 每个套装内部按 score 排序取前 quota 件（不超过该套装实际件数）
- *   - 选中套装保底 minKeep，即使算出来的 quota 更小
+ *   - 选中套装之间：按 Dominance 后实际件数占比分配 K × (1 - OTHERS_MAX_RATIO)，
+ *     每个套装至少 max(SELECTED_SET_MIN_KEEP, quota) 件保底；
+ *   - 未选中套装：合并成一个池，quota = min(按占比分的数, K × OTHERS_MAX_RATIO)；
+ *   - 选中套装没用完的 spare 在选中套装里按 score 瓜分；
+ *     未选池没用完的 spare 还给选中套装（选中优先）。
  */
-function buildTopKPools(slots, K, setWeights, compare) {
+function buildTopKPools(slots, K, compare) {
     const pools = [];
 
     for (const slot of slots.values()) {
-        let totalWeight = 0;
-        for (const group of slot.selected) {
-            totalWeight += setWeights.get(group.set) || 1;
-        }
-        if (slot.others.length > 0) {
-            totalWeight += 1; // 未选中合并池权重固定 1
+        const totalItems = slot.selected.reduce((s, g) => s + g.items.length, 0)
+                         + slot.others.reduce((s, g) => s + g.items.length, 0);
+        if (totalItems === 0) continue;
+
+        // ---- 1. 初始 quota：按 Dominance 后实际件数占比分配 ----
+        const maxForSelected = Math.round(K * (1 - OTHERS_MAX_RATIO));
+        const quotas = new Map();
+
+        // 选中套装之间按占比分 maxForSelected
+        const selectedTotal = slot.selected.reduce((s, g) => s + g.items.length, 0);
+        if (selectedTotal > 0) {
+            for (const group of slot.selected) {
+                let quota = Math.round(maxForSelected * group.items.length / selectedTotal);
+                quota = Math.max(SELECTED_SET_MIN_KEEP, quota);
+                quotas.set(group, quota);
+            }
         }
 
-        // 选中套装：按权重分配 quota，保底 SELECTED_SET_MIN_KEEP
-        const quotas = new Map();
-        for (const group of slot.selected) {
-            const w = setWeights.get(group.set) || 1;
-            let quota = Math.round(K * w / totalWeight);
-            quota = Math.max(SELECTED_SET_MIN_KEEP, quota);
-            quotas.set(group, quota);
-        }
         // 未选中合并池
         if (slot.others.length > 0) {
-            let quota = Math.round(K * 1 / totalWeight);
-            quota = Math.max(1, quota);
+            const othersTotal = slot.others.reduce((s, g) => s + g.items.length, 0);
+            let quota = Math.round(K * othersTotal / totalItems); // 按占比分
+            quota = Math.max(1, Math.min(quota, Math.round(K * OTHERS_MAX_RATIO))); // 1 保底 + 上限 20%
             quotas.set('__others__', quota);
         }
 
@@ -346,7 +320,6 @@ function buildTopKPools(slots, K, setWeights, compare) {
         const keptByGroup = new Map();
         let spare = 0;
 
-        // 选中套装
         for (const group of slot.selected) {
             group.items.sort(compare);
             const quota = quotas.get(group);
@@ -355,9 +328,8 @@ function buildTopKPools(slots, K, setWeights, compare) {
             spare += Math.max(0, quota - group.items.length);
         }
 
-        // 未选中合并池（也先按初始 quota 取，可能也有剩余）
         let othersKept = [];
-        let othersGroupMap = new Map(); // group -> 保留的装备列表
+        let othersGroupMap = new Map();
         if (slot.others.length > 0) {
             const merged = [];
             for (const group of slot.others) {
@@ -375,12 +347,12 @@ function buildTopKPools(slots, K, setWeights, compare) {
                 othersGroupMap.get(merged[i].group).push(merged[i].item);
                 othersKept.push(merged[i].item);
             }
-            spare += Math.max(0, quota - merged.length);
+            spare += Math.max(0, quota - merged.length); // 未选池没用完的 spare 也给选中套装
         }
 
-        // ---- 第二轮：spare 配额在选中套装里按 score 顺序 rebalance ----
+        // ---- 第二轮：spare 在选中套装里按 score 顺序 rebalance ----
         if (spare > 0 && slot.selected.length > 0) {
-            const candidateSlots = []; // { group, index }
+            const candidateSlots = [];
             for (const group of slot.selected) {
                 const alreadyKept = keptByGroup.get(group).length;
                 for (let idx = alreadyKept; idx < group.items.length; idx++) {
@@ -395,11 +367,9 @@ function buildTopKPools(slots, K, setWeights, compare) {
             }
         }
 
-        // 选中套装写回 pools
         for (const group of slot.selected) {
             pools.push({ slot: slot.slot, set: group.set, items: group.items, kept: keptByGroup.get(group) });
         }
-        // 未选中套装写回 pools
         if (slot.others.length > 0) {
             for (const group of slot.others) {
                 pools.push({ slot: slot.slot, set: group.set, items: group.items, kept: othersGroupMap.get(group) });

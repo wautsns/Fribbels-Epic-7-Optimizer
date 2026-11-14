@@ -821,8 +821,8 @@ module.exports = {
         document.querySelector('#resSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputResPriority)})
         document.querySelector('#resSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputResPriority))
 
-        document.querySelector('#filterSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputFilterPriority, 4)})
-        document.querySelector('#filterSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputFilterPriority, 4))
+        document.querySelector('#filterSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputFilterPriority, 10)})
+        document.querySelector('#filterSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputFilterPriority, 10))
 
         Selectors.setGearMainAndSetsFromRequest(request, index);
 
@@ -1065,8 +1065,8 @@ function clearSubstatPriority() {
     document.querySelector('#resSlider')['rangeslider-js'].update({value: 0})
     document.querySelector('#resSliderInput').setAttribute('value', 0)
 
-    document.querySelector('#filterSlider')['rangeslider-js'].update({value: 4})
-    document.querySelector('#filterSliderInput').setAttribute('value', 4)
+    document.querySelector('#filterSlider')['rangeslider-js'].update({value: 10})
+    document.querySelector('#filterSliderInput').setAttribute('value', 10)
 }
 
 function clearStats() {

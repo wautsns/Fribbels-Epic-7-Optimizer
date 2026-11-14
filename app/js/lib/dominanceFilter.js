@@ -67,7 +67,7 @@ const STAT_DEFINITIONS = [
 
 module.exports = {
     applyDominanceFilters: (params, items, baseStats, reforge) => {
-        if (!items || items.length < 2 || params.inputFilterPriority == 100) {
+        if (!items || items.length < 2) {
             return items;
         }
 

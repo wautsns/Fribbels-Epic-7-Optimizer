@@ -587,7 +587,7 @@ module.exports = {
             dominanceRemovedCounts[gear] = dominanceInputCounts[gear] - dominanceOutputCounts[gear];
         }
 
-        items = PriorityFilter.applyPriorityFilters(params, items, baseStats, allItems, params.inputPredictReforges, params.inputSubstatMods)
+        items = PriorityFilter.applyPriorityFilters(params, items, baseStats, params.inputPredictReforges)
 
         items = items.sort((a, b) => {
             return a.set-b.set;
@@ -840,28 +840,16 @@ module.exports = {
             return true;
         }
 
-        if (params.inputFilterPriority == 100
-        &&  params.inputAtkPriority == 0
-        &&  params.inputHpPriority == 0
-        &&  params.inputDefPriority == 0
-        &&  params.inputSpdPriority == 0
-        &&  params.inputCrPriority == 0
-        &&  params.inputCdPriority == 0
-        &&  params.inputEffPriority == 0
-        &&  params.inputResPriority == 0) {
+        const statPrioritiesAssigned =
+            params.inputAtkPriority != 0 || params.inputHpPriority != 0 ||
+            params.inputDefPriority != 0 || params.inputSpdPriority != 0 ||
+            params.inputCrPriority != 0 || params.inputCdPriority != 0 ||
+            params.inputEffPriority != 0 || params.inputResPriority != 0;
+
+        if (params.inputFilterPriority == 100 && !statPrioritiesAssigned) {
+            // 100% = 保留 Dominance 后的全部候选，属性优先级不影响 Top% 但在 Top-K 排序里仍有用
             Notifier.info("No stat priority selected. For best results, use the stat priority filter.")
-        } else if (params.inputFilterPriority == 100) {
-            Dialog.error("Stat priority was selected but the filter is set to Top 100%. The stat priority filter is only useful when the % is not 100.")
-            return true;
-        } else if (params.inputFilterPriority != 100
-        &&  params.inputAtkPriority == 0
-        &&  params.inputHpPriority == 0
-        &&  params.inputDefPriority == 0
-        &&  params.inputSpdPriority == 0
-        &&  params.inputCrPriority == 0
-        &&  params.inputCdPriority == 0
-        &&  params.inputEffPriority == 0
-        &&  params.inputResPriority == 0) {
+        } else if (params.inputFilterPriority != 100 && !statPrioritiesAssigned) {
             Dialog.error("Top % was selected but no stat priorities are assigned. Assign stat priorities otherwise the filter will not work.")
             return true;
         }

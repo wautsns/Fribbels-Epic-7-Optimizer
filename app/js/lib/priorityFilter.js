@@ -19,7 +19,7 @@ module.exports = {
      * 4+2 / 2+2+2 时候选已经被前端筛成选中的套装，所以只会走第 1 条。
      * 组合数只用于打日志提醒（搜得慢不慢），不改变候选。
      */
-    applyPriorityFilters: (params, items, baseStats, allItems, reforge, inputSubstatMods) => {
+    applyPriorityFilters: (params, items, baseStats, reforge) => {
         if (!items || items.length === 0) {
             return items;
         }
@@ -34,10 +34,9 @@ module.exports = {
         const compare = buildComparator(params, baseStats, reforge);
 
         const groups = buildGroups(items);
-        const allGroupCounts = countGroups(allItems);
         for (const group of groups.values()) {
             group.items.sort(compare);
-            group.total = groupTotal(group, allGroupCounts, inputSubstatMods);
+            group.total = group.items.length;
         }
 
         const selectedSets = selectedSetNames(params);
@@ -175,28 +174,8 @@ function buildGroups(items) {
     return groups;
 }
 
-/* 全量装备里每个分组的件数，用来算名额基数 */
-function countGroups(items) {
-    const counts = new Map();
-
-    for (const item of items || []) {
-        const key = groupKey(item);
-        counts.set(key, (counts.get(key) || 0) + 1);
-    }
-
-    return counts;
-}
-
-/* 名额基数：全量装备里同组的件数（和改造前的口径一致） */
-function groupTotal(group, allGroupCounts, inputSubstatMods) {
-    const total = allGroupCounts.get(group.key) || group.items.length;
-
-    if (inputSubstatMods) {
-        return Math.max(group.items.length, total);
-    }
-
-    return total;
-}
+/* 名额基数直接用 Dominance 后该组实际剩的件数（group.items.length），
+   这里不再额外算 —— 原来全库基数的 countGroups / groupTotal 已在 applyPriorityFilters 内联替代了 */
 
 function countSlots(collection) {
     const counts = {};

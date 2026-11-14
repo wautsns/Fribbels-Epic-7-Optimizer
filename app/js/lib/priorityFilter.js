@@ -92,6 +92,17 @@ function clampK(K) {
 /* 这套件数下限：用户选中的套装每个至少 SELECTED_SET_MIN_KEEP 件保底 */
 const SELECTED_SET_MIN_KEEP = 3;
 
+/*
+ * 4 件套比 2 件套难凑（需要 4 个部位都有货），所以权重 ×1.5。
+ * 套装名来源：optimizerTab.js 的 fourPieceSets / twoPieceSets，这里独立维护避免跨模块依赖。
+ */
+const FOUR_PIECE_SETS = new Set([
+    "AttackSet", "SpeedSet", "DestructionSet", "LifestealSet",
+    "ProtectionSet", "CounterSet", "RageSet", "RevengeSet",
+    "InjurySet", "ReversalSet", "RiposteSet", "WarfareSet", "WeakeningSet",
+]);
+const FOUR_PIECE_WEIGHT_MULTIPLIER = 1.5;
+
 /* 组合数超过这个量级只打一条"会比较慢"的提示，不改变候选 */
 const LARGE_COMBO_WARNING = 1e9;
 
@@ -254,7 +265,11 @@ function isSelectedSet(setName, params) {
     return false;
 }
 
-/* 选中套装的权重 = 在 inputSets 里出现的次数（一次算 1，两次算 2...） */
+/*
+ * 选中套装的权重计算：
+ *   权重 = 在 inputSets 里出现的次数 × (4件套? 1.5 : 1.0)
+ *   4 件套需要 4 个部位都有货才能激活，比 2 件套难凑，所以加权 ×1.5。
+ */
 function computeSetWeights(params) {
     const weights = new Map();
     const groups = Array.isArray(params.inputSets)
@@ -262,7 +277,10 @@ function computeSetWeights(params) {
         : [params.inputSetsOne, params.inputSetsTwo, params.inputSetsThree];
     for (const group of groups || []) {
         for (const name of group || []) {
-            if (name) weights.set(name, (weights.get(name) || 0) + 1);
+            if (name) {
+                const base = FOUR_PIECE_SETS.has(name) ? FOUR_PIECE_WEIGHT_MULTIPLIER : 1;
+                weights.set(name, (weights.get(name) || 0) + base);
+            }
         }
     }
     return weights;

@@ -128,7 +128,6 @@ function matchesHeroFilters(hero) {
     initialize: () => {
         // 只保留 en / zh 两种语言
         var localeText = i18next.language == 'zh' ? AG_GRID_LOCALE_ZH : AG_GRID_LOCALE_EN;
-        console.log('localeText:'+localeText);
 
         buildGrid(localeText);
         instances.add(api);
@@ -229,7 +228,7 @@ function matchesHeroFilters(hero) {
         currentBuildsHero = hero;
 
         updateCurrentAggregate(hero);
-        console.log("Refresh build selected hero row", hero);
+
         buildsGrid.gridOptions.api.setRowData(hero.builds == null ? [] : hero.builds)
 
         // 换上/脱下以后，功能列（穿上 <-> 脱下）必须整列按最新数据重画
@@ -257,7 +256,6 @@ function matchesHeroFilters(hero) {
         const selectedRows = heroesGrid.gridOptions.api.getSelectedRows();
         if (selectedRows.length > 0) {
             const row = selectedRows[0];
-            console.log("SELECTED ROW", row)
             return row;
         }
         return null;
@@ -278,7 +276,6 @@ function matchesHeroFilters(hero) {
         const selectedRows = buildsGrid.gridOptions.api.getSelectedRows();
         if (selectedRows.length > 0) {
             const row = selectedRows[0];
-            console.log("SELECTED ROW", row)
             return row;
         }
         return null;
@@ -775,7 +772,6 @@ function buildGrid(localeText) {
 
         columnDefs: [
             {headerName: i18next.t('rank'), sortable: false, width: 60, field: 'index', rowDrag: options.enableRowDrag !== false, rowDragText: (params, dragItemCount) => {
-                console.log(params)
                 return params.rowNode.data.name;
             }},
             // 属性、职业、头像各占一列；头像列的名字放在 tooltip 里
@@ -1159,9 +1155,7 @@ function onHeroRowClick(event) {
 
 function onHeroRowSelected(event) {
     if (event.node.selected) {
-        console.log("onHeroRowSelected", event);
         const heroId = event.data.id;
-
         redrawPreviewHero(heroId);
     }
 
@@ -1330,10 +1324,8 @@ function oneClickEquipState() {
 
 function redrawPreviewHero(heroId) {
     const useReforgedStats = (hooks.getUseReforgedStats ? hooks.getUseReforgedStats() : true);
-    console.log("Use reforge", useReforgedStats)
     Api.getHeroById(heroId, useReforgedStats).then(async (response) => {
         const hero = response.hero;
-        console.log("On hero row selected hero row", hero);
 
         // 英雄刚被删掉时后端拿不到数据，这里直接收工，不要拿 undefined 去重画
         if (!hero) {
@@ -1477,8 +1469,6 @@ function updateCurrentAggregate(hero) {
             avg: cleanInfinities(avg)
         }
     }
-
-    console.log("Aggregated", currentAggregate);
 }
 
 function onRowDragEnter(e) {
@@ -1511,16 +1501,12 @@ function onRowDragMove(event) {
                          overNode.data.id != lastOverNode?.data.id &&
                          overNode.data.id != movingNode.data.id;
 
-    if (rowNeedsToMove) {
-        console.log('onRowDragMove', overNode.data.id, lastOverNode?.data.id, movingNode.data.id, rowNeedsToMove);
-    }
     lastOverNode = overNode;
 
     if (rowNeedsToMove) {
         // the list of rows we have is data, not row nodes, so extract the data
         var movingData = movingNode.data;
         var overData = overNode.data;
-
         var fromIndex = currentHeroes.indexOf(movingData);
         var toIndex = currentHeroes.indexOf(overData);
 
@@ -1548,12 +1534,6 @@ function onSortChanged() {
   sortActive = sortModel && sortModel.length > 0;
   // suppress row drag if either sort or filter is active
   var suppressRowDrag = sortActive || filterActive;
-  console.log(
-    'sortActive = ' +
-      sortActive +
-      ', allowRowDrag = ' +
-      suppressRowDrag
-  );
   heroesGrid.gridOptions.api.setSuppressRowDrag(suppressRowDrag);
 }
 // listen for changes on filter changed
@@ -1561,14 +1541,6 @@ function onFilterChanged() {
   filterActive = heroesGrid.gridOptions.api.isAnyFilterPresent();
   // suppress row drag if either sort or filter is active
   var suppressRowDrag = sortActive || filterActive;
-  console.log(
-    'sortActive = ' +
-      sortActive +
-      ', filterActive = ' +
-      filterActive +
-      ', allowRowDrag = ' +
-      suppressRowDrag
-  );
   heroesGrid.gridOptions.api.setSuppressRowDrag(suppressRowDrag);
 }
 

@@ -46,7 +46,6 @@ public class OptimizationRequest extends Request {
     private Boolean inputAllowEquippedItems;
     private Boolean inputOrderedHeroPriority;
     private Boolean inputKeepCurrentItems;
-    private Boolean inputOnlyMaxedGear;
 
     private int atk;
     private int hp;
@@ -137,31 +136,6 @@ public class OptimizationRequest extends Request {
     public int inputMinPriorityLimit;
     public int inputMaxPriorityLimit = Integer.MAX_VALUE;
 
-    private Integer inputAtkMinForce;
-    private Integer inputAtkMaxForce;
-    private Integer inputAtkPercentMinForce;
-    private Integer inputAtkPercentMaxForce;
-    private Integer inputSpdMinForce;
-    private Integer inputSpdMaxForce;
-    private Integer inputCrMinForce;
-    private Integer inputCrMaxForce;
-    private Integer inputCdMinForce;
-    private Integer inputCdMaxForce;
-    private Integer inputHpMinForce;
-    private Integer inputHpMaxForce;
-    private Integer inputHpPercentMinForce;
-    private Integer inputHpPercentMaxForce;
-    private Integer inputDefMinForce;
-    private Integer inputDefMaxForce;
-    private Integer inputDefPercentMinForce;
-    private Integer inputDefPercentMaxForce;
-    private Integer inputEffMinForce;
-    private Integer inputEffMaxForce;
-    private Integer inputResMinForce;
-    private Integer inputResMaxForce;
-
-    private Integer inputForceNumberSelect;
-    private Integer inputForceMode;
     private Integer inputFilterPriority;
     private Integer inputAtkPriority;
     private Integer inputHpPriority;

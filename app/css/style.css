@@ -2401,13 +2401,16 @@ input[type=submit].gvgFilterClear {
   height: 100%;
   width: 100%;
 }
-/* 底部按钮与英雄列表下方那排保持一致：沿用 .gearPreviewButton 默认尺寸（23px 高 / 140px 宽） */
+/* GVG 底部按钮行：按钮宽度 120px（覆盖 .gearPreviewButton 默认的 140px），更紧凑 */
 .gvgButtonRow {
   padding-bottom: 4px;
   margin-top: 6px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+}
+.gvgButtonRow .gearPreviewButton {
+  width: 120px;
 }
 .gvgHeroIcon {
   object-fit: contain;

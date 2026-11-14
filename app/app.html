@@ -104,6 +104,8 @@ window.jQuery = $;
           <input type="submit" value="Export" class="gearPreviewButton" id="gvg-export" data-t>
           <input type="submit" value="Import" class="gearPreviewButton" id="gvg-import" data-t>
           <input type="submit" value="Remove duplicates" class="gearPreviewButton" id="gvg-dedupe" data-t>
+          <!-- 标记使用：把进攻阵容 1/2 的 lastUsedAt 更新为当前时间（替代原来置队时隐式更新的行为） -->
+          <input type="submit" value="Mark used" class="gearPreviewButton" id="gvg-mark-used" data-t>
           <!-- 清空全部作业：贴右边框 + 粗体红字，点击后还要手动输入确认文字才会真的清空 -->
           <input type="submit" value="Clear" class="gearPreviewButton gvgDangerButton" id="gvg-clear" data-t>
         </div>
@@ -379,11 +381,6 @@ window.jQuery = $;
               <div>
                 <input type="checkbox" id="inputSubstatMods" class="optimizer-checkbox">
                 <label for="inputSubstatMods" data-t>Use substat mods</label>
-              </div>
-
-              <div style="display:none">
-                <input type="checkbox" id="inputOnlyMaxedGear" class="optimizer-checkbox">
-                <label for="inputOnlyMaxedGear" data-t>Only maxed gear</label>
               </div>
 
               <div>

@@ -481,10 +481,6 @@ module.exports = {
             items = items.filter(x => !params.excludeFilter.includes(x.equippedById) || x.equippedById == heroId);
         }
 
-        // if (params.inputOnlyMaxedGear) {
-        //     items = items.filter(x => x.enhance == 15 && !Reforge.isReforgeable(x));
-        // }
-
         // 4 件套 + 2 件套 / 2+2+2 时套装是有硬约束的：候选先筛到这些套装，
         // 优先级过滤也要按「部位 × 套装」分组，保证每个套装在每个部位都有代表
         const setConstrained = isFourAndTwoPieceSets(params.inputSets) || isTwoAndTwoAndTwoPieceSets(params.inputSets);
@@ -633,10 +629,7 @@ module.exports = {
         request.inputAllowEquippedItems = readCheckbox('inputAllowEquippedItems' + index);
         request.inputOrderedHeroPriority   = readCheckbox('inputOrderedHeroPriority' + index);
         request.inputKeepCurrentItems   = readCheckbox('inputKeepCurrentItems' + index);
-        request.inputOnlyMaxedGear   = readCheckbox('inputOnlyMaxedGear' + index);
         request.inputPredictReforges   = request.inputSubstatMods || readCheckbox('inputPredictReforges' + index);
-        // request.inputOver85   = readCheckbox('inputOver85');
-        // request.inputOnlyPlus15Gear   = readCheckbox('inputOnlyPlus15Gear');
 
         request.inputAtkMinLimit = readNumber('inputMinAtkLimit' + index);
         request.inputAtkMaxLimit = readNumber('inputMaxAtkLimit' + index);
@@ -671,29 +664,6 @@ module.exports = {
         request.inputMinS3Limit = readNumber('inputMinS3Limit' + index);
         request.inputMaxS3Limit = readNumber('inputMaxS3Limit' + index);
 
-        // request.inputAtkMinForce = readNumber('inputMinAtkForce');
-        // request.inputAtkMaxForce = readNumber('inputMaxAtkForce');
-        // request.inputAtkPercentMinForce = readNumber('inputMinAtkPercentForce');
-        // request.inputAtkPercentMaxForce = readNumber('inputMaxAtkPercentForce');
-        // request.inputSpdMinForce = readNumber('inputMinSpdForce');
-        // request.inputSpdMaxForce = readNumber('inputMaxSpdForce');
-        // request.inputCrMinForce = readNumber('inputMinCrForce');
-        // request.inputCrMaxForce = readNumber('inputMaxCrForce');
-        // request.inputCdMinForce = readNumber('inputMinCdForce');
-        // request.inputCdMaxForce = readNumber('inputMaxCdForce');
-        // request.inputHpMinForce = readNumber('inputMinHpForce');
-        // request.inputHpMaxForce = readNumber('inputMaxHpForce');
-        // request.inputHpPercentMinForce = readNumber('inputMinHpPercentForce');
-        // request.inputHpPercentMaxForce = readNumber('inputMaxHpPercentForce');
-        // request.inputDefMinForce = readNumber('inputMinDefForce');
-        // request.inputDefMaxForce = readNumber('inputMaxDefForce');
-        // request.inputDefPercentMinForce = readNumber('inputMinDefPercentForce');
-        // request.inputDefPercentMaxForce = readNumber('inputMaxDefPercentForce');
-        // request.inputEffMinForce = readNumber('inputMinEffForce');
-        // request.inputEffMaxForce = readNumber('inputMaxEffForce');
-        // request.inputResMinForce = readNumber('inputMinResForce');
-        // request.inputResMaxForce = readNumber('inputMaxResForce');
-
         request.inputAtkPriority = readNumber('atkSlider' + index + 'Input');
         request.inputHpPriority = readNumber('hpSlider' + index + 'Input');
         request.inputDefPriority = readNumber('defSlider' + index + 'Input');
@@ -707,8 +677,6 @@ module.exports = {
         const resultPriorityState = getResultPriorityState(index);
         request.resultPriority = resultPriorityState.order;
         request.resultDislike = resultPriorityState.disliked;
-
-        // request.inputForceNumberSelect = readNumber('forceNumberSelect')
 
         request.inputSets = setFilters.sets;
 
@@ -855,8 +823,6 @@ module.exports = {
 
         document.querySelector('#filterSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputFilterPriority, 4)})
         document.querySelector('#filterSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputFilterPriority, 4))
-
-        // $('#forceNumberSelect').val(inputDisplayNumberNumber(request.inputForceNumberSelect))
 
         Selectors.setGearMainAndSetsFromRequest(request, index);
 

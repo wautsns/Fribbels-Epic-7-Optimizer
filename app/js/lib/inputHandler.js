@@ -69,7 +69,6 @@ global.Selectors = require('./selectors');
 global.TableHeights = require('./tableHeights');
 global.HeroBuilds = require('./heroBuilds');
 global.Settings = require('./settings');
-global.ForceFilter = require('./forceFilter');
 global.PriorityFilter = require('./priorityFilter');
 global.ZarrocConverter = require('./zarrocConverter');
 const {ModuleRegistry, Grid} = require('@ag-grid-community/core');

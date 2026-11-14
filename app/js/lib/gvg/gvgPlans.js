@@ -397,15 +397,39 @@ module.exports = {
     /* ---------------- 排序 / 进攻阵容 1 / 2（design.md 6.4） ---------------- */
 
     sortPlans: (list) => {
-        const byIdDesc = (a, b) => (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
-        const used = list
-            .filter((plan) => plan.lastUsedAt != null)
-            .sort((a, b) => b.lastUsedAt - a.lastUsedAt || byIdDesc(a, b));
-        const unused = list
-            .filter((plan) => plan.lastUsedAt == null)
-            .sort((a, b) => b.createdAt - a.createdAt || byIdDesc(a, b));
+        const teams = loadTeams();
+        const firstId = teams.first;
+        const secondId = teams.second;
 
-        return used.concat(unused);
+        const byIdDesc = (a, b) => (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
+
+        // 排序优先级：进攻阵容1 → 进攻阵容2 → 有 lastUsedAt（按时间倒序）→ 无 lastUsedAt（按创建时间倒序）
+        return list.slice().sort((a, b) => {
+            // 进攻阵容标记优先级
+            const rank = (plan) => {
+                if (plan.id === firstId) return 0;
+                if (plan.id === secondId) return 1;
+                if (plan.lastUsedAt != null) return 2;
+                return 3;
+            };
+            const ra = rank(a);
+            const rb = rank(b);
+            if (ra !== rb) return ra - rb;
+
+            // 同一优先级内再按时间排
+            if (ra === 2) {
+                // 有 lastUsedAt：按时间倒序
+                if (a.lastUsedAt !== b.lastUsedAt)
+                    return b.lastUsedAt - a.lastUsedAt;
+                return byIdDesc(a, b);
+            }
+            if (ra === 3) {
+                // 无 lastUsedAt：按创建时间倒序
+                if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt;
+                return byIdDesc(a, b);
+            }
+            return 0;
+        });
     },
 
     /** 防同毫秒连点产生并列：至少比现有最大值大 1 */
@@ -421,15 +445,13 @@ module.exports = {
         const plan = plans.find((item) => item.id === id);
         if (!plan) return false;
 
-        // 位置仍然提到第一位（保留原来的排序行为），但它不再决定归属哪个进攻阵容
-        plan.lastUsedAt = module.exports.nextUseTimestamp();
-
         // 进攻阵容 1 同时只能有一份：直接覆盖，原来的进攻阵容 1 自然回到普通徽章
         const current = loadTeams();
         current.first = plan.id;
         if (current.second === plan.id) current.second = null;
         saveTeams();
 
+        // 只设置阵容标记，不自动更新 lastUsedAt（design.md：使用时间由用户手动标记）
         module.exports.commit();
         return true;
     },
@@ -438,25 +460,39 @@ module.exports = {
         const plan = plans.find((item) => item.id === id);
         if (!plan) return false;
 
-        const timestamp = module.exports.nextUseTimestamp();
-        const sorted = module.exports.sortPlans(plans);
-        const first = sorted[0];
-        // 先把"该留在第一位的"刷到 timestamp：通常就是当前第一条；
-        // 如果点的正是第一条，则把当前第二条顶上去，保证这条一定落到第二位。
-        const anchor = first && first.id === plan.id ? sorted[1] : first;
-        if (anchor && anchor.id !== plan.id) {
-            anchor.lastUsedAt = timestamp;
-        }
-        plan.lastUsedAt = timestamp - 1;
-
         // 进攻阵容 2 同样只能有一份
         const current = loadTeams();
         current.second = plan.id;
         if (current.first === plan.id) current.first = null;
         saveTeams();
 
+        // 只设置阵容标记，不自动更新 lastUsedAt（design.md：使用时间由用户手动标记）
         module.exports.commit();
         return true;
+    },
+
+    /**
+     * 手动标记「进攻阵容 1 / 2」已使用：把这两个作业的 lastUsedAt 刷到当前时间。
+     * 用来替代原来「置队 = 隐式使用」的副作用 —— 用户想"设为阵容"和"标记用过"分开。
+     * 返回 { marked: 数字 } 表示成功标记了几条。
+     */
+    markUsed: () => {
+        const teams = loadTeams();
+        const ids = [teams.first, teams.second].filter(Boolean);
+        if (!ids.length) return { marked: 0 };
+
+        const timestamp = module.exports.nextUseTimestamp();
+        let marked = 0;
+        for (const id of ids) {
+            const plan = plans.find((item) => item.id === id);
+            if (plan) {
+                plan.lastUsedAt = timestamp - marked; // 阵容1 > 阵容2，保持相对顺序
+                marked++;
+            }
+        }
+
+        if (marked > 0) module.exports.commit();
+        return { marked };
     },
 
     /* ---------------- 判重 / 去重（design.md 10） ---------------- */

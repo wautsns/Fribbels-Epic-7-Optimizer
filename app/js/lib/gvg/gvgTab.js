@@ -48,6 +48,7 @@ module.exports = {
         bindClick('gvg-export', () => module.exports.exportPlans());
         bindClick('gvg-import', () => module.exports.importPlans());
         bindClick('gvg-dedupe', () => module.exports.dedupePlans());
+        bindClick('gvg-mark-used', () => module.exports.markUsed());
         bindClick('gvg-clear', () => module.exports.clearPlans());
         bindClick('gvg-clear-teams', () => module.exports.clearTeams());
         bindClick('clearGvgFilter', () => module.exports.clearFilters());
@@ -321,6 +322,25 @@ module.exports = {
         if (!(await confirmClearAllPlans())) return;
 
         GvgPlans.clear();
+    },
+
+    /**
+     * 手动标记进攻阵容 1 / 2 已使用：更新它们的 lastUsedAt 为当前时间。
+     * 置队本身不再自动刷新使用时间，用户点这个按钮来表示"这俩阵容我刚用过"。
+     */
+    markUsed: () => {
+        const teams = GvgPlans.getTeams();
+        if (!teams.first && !teams.second) {
+            Notifier.warnRaw(i18next.t('No team markers to mark'));
+            return;
+        }
+
+        const result = GvgPlans.markUsed();
+        if (result.marked > 0) {
+            Notifier.successRaw(
+                `${i18next.t('Marked GVG plans as used')} (${result.marked})`
+            );
+        }
     },
 
     /**

@@ -332,6 +332,23 @@ module.exports = {
             .sort((a, b) => a.label.localeCompare(b.label));
     },
 
+    /** 进攻英雄筛选框的选项：只列作业里进攻阵容出现过的英雄 */
+    getAttackFilterOptions: () => {
+        const index = heroIndex();
+        const codes = new Set();
+        plans.forEach((plan) =>
+            plan.offense.members.forEach((member) => codes.add(member.heroCode))
+        );
+
+        return [...codes]
+            .map((code) => ({
+                code,
+                name: index[code] || code,
+                label: i18next.t(index[code] || code),
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    },
+
     /* ---------------- 写入（都会 commit） ---------------- */
 
     setAll: (rawList) => {

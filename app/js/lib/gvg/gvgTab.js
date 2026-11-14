@@ -1,5 +1,5 @@
 /**
- * GVG 作业页 —— 面板接线：3 个防守筛选框 + 底部 6 个按钮 + 行内操作（docs/gvg/design.md 6.1 / 6.6）
+ * GVG 作业页 —— 面板接线：3 个防守筛选框 + 1 个进攻筛选框 + 底部 7 个按钮 + 行内操作（docs/gvg/design.md 6.1 / 6.6）
  *
  * 页面结构在 app/app.html 的 #gvg-section；表格在 GvgGrid；数据在 GvgPlans。
  */
@@ -12,7 +12,8 @@ const currentWindow = remote.getCurrentWindow();
 const { clipboard } = require('electron');
 const Swal = require('sweetalert2');
 
-const FILTER_COUNT = 3;
+const FILTER_COUNT = 3;        // 防守筛选数量（gvg-filter-0 / 1 / 2）
+const FILTER_ATTACK_INDEX = 3; // 进攻筛选在 filterCodes 里的下标（gvg-filter-attack → index 3）
 
 module.exports = {
     initialize: () => {
@@ -41,6 +42,14 @@ module.exports = {
             });
         }
 
+        // 进攻英雄筛选（单独的 select id，在 filterCodes 里下标 3）
+        const attackSelect = document.getElementById('gvg-filter-attack');
+        if (attackSelect) {
+            bindFilterChange(attackSelect, () => {
+                GvgGrid.setFilter(FILTER_ATTACK_INDEX, attackSelect.value);
+            });
+        }
+
         upgradeFilterSelects();
 
         bindClick('gvg-add', () => module.exports.addPlan());
@@ -64,47 +73,33 @@ module.exports = {
         }
     },
 
-    /** 筛选框只列「作业里出现过的防守英雄」（design.md 6.3），选中值尽量保留 */
+    /** 筛选框只列「作业里出现过的英雄」（design.md 6.3），选中值尽量保留 */
     redrawFilterOptions: () => {
-        const options = GvgPlans.getDefenseFilterOptions();
+        const defenseOptions = GvgPlans.getDefenseFilterOptions();
 
         for (let index = 0; index < FILTER_COUNT; index++) {
             const select = document.getElementById(`gvg-filter-${index}`);
             if (!select) continue;
 
-            const selected = select.value;
-            select.innerHTML = '';
+            fillFilterSelect(select, defenseOptions, index);
+        }
 
-            options.forEach((option) => {
-                const element = document.createElement('option');
-                element.value = option.code;
-                element.innerText = i18next.t(option.name);
-                select.add(element);
-            });
-
-            const keep =
-                selected && options.some((option) => option.code === selected)
-                    ? selected
-                    : '';
-
-            select.value = keep;
-            refreshFilterSelect(select, keep);
-            GvgGrid.setFilter(index, keep);
+        // 进攻筛选单独处理：选项来自进攻阵容成员
+        const attackSelect = document.getElementById('gvg-filter-attack');
+        if (attackSelect) {
+            const attackOptions = GvgPlans.getAttackFilterOptions();
+            fillFilterSelect(attackSelect, attackOptions, FILTER_ATTACK_INDEX);
         }
     },
 
     /* ---------------- 筛选 ---------------- */
 
-    /** 清空 3 个防守筛选：下拉是单选、列表里没有「任意」项，所以需要这个复位动作 */
+    /** 清空 3 个防守 + 1 个进攻筛选：下拉是单选、列表里没有「任意」项，所以需要这个复位动作 */
     clearFilters: () => {
         for (let index = 0; index < FILTER_COUNT; index++) {
-            const select = document.getElementById(`gvg-filter-${index}`);
-            if (!select) continue;
-
-            select.value = '';
-            refreshFilterSelect(select, '');
-            GvgGrid.setFilter(index, '');
+            clearOneFilter(index, document.getElementById(`gvg-filter-${index}`));
         }
+        clearOneFilter(FILTER_ATTACK_INDEX, document.getElementById('gvg-filter-attack'));
     },
 
     /* ---------------- 行内操作 ---------------- */
@@ -436,27 +431,32 @@ function upgradeFilterSelects() {
     if (typeof $ === 'undefined' || !$.fn || !$.fn.multipleSelect) return;
 
     for (let index = 0; index < FILTER_COUNT; index++) {
-        const element = document.getElementById(`gvg-filter-${index}`);
-        if (!element) continue;
-
-        // 已经升级过的不要再套一次（插件会把原生 select 标成 ms-offscreen）
-        if (element.classList && element.classList.contains('ms-offscreen')) {
-            continue;
-        }
-
-        $(element).multipleSelect({
-            filter: true,
-            filterAcceptOnEnter: true,
-            single: true,
-            maxHeight: 360,
-            // 跟英雄列表上方的英雄下拉（#addHeroesSelector = .gearPreviewButton 的 140px）一样宽
-            width: 140,
-            placeholder: i18next.t('Hero'),
-            // 插件改的是原生 select 的 value，这里补一次筛选
-            onSelect: () => GvgGrid.setFilter(index, element.value),
-            onUnselect: () => GvgGrid.setFilter(index, element.value),
-        });
+        upgradeOneFilterSelect(document.getElementById(`gvg-filter-${index}`), index);
     }
+    // 进攻筛选
+    upgradeOneFilterSelect(document.getElementById('gvg-filter-attack'), FILTER_ATTACK_INDEX);
+}
+
+function upgradeOneFilterSelect(element, index) {
+    if (!element) return;
+
+    // 已经升级过的不要再套一次（插件会把原生 select 标成 ms-offscreen）
+    if (element.classList && element.classList.contains('ms-offscreen')) {
+        return;
+    }
+
+    $(element).multipleSelect({
+        filter: true,
+        filterAcceptOnEnter: true,
+        single: true,
+        maxHeight: 360,
+        // 跟英雄列表上方的英雄下拉（#addHeroesSelector = .gearPreviewButton 的 140px）一样宽
+        width: 140,
+        placeholder: i18next.t('Hero'),
+        // 插件改的是原生 select 的 value，这里补一次筛选
+        onSelect: () => GvgGrid.setFilter(index, element.value),
+        onUnselect: () => GvgGrid.setFilter(index, element.value),
+    });
 }
 
 /** 升级过的下拉改值走的是 jQuery trigger('change')，原生监听收不到 */
@@ -480,6 +480,39 @@ function refreshFilterSelect(element, selected) {
     } catch (error) {
         console.warn('GVG: unable to refresh filter select', error);
     }
+}
+
+/** 填充一个筛选下拉的选项，并尽量保留当前选中值（选中值不在新 options 里就清空） */
+function fillFilterSelect(select, options, index) {
+    if (!select) return;
+
+    const selected = select.value;
+    select.innerHTML = '';
+
+    options.forEach((option) => {
+        const element = document.createElement('option');
+        element.value = option.code;
+        element.innerText = i18next.t(option.name);
+        select.add(element);
+    });
+
+    const keep =
+        selected && options.some((option) => option.code === selected)
+            ? selected
+            : '';
+
+    select.value = keep;
+    refreshFilterSelect(select, keep);
+    GvgGrid.setFilter(index, keep);
+}
+
+/** 清空一个筛选下拉 */
+function clearOneFilter(index, select) {
+    if (!select) return;
+
+    select.value = '';
+    refreshFilterSelect(select, '');
+    GvgGrid.setFilter(index, '');
 }
 
 /**

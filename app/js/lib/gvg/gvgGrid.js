@@ -27,8 +27,8 @@ function formatDate(ts) {
     return `${y}-${m}-${day}`;
 }
 
-/* 3 个防守筛选框的当前值（按 hero code 匹配；空串 = 不筛） */
-const filterCodes = ['', '', ''];
+/* 4 个筛选框的当前值：index 0~2 = 防守英雄（plan.defense.heroCodes），index 3 = 进攻英雄（plan.offense.members[i].heroCode）；空串 = 不筛 */
+const filterCodes = ['', '', '', ''];
 
 let gvgGrid = null;
 
@@ -159,9 +159,24 @@ module.exports = {
 
 function matchesDefenseFilters(plan) {
     if (!plan) return false;
-    return filterCodes.every(
+
+    // 防守 3 个筛选（index 0~2）—— plan.defense.heroCodes 必须包含所有非空的防守筛选值
+    const defenseCodes = filterCodes.slice(0, 3);
+    const defenseOk = defenseCodes.every(
         (code) => !code || plan.defense.heroCodes.includes(code)
     );
+    if (!defenseOk) return false;
+
+    // 进攻 1 个筛选（index 3）—— plan.offense.members 里必须有人 heroCode 匹配
+    const attackCode = filterCodes[3];
+    if (attackCode) {
+        const hasAttack = plan.offense.members.some(
+            (member) => member.heroCode === attackCode
+        );
+        if (!hasAttack) return false;
+    }
+
+    return true;
 }
 
 /* ------------------------------------------------------------------ *

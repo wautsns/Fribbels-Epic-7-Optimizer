@@ -363,20 +363,41 @@ function buildTopKPools(slots, K, compare) {
             spare += Math.max(0, quota - merged.length); // 未选池没用完的 spare 也给选中套装
         }
 
-        // ---- 第二轮：spare 在选中套装里按 score 顺序 rebalance ----
-        if (spare > 0 && slot.selected.length > 0) {
-            const candidateSlots = [];
-            for (const group of slot.selected) {
-                const alreadyKept = keptByGroup.get(group).length;
-                for (let idx = alreadyKept; idx < group.items.length; idx++) {
-                    candidateSlots.push({ group, idx });
+        // ---- 第二轮：spare rebalance ----
+        // 优先级：选中套装剩余候选 > 未选池剩余候选
+        if (spare > 0) {
+            // 2a. 先补选中套装剩余
+            let remainingSpare = spare;
+            if (slot.selected.length > 0) {
+                const candidateSlots = [];
+                for (const group of slot.selected) {
+                    const alreadyKept = keptByGroup.get(group).length;
+                    for (let idx = alreadyKept; idx < group.items.length; idx++) {
+                        candidateSlots.push({ group, idx });
+                    }
                 }
+                candidateSlots.sort((a, b) => compare(a.group.items[a.idx], b.group.items[b.idx]));
+                for (let i = 0; i < Math.min(remainingSpare, candidateSlots.length); i++) {
+                    const { group, idx } = candidateSlots[i];
+                    keptByGroup.get(group).push(group.items[idx]);
+                }
+                remainingSpare -= Math.min(remainingSpare, candidateSlots.length);
             }
-            candidateSlots.sort((a, b) => compare(a.group.items[a.idx], b.group.items[b.idx]));
 
-            for (let i = 0; i < Math.min(spare, candidateSlots.length); i++) {
-                const { group, idx } = candidateSlots[i];
-                keptByGroup.get(group).push(group.items[idx]);
+            // 2b. 还有 spare → 补未选池剩余
+            if (remainingSpare > 0 && slot.others.length > 0) {
+                const merged = [];
+                for (const group of slot.others) {
+                    const alreadyKept = othersGroupMap.get(group)?.length || 0;
+                    for (let idx = alreadyKept; idx < group.items.length; idx++) {
+                        merged.push({ group, item: group.items[idx] });
+                    }
+                }
+                merged.sort((a, b) => compare(a.item, b.item));
+                for (let i = 0; i < Math.min(remainingSpare, merged.length); i++) {
+                    othersGroupMap.get(merged[i].group).push(merged[i].item);
+                    othersKept.push(merged[i].item);
+                }
             }
         }
 

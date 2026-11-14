@@ -88,8 +88,13 @@ function clampK(K) {
 /* 选中套装每个至少 SELECTED_SET_MIN_KEEP 件保底（4件套/2件套都一样） */
 const SELECTED_SET_MIN_KEEP = 3;
 
-/* 未选中套装合并池最多占 K 的 20% */
-const OTHERS_MAX_RATIO = 0.20;
+/* 未选中套装合并池：按选中套装数量动态降比例
+ * 选中 1 个 → 20%，选中 2 个 → 15%，选中 3 个 → 10%，选中 4+ → 5%
+ * 意图越明确，未选话语权越小
+ */
+const OTHERS_MAX_RATIO_BASE = 0.20;
+const OTHERS_MAX_RATIO_STEP = 0.05;
+const OTHERS_MAX_RATIO_MIN  = 0.05;
 
 /* 组合数超过这个量级只打一条 "会比较慢" 的提示，不改变候选 */
 const LARGE_COMBO_WARNING = 1e9;
@@ -277,12 +282,15 @@ function isSelectedSet(setName, params) {
 }
 
 /*
- * Top K 按套装实际占比分配。
+ * Top K 按套装实际占比分配 + 未选池按选中套装数量动态降比例。
  *
  * 对每个部位：
- *   - 选中套装之间：按 Dominance 后实际件数占比分配 K × (1 - OTHERS_MAX_RATIO)，
+ *   - 选中套装数量 N 决定未选池上限：
+ *     N=1 → 20%, N=2 → 15%, N=3 → 10%, N≥4 → 5%
+ *     （意图越明确，未选话语权越小）
+ *   - 选中套装之间：按 Dominance 后实际件数占比分配 K × (1 - 未选上限)，
  *     每个套装至少 max(SELECTED_SET_MIN_KEEP, quota) 件保底；
- *   - 未选中套装：合并成一个池，quota = min(按占比分的数, K × OTHERS_MAX_RATIO)；
+ *   - 未选中套装：合并成一个池，quota = min(按占比分的数, K × 未选上限)；
  *   - 选中套装没用完的 spare 在选中套装里按 score 瓜分；
  *     未选池没用完的 spare 还给选中套装（选中优先）。
  */
@@ -295,7 +303,12 @@ function buildTopKPools(slots, K, compare) {
         if (totalItems === 0) continue;
 
         // ---- 1. 初始 quota：按 Dominance 后实际件数占比分配 ----
-        const maxForSelected = Math.round(K * (1 - OTHERS_MAX_RATIO));
+        const selectedCount = slot.selected.length;
+        const othersMaxRatio = Math.max(
+            OTHERS_MAX_RATIO_MIN,
+            OTHERS_MAX_RATIO_BASE - (selectedCount - 1) * OTHERS_MAX_RATIO_STEP
+        );
+        const maxForSelected = Math.round(K * (1 - othersMaxRatio));
         const quotas = new Map();
 
         // 选中套装之间按占比分 maxForSelected
@@ -311,8 +324,8 @@ function buildTopKPools(slots, K, compare) {
         // 未选中合并池
         if (slot.others.length > 0) {
             const othersTotal = slot.others.reduce((s, g) => s + g.items.length, 0);
-            let quota = Math.round(K * othersTotal / totalItems); // 按占比分
-            quota = Math.max(1, Math.min(quota, Math.round(K * OTHERS_MAX_RATIO))); // 1 保底 + 上限 20%
+            let quota = Math.round(K * othersTotal / totalItems);  // 按占比分
+            quota = Math.max(1, Math.min(quota, Math.round(K * othersMaxRatio)));  // 1 保底 + 动态上限
             quotas.set('__others__', quota);
         }
 

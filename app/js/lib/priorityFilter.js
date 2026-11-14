@@ -311,13 +311,45 @@ function buildTopKPools(slots, K, compare) {
         const maxForSelected = Math.round(K * (1 - othersMaxRatio));
         const quotas = new Map();
 
-        // 选中套装之间按占比分 maxForSelected
+        // 选中套装之间按 floor(maxForSelected × 占比) 分配，最后一个吃剩余，
+        // 保证 quota 合计精确等于 maxForSelected（不超、不欠）。
+        // 之后对所有 quota 统一应用 minKeep（如果某套装被 minKeep 拉高，
+        // 从 quota 最大的套装扣减）。
         const selectedTotal = slot.selected.reduce((s, g) => s + g.items.length, 0);
-        if (selectedTotal > 0) {
+        if (selectedTotal > 0 && slot.selected.length > 0) {
+            // 先 floor 分配
+            let assigned = 0;
+            for (let i = 0; i < slot.selected.length - 1; i++) {
+                const group = slot.selected[i];
+                const q = Math.floor(maxForSelected * group.items.length / selectedTotal);
+                quotas.set(group, q);
+                assigned += q;
+            }
+            // 最后一个套装吃剩余（精确补齐 maxForSelected）
+            const lastGroup = slot.selected[slot.selected.length - 1];
+            quotas.set(lastGroup, maxForSelected - assigned);
+
+            // 统一应用 minKeep，超出来的从 quota 最大的套装扣减
             for (const group of slot.selected) {
-                let quota = Math.round(maxForSelected * group.items.length / selectedTotal);
-                quota = Math.max(SELECTED_SET_MIN_KEEP, quota);
-                quotas.set(group, quota);
+                if (quotas.get(group) < SELECTED_SET_MIN_KEEP) {
+                    quotas.set(group, SELECTED_SET_MIN_KEEP);
+                    // 从 quota 最大且扣减后仍 ≥ minKeep 的套装扣
+                    let pool = maxForSelected - slot.selected.length * SELECTED_SET_MIN_KEEP;
+                    if (pool >= 0) {
+                        // 所有套装都能 minKeep，不需要扣
+                    } else {
+                        // 超出部分从 quota 最大的套装依次扣
+                        const sorted = [...slot.selected].sort((a, b) => quotas.get(b) - quotas.get(a));
+                        let need = Math.abs(pool);
+                        for (const g of sorted) {
+                            if (need <= 0) break;
+                            const cur = quotas.get(g);
+                            const take = Math.min(cur - SELECTED_SET_MIN_KEEP, need);
+                            quotas.set(g, cur - take);
+                            need -= take;
+                        }
+                    }
+                }
             }
         }
 

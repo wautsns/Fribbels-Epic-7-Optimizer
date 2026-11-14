@@ -664,6 +664,7 @@ function formatStatRequirements(hero) {
 /**
  * 结果优先级：按配装器里「结果优先级」的顺序输出，偏好用 ∧、偏恶用 ∨
  * 例如：速度∧ 生命∨
+ * 最多显示前 3 个，后面跟 "...+N more" 提示（因为 score 排序会配置多个属性，面板列/对话框里空间有限）
  */
 function formatResultPriority(hero) {
     const request = hero && hero.optimizationRequest;
@@ -672,10 +673,20 @@ function formatResultPriority(hero) {
     const order = Array.isArray(request.resultPriority) ? request.resultPriority : [];
     const disliked = Array.isArray(request.resultDislike) ? request.resultDislike : [];
 
-    return order
-        .filter(field => ResultPriority.FIELD_NAMES[field])
-        .map(field => i18next.t(ResultPriority.FIELD_NAMES[field]) + (disliked.includes(field) ? '∨' : '∧'))
-        .join(' ');
+    const valid = order.filter(field => ResultPriority.FIELD_NAMES[field]);
+    if (valid.length === 0) return '';
+
+    const MAX_VISIBLE = 3;
+    const visible = valid.slice(0, MAX_VISIBLE);
+    const hidden = valid.length - visible.length;
+
+    const parts = visible.map(
+        field => i18next.t(ResultPriority.FIELD_NAMES[field]) + (disliked.includes(field) ? '∨' : '∧')
+    );
+    if (hidden > 0) {
+        parts.push(`...+${hidden}`);
+    }
+    return parts.join(' ');
 }
 
 /*

@@ -120,26 +120,23 @@ const DEFAULT_TIEBREAKER_ORDER = [
 
 /*
  * 候选装备的排序：加权分数降序；**同分时按属性优先级滑块数值降序依次比较**，
- * 权重相同时按默认 tiebreaker 顺序（速度 -> 生命 -> ... -> 命中），disliked 字段反向，
- * 再比未加权 roll 总和，最后比 id —— 保证同分谁被保留是确定的。
+ * 同权重的属性合并成一个维度求和比（无需人为设同权重时的顺序），disliked 字段
+ * 反向，再比未加权 roll 总和，最后比 id —— 保证同分谁被保留是确定的。
  */
 function buildComparator(params, baseStats, reforge) {
-    // 构造 tiebreaker 字段列表：按属性优先级滑块数值降序，同数值按默认顺序
+    // 构造 tiebreaker：先按滑块权重降序分组，同权重属性合并成一个 sum 维度
     const disliked = new Set(Array.isArray(params.resultDislike) ? params.resultDislike : []);
-    const weightedFields = DEFAULT_TIEBREAKER_ORDER.map((entry, defIdx) => {
+    const byWeight = new Map(); // weight -> [{key, sign}]
+    for (const entry of DEFAULT_TIEBREAKER_ORDER) {
         const weight = Number(params[entry.priorityKey]) || 0;
-        return {
-            field: entry.field,
-            key: entry.key,
-            weight,
-            defIdx,
-            sign: disliked.has(entry.field) ? -1 : 1,
-        };
-    }).filter((f) => f.weight > 0)
-      .sort((a, b) => {
-          if (a.weight !== b.weight) return b.weight - a.weight;
-          return a.defIdx - b.defIdx;
-      });
+        if (weight <= 0) continue;
+        const sign = disliked.has(entry.field) ? -1 : 1;
+        if (!byWeight.has(weight)) byWeight.set(weight, []);
+        byWeight.get(weight).push({ key: entry.key, sign });
+    }
+    const weightBuckets = [...byWeight.entries()]
+        .sort((a, b) => b[0] - a[0])  // 权重降序
+        .map(([weight, fields]) => ({ weight, fields }));
 
     const cache = new Map();
     const tiebreak = (item) => {
@@ -147,7 +144,10 @@ function buildComparator(params, baseStats, reforge) {
         if (!values) {
             const stats = DominanceFilter.getComparableStats(item, baseStats, reforge) || {};
             values = {
-                fields: weightedFields.map((f) => (Number(stats[f.key]) || 0) * f.sign),
+                // 每个权重桶合并成一个 sum
+                sums: weightBuckets.map(b => b.fields.reduce(
+                    (acc, f) => acc + (Number(stats[f.key]) || 0) * f.sign, 0
+                )),
                 rolls: unweightedRolls(stats),
             };
             cache.set(item, values);
@@ -163,9 +163,9 @@ function buildComparator(params, baseStats, reforge) {
         const a = tiebreak(left);
         const b = tiebreak(right);
 
-        for (let i = 0; i < a.fields.length; i++) {
-            if (a.fields[i] !== b.fields[i]) {
-                return a.fields[i] > b.fields[i] ? -1 : 1;
+        for (let i = 0; i < a.sums.length; i++) {
+            if (a.sums[i] !== b.sums[i]) {
+                return a.sums[i] > b.sums[i] ? -1 : 1;
             }
         }
 

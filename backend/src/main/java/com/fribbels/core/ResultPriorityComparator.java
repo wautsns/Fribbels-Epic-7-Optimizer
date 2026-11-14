@@ -62,7 +62,33 @@ public class ResultPriorityComparator implements Comparator<HeroStats> {
             return -comparison;
         }
 
-        return -Integer.compare(left.getDmg(), right.getDmg());
+        comparison = Integer.compare(left.getDmg(), right.getDmg());
+        if (comparison != 0) {
+            return -comparison;
+        }
+
+        // 最终兜底：装备 id 列表字典序（保证 PriorityQueue 里相等元素稳定排序）
+        return compareItems(left, right);
+    }
+
+    private static int compareItems(final HeroStats left, final HeroStats right) {
+        final List<String> leftItems = left.getItems();
+        final List<String> rightItems = right.getItems();
+        if (leftItems == null && rightItems == null) return 0;
+        if (leftItems == null) return 1;   // null 视为最差
+        if (rightItems == null) return -1;
+
+        final int size = Math.min(leftItems.size(), rightItems.size());
+        for (int i = 0; i < size; i++) {
+            final String a = leftItems.get(i);
+            final String b = rightItems.get(i);
+            if (a == null && b == null) continue;
+            if (a == null) return 1;
+            if (b == null) return -1;
+            final int c = a.compareTo(b);
+            if (c != 0) return -c;   // 字典序小的优先（best-first）
+        }
+        return -Integer.compare(leftItems.size(), rightItems.size());
     }
 
     /**

@@ -2459,6 +2459,7 @@ input[type=submit].gvgFilterClear {
 .gvgRowActions {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   width: 100%;
 }

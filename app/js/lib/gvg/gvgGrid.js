@@ -283,13 +283,13 @@ function renderStrategy(params) {
     const tags = [];
     // 情报刀（浅红）/ 探路刀（浅绿）
     if (intel) {
-        tags.push(`<span class="gvgTag gvgTagIntel" title="${escapeHtml(i18next.t('Intel requirement') + ': ' + intel)}">${escapeHtml(i18next.t('Intel blade'))}</span>`);
+        tags.push(`<span class="gvgTag gvgTagIntel" title="${escapeHtml(intel)}">${escapeHtml(i18next.t('Intel blade'))}</span>`);
     } else {
         tags.push(`<span class="gvgTag gvgTagScout" title="${escapeHtml(i18next.t('No intel requirement'))}">${escapeHtml(i18next.t('Scout blade'))}</span>`);
     }
     // 防守站位（浅红，仅当有内容时显示）
     if (defenseNote) {
-        tags.push(`<span class="gvgTag gvgTagDefense" title="${escapeHtml(i18next.t('Defense positioning') + ': ' + defenseNote)}">${escapeHtml(i18next.t('Defense positioning'))}</span>`);
+        tags.push(`<span class="gvgTag gvgTagDefense" title="${escapeHtml(defenseNote)}">${escapeHtml(i18next.t('Defense positioning'))}</span>`);
     }
 
     const textStyle = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%';
@@ -305,8 +305,8 @@ function strategyTooltip(params) {
     const defenseNote = (data.defenseNote || '').trim();
     const strategy = (data.strategy || '').trim();
     const lines = [];
-    if (intel) lines.push(`${i18next.t('Intel requirement')}: ${intel}`);
-    if (defenseNote) lines.push(`${i18next.t('Defense positioning')}: ${defenseNote}`);
+    if (intel) lines.push(intel);
+    if (defenseNote) lines.push(defenseNote);
     if (strategy) lines.push(strategy);
     return lines.join('\n');
 }

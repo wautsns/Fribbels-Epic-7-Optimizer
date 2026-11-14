@@ -121,15 +121,18 @@ const DEFAULT_TIEBREAKER_ORDER = [
 /*
  * 候选装备的排序：加权分数降序；**同分时按属性优先级滑块数值降序依次比较**，
  * 同权重的属性合并成一个维度求和比（无需人为设同权重时的顺序），disliked 字段
- * 反向，再比未加权 roll 总和，最后比 id —— 保证同分谁被保留是确定的。
+ * 因其权重基本都是 0 所以单独放在全桶相等之后比较（越低越好，用 sign=-1 实现），
+ * 再比未加权 roll 总和，最后比 id —— 保证同分谁被保留是确定的。
  */
 function buildComparator(params, baseStats, reforge) {
-    // 构造 tiebreaker：先按滑块权重降序分组，同权重属性合并成一个 sum 维度
+    // disliked 单独集合，全桶相等之后再比
     const disliked = new Set(Array.isArray(params.resultDislike) ? params.resultDislike : []);
+
+    // 正权重按滑块值降序分桶，同权重属性合并成一个 sum 维度
     const byWeight = new Map(); // weight -> [{key, sign}]
     for (const entry of DEFAULT_TIEBREAKER_ORDER) {
         const weight = Number(params[entry.priorityKey]) || 0;
-        if (weight <= 0) continue;
+        if (weight <= 0) continue;                               // 权重 0 跳过（disliked 通常在这）
         const sign = disliked.has(entry.field) ? -1 : 1;
         if (!byWeight.has(weight)) byWeight.set(weight, []);
         byWeight.get(weight).push({ key: entry.key, sign });
@@ -138,16 +141,25 @@ function buildComparator(params, baseStats, reforge) {
         .sort((a, b) => b[0] - a[0])  // 权重降序
         .map(([weight, fields]) => ({ weight, fields }));
 
+    // disliked 兜底：权重 0 或没设权重但被标记 dislike 的属性（已在正权重桶里的排除，不重复算）
+    const usedKeys = new Set();
+    for (const bucket of weightBuckets) for (const f of bucket.fields) usedKeys.add(f.key);
+    const dislikedAttrs = DEFAULT_TIEBREAKER_ORDER
+        .filter(e => disliked.has(e.field) && !usedKeys.has(e.key))
+        .map(e => ({ key: e.key, sign: -1 })); // 越低越好
+
     const cache = new Map();
     const tiebreak = (item) => {
         let values = cache.get(item);
         if (!values) {
             const stats = DominanceFilter.getComparableStats(item, baseStats, reforge) || {};
             values = {
-                // 每个权重桶合并成一个 sum
                 sums: weightBuckets.map(b => b.fields.reduce(
                     (acc, f) => acc + (Number(stats[f.key]) || 0) * f.sign, 0
                 )),
+                dislikedSum: dislikedAttrs.reduce(
+                    (acc, f) => acc + (Number(stats[f.key]) || 0) * f.sign, 0
+                ),
                 rolls: unweightedRolls(stats),
             };
             cache.set(item, values);
@@ -163,10 +175,16 @@ function buildComparator(params, baseStats, reforge) {
         const a = tiebreak(left);
         const b = tiebreak(right);
 
+        // 正权重桶（按权重降序合并比）
         for (let i = 0; i < a.sums.length; i++) {
             if (a.sums[i] !== b.sums[i]) {
                 return a.sums[i] > b.sums[i] ? -1 : 1;
             }
+        }
+
+        // disliked 属性兜底（越低越好 → sign=-1 → 越高越好比）
+        if (a.dislikedSum !== b.dislikedSum) {
+            return a.dislikedSum > b.dislikedSum ? -1 : 1;
         }
 
         if (a.rolls !== b.rolls) {

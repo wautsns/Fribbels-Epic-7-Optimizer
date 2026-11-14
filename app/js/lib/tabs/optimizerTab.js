@@ -575,10 +575,6 @@ module.exports = {
 
         items = ModificationFilter.apply(items, params.inputSubstatMods, hero, submit);
 
-        if (params.inputFilterPriority != 100) {
-            PriorityFilter.calculatePriorityScores(params, items, baseStats, params.inputPredictReforges);
-        }
-
         const dominanceInputCounts = countItemsByGear(items);
         items = DominanceFilter.applyDominanceFilters(params, items, baseStats, params.inputPredictReforges);
         const dominanceOutputCounts = countItemsByGear(items);
@@ -821,8 +817,8 @@ module.exports = {
         document.querySelector('#resSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputResPriority)})
         document.querySelector('#resSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputResPriority))
 
-        document.querySelector('#filterSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputFilterPriority, 10)})
-        document.querySelector('#filterSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputFilterPriority, 10))
+        document.querySelector('#filterSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputFilterPriority, 20)})
+        document.querySelector('#filterSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputFilterPriority, 20))
 
         Selectors.setGearMainAndSetsFromRequest(request, index);
 
@@ -846,11 +842,11 @@ module.exports = {
             params.inputCrPriority != 0 || params.inputCdPriority != 0 ||
             params.inputEffPriority != 0 || params.inputResPriority != 0;
 
-        if (params.inputFilterPriority == 100 && !statPrioritiesAssigned) {
-            // 100% = 保留 Dominance 后的全部候选，属性优先级不影响 Top% 但在 Top-K 排序里仍有用
+        if (params.inputFilterPriority >= 100 && !statPrioritiesAssigned) {
+            // K=100 基本等于 Dominance 后全留，score 退化影响不大
             Notifier.info("No stat priority selected. For best results, use the stat priority filter.")
-        } else if (params.inputFilterPriority != 100 && !statPrioritiesAssigned) {
-            Dialog.error("Top % was selected but no stat priorities are assigned. Assign stat priorities otherwise the filter will not work.")
+        } else if (!statPrioritiesAssigned) {
+            Dialog.error("Top K was selected but no stat priorities are assigned. Assign stat priorities otherwise the filter will not work.")
             return true;
         }
 
@@ -1053,8 +1049,8 @@ function clearSubstatPriority() {
     document.querySelector('#resSlider')['rangeslider-js'].update({value: 0})
     document.querySelector('#resSliderInput').setAttribute('value', 0)
 
-    document.querySelector('#filterSlider')['rangeslider-js'].update({value: 10})
-    document.querySelector('#filterSliderInput').setAttribute('value', 10)
+    document.querySelector('#filterSlider')['rangeslider-js'].update({value: 20})
+    document.querySelector('#filterSliderInput').setAttribute('value', 20)
 }
 
 function clearStats() {

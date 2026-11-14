@@ -128,8 +128,8 @@ module.exports = {
             content:
 
 '<p>'+i18next.t("Shows how many pieces of gear will be used in the search, after filters are applied.")+'</p>'
-+'<p>'+i18next.t("The number in parentheses after each filtered gear count is the number of items removed by dominance filtering before Top X% is applied. It only counts items removed after the other gear filters have been applied.")+'</p>'
-+'<p>'+i18next.t("If you notice for example, you only have 2 rings being used, try expanding your filters to use more ring options. Or if you see too much gear being used, reduce your Top % filter to be more selective.")+'</p>'
++'<p>'+i18next.t("The number in parentheses after each filtered gear count is the number of items removed by dominance filtering before Top K is applied. It only counts items removed after the other gear filters have been applied.")+'</p>'
++'<p>'+i18next.t("If you notice for example, you only have 2 rings being used, try expanding your filters to use more ring options. Or if you see too much gear being used, reduce your Top K filter to be more selective.")+'</p>'
 +'<p>'+i18next.t("<b>Permutations - </b> Number of permutations of the filtered gear that need to be searched. Make this number lower to make searches faster, but you will be searching less options.")+'</p>'
 +'<p>'+i18next.t("<b>Searched - </b> Number permutations already searched.")+'</p>'
 +'<p>'+i18next.t("<b>Results - </b> Number of matching builds found. The backend searches all permutations and retains the best Top-K results to control memory usage.")+'</p>'

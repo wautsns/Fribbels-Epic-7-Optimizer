@@ -53,7 +53,7 @@ node_modules/             Electron 及前端依赖（含 electron/dist/electron.
 
 ### 新增 / 重做的功能
 - **配装数据填入**（`heroBuilds.js`）：调 fribbels 的 getBuilds 接口，按套装组合 + 神器 + 密度法算目标面板，一键填进优化器；文案全部走 i18n，套装名用 `SET_OPTION` + `i18next.t`
-- **装备卡片分数**（`htmlGenerator.wssToText`）：有白字副属性且装备在某英雄身上时，**只显示按英雄基础属性反算的分数**（`rateBaseScore`，白字÷英雄基础属性×100，速度×2、暴率×1.5、爆伤×1.125），可重铸显示 `当前 ➤ 重铸后`；无白字/无英雄仍显示 wss
+- **装备卡片分数**（`htmlGenerator.wssToText`）：有白字副属性且装备在某英雄身上时，**只显示按英雄基础属性反算的分数**（`rateBaseScore`，白字÷英雄基础属性×100，速度×2、暴率×1.5、暴伤×1.125），可重铸显示 `当前 ➤ 重铸后`；无白字/无英雄仍显示 wss
 - **定位提示**（`locator.js`）：与一键换装共用同一套筛选/排名逻辑；悬浮显示排序与每行数量，点击显示 `【套装名】行 X 列 Y` + 主属性/副属性，提示用 tippy v6（间距用 `offset: [0, N]`，**v6 没有 `distance`**）
 - **一键换装**（`emulatorEquip.js` + `equip.js`）：
   - 4 个副属性 chip 的顺序：`planChipOrders()` 对整轮 6 件做 DP，代价 = 目标滚动行数 × 0.5s（chip1 是排序主键，决定位置）+ 与上一件排列差异（点击次数）× 1.8s；`chipChangeCost()` 模拟游戏里的**chip 交换行为**（把某 chip 设成别的 chip 已有的副属性时两格对调；**交换只发生在副属性之间，主属性不参与**）

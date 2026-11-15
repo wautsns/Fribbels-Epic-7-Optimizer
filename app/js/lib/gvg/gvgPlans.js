@@ -416,13 +416,14 @@ module.exports = {
     sortPlans: (list) => {
         const byIdDesc = (a, b) => (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
 
-        // 纯时间倒序：有 lastUsedAt 用它，没有则用 createdAt；不按进攻阵容 1 / 2 特殊排序
-        const timeOf = (plan) =>
-            plan.lastUsedAt != null ? plan.lastUsedAt : plan.createdAt || 0;
-
+        // 已使用的按 lastUsedAt 倒序排在前面；未使用的统一沉到后面，内部按 createdAt 倒序
         return list.slice().sort((a, b) => {
-            const ta = timeOf(a);
-            const tb = timeOf(b);
+            const aUsed = a.lastUsedAt != null;
+            const bUsed = b.lastUsedAt != null;
+            if (aUsed !== bUsed) return aUsed ? -1 : 1;
+
+            const ta = aUsed ? a.lastUsedAt : a.createdAt || 0;
+            const tb = bUsed ? b.lastUsedAt : b.createdAt || 0;
             if (ta !== tb) return tb - ta;
             return byIdDesc(a, b);
         });

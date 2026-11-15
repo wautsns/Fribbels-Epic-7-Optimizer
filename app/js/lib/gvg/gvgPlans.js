@@ -414,38 +414,17 @@ module.exports = {
     /* ---------------- 排序 / 进攻阵容 1 / 2（design.md 6.4） ---------------- */
 
     sortPlans: (list) => {
-        const teams = loadTeams();
-        const firstId = teams.first;
-        const secondId = teams.second;
-
         const byIdDesc = (a, b) => (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
 
-        // 排序优先级：进攻阵容1 → 进攻阵容2 → 有 lastUsedAt（按时间倒序）→ 无 lastUsedAt（按创建时间倒序）
-        return list.slice().sort((a, b) => {
-            // 进攻阵容标记优先级
-            const rank = (plan) => {
-                if (plan.id === firstId) return 0;
-                if (plan.id === secondId) return 1;
-                if (plan.lastUsedAt != null) return 2;
-                return 3;
-            };
-            const ra = rank(a);
-            const rb = rank(b);
-            if (ra !== rb) return ra - rb;
+        // 纯时间倒序：有 lastUsedAt 用它，没有则用 createdAt；不按进攻阵容 1 / 2 特殊排序
+        const timeOf = (plan) =>
+            plan.lastUsedAt != null ? plan.lastUsedAt : plan.createdAt || 0;
 
-            // 同一优先级内再按时间排
-            if (ra === 2) {
-                // 有 lastUsedAt：按时间倒序
-                if (a.lastUsedAt !== b.lastUsedAt)
-                    return b.lastUsedAt - a.lastUsedAt;
-                return byIdDesc(a, b);
-            }
-            if (ra === 3) {
-                // 无 lastUsedAt：按创建时间倒序
-                if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt;
-                return byIdDesc(a, b);
-            }
-            return 0;
+        return list.slice().sort((a, b) => {
+            const ta = timeOf(a);
+            const tb = timeOf(b);
+            if (ta !== tb) return tb - ta;
+            return byIdDesc(a, b);
         });
     },
 

@@ -990,7 +990,13 @@ module.exports = {
             option2.value = hero.id;
 
             optimizerHeroSelector.add(option);
-            optimizerAllowGearFromSelector.add(option2);
+            // 排除下拉框只列出身上至少穿了一件装备的角色（空装备的角色没有可排除的对象）
+            const hasEquippedGear = Object.values(hero.equipment || {}).some(
+                (item) => !!item
+            );
+            if (hasEquippedGear) {
+                optimizerAllowGearFromSelector.add(option2);
+            }
 
             if (selectedId && selectedId == hero.id) {
                 optimizerHeroSelector.value = selectedId

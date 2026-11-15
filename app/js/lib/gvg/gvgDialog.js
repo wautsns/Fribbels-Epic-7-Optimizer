@@ -219,8 +219,11 @@ function buildEditHtml(draft, entries) {
 
     // lastUsedAt → date input (只选年月日，时分秒 = 保存时的当前时间)
     // 未被置队 → checkbox 未勾选 → lastUsedAt = null
-    const existingLastUsed = Number.isFinite(Number(draft.lastUsedAt))
-        ? new Date(Number(draft.lastUsedAt))
+    // 注意不能直接 Number.isFinite(Number(x))：null 会被转成 0，导致未使用作业显示成 1970 年且复选框被勾上
+    const lastUsedValue =
+        draft.lastUsedAt != null ? Number(draft.lastUsedAt) : NaN;
+    const existingLastUsed = Number.isFinite(lastUsedValue)
+        ? new Date(lastUsedValue)
         : null;
     const lastUsedEnabled = !!existingLastUsed;
     const lastUsedDateValue = existingLastUsed

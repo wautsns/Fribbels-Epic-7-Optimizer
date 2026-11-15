@@ -710,11 +710,16 @@ module.exports = {
             if (!defense || !members) return null;
 
             const id = asString(raw.id).trim() || uuidv4();
-            const createdAt = Number.isFinite(Number(raw.createdAt))
-                ? Number(raw.createdAt)
+            // null/undefined 不能先 Number() 再 isFinite：Number(null) = 0，会被当成 1970 年的时间戳
+            const createdValue =
+                raw.createdAt != null ? Number(raw.createdAt) : NaN;
+            const createdAt = Number.isFinite(createdValue)
+                ? createdValue
                 : nowMillis();
-            const lastUsedAt = Number.isFinite(Number(raw.lastUsedAt))
-                ? Number(raw.lastUsedAt)
+            const lastUsedValue =
+                raw.lastUsedAt != null ? Number(raw.lastUsedAt) : NaN;
+            const lastUsedAt = Number.isFinite(lastUsedValue)
+                ? lastUsedValue
                 : null;
 
             return {

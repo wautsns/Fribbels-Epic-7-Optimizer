@@ -1075,28 +1075,11 @@ async function selectSetInFrame(frame, setKey) {
     }
 
     await adb.tap(icon.x, icon.y);
-
-    // the dialog closes automatically after selecting a set — poll until it really
-    // disappears instead of sleeping a fixed time; stall delays can push a fixed sleep
-    // off into "tap lands into the wrong place on a still-open dialog" territory
-    const deadline = Date.now() + 2500;
-    while (Date.now() < deadline) {
-        await sleep(120);
-        const postTap = await captureFrame();
-        if (!setDialogVisible(postTap)) {
-            // 选完后 dialog 关了，还要等列表刷新稳定（游戏会重绘一遍）
-            await waitForGridStable(frame, 2000).catch(() => null);
-            return true;
-        }
-    }
-
-    // stall or very slow response: dialog still open after the deadline,
-    // just dismiss and report success — the icon tap most likely landed
-    // and only the close animation is lagging
-    console.warn(
-        '[emulator] set dialog stayed open after set tap, dismissing manually'
-    );
+    // 给 dialog 足够时间处理 tap 事件（checkbox 状态切换 + 内部 rAF 重绘），
+    // 避免紧接着 dismissOverlay 的 tap 叠上来砸主线程
+    await sleep(600);
     await dismissOverlay('set dialog');
+    await waitForGridStable(frame, 2000).catch(() => null);
     return true;
 }
 
@@ -1164,25 +1147,14 @@ async function applySetFilter(setKey) {
     return false;
 }
 
-// Tap a known-good (x, y) inside the set dialog and wait for it to close,
-// then wait for the item grid to finish redrawing. Returns true on success.
+// Tap a known-good (x, y) inside the set dialog, dismiss the dialog (set panels never
+// auto-close because the game supports multi-select), then wait for the item grid to
+// finish redrawing. Returns true on success.
 async function tapFixedSetAndWait(x, y, baselineFrame) {
     await adb.tap(x, y);
-
-    // tap 套装 icon 只是勾上, dialog 不会自动关 — 和 selectSetInFrame 一样
-    const deadline = Date.now() + 2500;
-    while (Date.now() < deadline) {
-        await sleep(120);
-        const postTap = await captureFrame();
-        if (!setDialogVisible(postTap)) {
-            await waitForGridStable(baselineFrame, 2000).catch(() => null);
-            return true;
-        }
-    }
-
-    // 超时 — 和 selectSetInFrame 一样, 手动 dismiss 并返回 true
-    // (tap 已经勾上套装了, 只是关 dialog 的动画卡了)
-    console.warn('[emulator] fixed coord tap (', x, ',', y, ') dialog stayed open, dismissing manually');
+    // 给 dialog 足够时间处理 tap 事件（checkbox 状态切换 + 内部 rAF 重绘），
+    // 避免紧接着 dismissOverlay 的 tap 叠上来砸主线程
+    await sleep(600);
     await dismissOverlay('set dialog');
     await waitForGridStable(baselineFrame, 2000).catch(() => null);
     return true;
@@ -1283,8 +1255,8 @@ async function assertListNotEmpty(frame) {
 }
 
 // ---- waiting for what should appear (instead of sleeping a fixed time) ----------------
-const GRID_STABLE_DELTA = 6;
-const GRID_STABLE_TIMEOUT = 4000;
+const GRID_STABLE_DELTA = 10;
+const GRID_STABLE_TIMEOUT = 5000;
 const TILE_APPEAR_TIMEOUT = 1600;
 
 // 选完最后一个副属性 chip 后，列表要过一会儿才开始重画。「连续两帧一样」在重画开始前
@@ -1292,9 +1264,9 @@ const TILE_APPEAR_TIMEOUT = 1600;
 // 去算行列、点格子 —— 点错之后又以为装备不存在，白跑一圈 ±4 探测。所以：
 //   * 先等列表真的变过一次（最多 GRID_CHANGE_TIMEOUT）
 //   * 再要求连续 GRID_READY_SAMPLES 次采样都不动
-const GRID_READY_INTERVAL = 100;
+const GRID_READY_INTERVAL = 150;
 const GRID_READY_SAMPLES = 3;
-const GRID_CHANGE_TIMEOUT = 1200;
+const GRID_CHANGE_TIMEOUT = 2500;
 
 function gridRegion() {
     return {
@@ -1392,12 +1364,17 @@ async function waitForGridStable(previous, timeout = 2000) {
 //
 // expectChange: 这次筛选确实换了 chip，列表一定会重画 —— 那就先等它变（见上面的常量），
 // 避免把「还没开始重画」当成「已经稳定」。
+//
+// externalBaseline: 可选的外部 baseline frame —— 调用方如果在所有 filter 之前 capture 了
+// 一帧就传进来，这样之后发生的所有重绘（set + 每个 chip）都会被正确检测到；
+// 不传就用函数内部新 capture 的一帧做 baseline（会漏掉 filter 应用过程中的变化）。
 async function waitForGridReady({
     timeout = GRID_STABLE_TIMEOUT,
     expectChange = false,
+    externalBaseline = null,
 } = {}) {
     const started = Date.now();
-    let previous = await captureFrame();
+    let previous = externalBaseline || (await captureFrame());
     const baseline = previous;
     let changed = !expectChange;
     let stableSamples = 0;
@@ -1412,18 +1389,19 @@ async function waitForGridReady({
             screen.regionDelta(baseline, frame, gridRegion()) >= GRID_STABLE_DELTA
         ) {
             changed = true;
+            console.log('[emulator] waitForGridReady: grid changed after', Date.now() - started, 'ms');
         }
 
-        // 等不到变化说明这次筛选本来就不会改变列表，别一直空等；
-        // 但慢机器上「还没开始重画」也会这样，所以从这一刻起再要求一段静止时间
+        // 等不到变化说明这次筛选本来就不会改变列表（cache hit 等），
+        // 直接假设 changed=true 进入稳定等待，不要额外加严格度（+5 太多了）
         if (!changed && Date.now() - started >= GRID_CHANGE_TIMEOUT) {
             changed = true;
-            requiredSamples = GRID_READY_SAMPLES + 5;
-            stableSamples = 0;
+            console.log('[emulator] waitForGridReady: no change detected within', GRID_CHANGE_TIMEOUT + 'ms, assuming stable path');
         }
 
         const hasTiles = findCandidates(frame).length > 0;
-        stableSamples = delta < GRID_STABLE_DELTA ? stableSamples + 1 : 0;
+        const increment = delta < GRID_STABLE_DELTA ? 1 : 0;
+        stableSamples = increment ? stableSamples + 1 : 0;
 
         if (changed && hasTiles && stableSamples >= requiredSamples) {
             return frame;
@@ -1435,7 +1413,11 @@ async function waitForGridReady({
 
     console.warn(
         '[emulator] the item list did not settle within',
-        timeout + 'ms'
+        timeout + 'ms',
+        'expectChange=', expectChange,
+        'changed=', changed,
+        'stableSamples=', stableSamples,
+        'requiredSamples=', requiredSamples
     );
     return previous;
 }
@@ -1928,6 +1910,10 @@ async function selectItem(item, options = {}) {
     // switching slots shows the list from the top again
     gridScroll = 0;
 
+    // ★ 在所有 filter（set + 5 chip）之前 capture baseline：之后每次 filter 生效
+    // 引起的 grid 重绘都能被 baseline→frame 的 delta 检测到，不会漏
+    const preFiltersFrame = await captureFrame();
+
     // the acquisition sort and the "All" set filter only have to be confirmed once per
     // run: neither is changed by switching slots
     if (!sessionReady) {
@@ -1962,6 +1948,7 @@ async function selectItem(item, options = {}) {
     // of assuming the next capture already shows the filtered result
     let frame = await waitForGridReady({
         expectChange: chipsWillChange || setApplied,
+        externalBaseline: preFiltersFrame,
     });
     await assertListNotEmpty(frame);
 

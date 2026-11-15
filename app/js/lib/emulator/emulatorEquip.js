@@ -330,30 +330,44 @@ function setButtonStopping() {
 }
 
 let allItemsCache = null;
+let allItemsMapCache = null;
 
 async function getAllItems() {
     if (!allItemsCache) {
         const response = await Api.getAllItems();
         allItemsCache = response.items || [];
+        allItemsMapCache = new Map(allItemsCache.map((it) => [String(it.id), it]));
     }
 
     return allItemsCache;
 }
 
-async function resolveItem(entry) {
-    if (entry && entry.main) {
-        return entry;
+function getItemMap() {
+    if (!allItemsMapCache) {
+        // getAllItems 还没调过时兜底 —— 虽然按现在的调用顺序不会发生
+        return null;
     }
-
-    const response = await Api.getItemById(entry.id);
-    return response && response.item ? response.item : null;
+    return allItemsMapCache;
 }
 
-async function resolveItems(entries) {
+function resolveItem(entry, itemMap) {
+    if (!entry) return null;
+    if (entry.main) return entry;
+
+    // 优先用 getAllItems 拿的全库 Map（已经调过的话），零网络请求
+    if (itemMap) {
+        const found = itemMap.get(String(entry.id));
+        if (found) return found;
+    }
+
+    return null;
+}
+
+async function resolveItems(entries, itemMap) {
     const items = [];
 
     for (const entry of entries) {
-        const item = await resolveItem(entry);
+        const item = resolveItem(entry, itemMap);
         if (!item || !item.main) {
             throw new Error(i18next.t('Item not found'));
         }
@@ -497,9 +511,25 @@ module.exports = {
         setButtonRunning(true);
         equip.clearCancel();
 
-        // fail fast when the game is not on the manage equipment page
+        const t0 = Date.now();
+
+        // 并行预检：ensureManagePage（查游戏页面）和 startStream（开截图流）
+        // 互不依赖，同时跑省时间
         try {
-            await equip.ensureManagePage();
+            await Promise.all([
+                equip.ensureManagePage().then(() => {
+                    console.log('[emulator] ensureManagePage done in', Date.now() - t0, 'ms');
+                }),
+                adb.startStream().then(
+                    () => console.log('[emulator] startStream done in', Date.now() - t0, 'ms'),
+                    (error) => {
+                        console.warn(
+                            '[emulator] streaming backend unavailable, using one-shot adb:',
+                            error && error.message
+                        );
+                    }
+                ),
+            ]);
         } catch (error) {
             setBusy(false);
             setButtonRunning(false);
@@ -507,22 +537,21 @@ module.exports = {
             return;
         }
 
-        // 开流：截图 263ms -> ~140ms，点击 259ms -> ~143ms（批量再降到 ~40ms/条）。
-        // 设备不支持（没有 toybox netcat / 非 RGBA 帧）时静默退回一次次性 adb 调用。
-        await adb.startStream().catch((error) => {
-            console.warn(
-                '[emulator] streaming backend unavailable, using one-shot adb:',
-                error && error.message
-            );
-        });
+        console.log('[emulator] preflight total', Date.now() - t0, 'ms');
 
+        const t1 = Date.now();
         try {
-            const items = await resolveItems(checked);
+            // getAllItems 必须先拿到：后面 resolveItems 靠它的 Map 做零网络查找，
+            // planChipOrders 也要它算 rank
             const allItems = await getAllItems();
+            const items = await resolveItems(checked, getItemMap());
             equip.resetFilterSession();
+
+            console.log('[emulator] data ready in', Date.now() - t1, 'ms, items=', items.length);
 
             // 副属性 chip 的顺序按整轮连续性 + 目标排名先规划好（顺序影响谁先排序）
             const chipOrders = planChipOrders(items, allItems);
+            console.log('[emulator] ready to equip in', Date.now() - t0, 'ms total');
 
             // the optimizer data may be stale, so every piece is attempted; a slot that
             // fails (e.g. already worn in game) does not stop the rest

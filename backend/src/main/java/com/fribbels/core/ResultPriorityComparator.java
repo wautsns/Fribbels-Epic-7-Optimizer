@@ -75,7 +75,7 @@ public class ResultPriorityComparator implements Comparator<HeroStats> {
         final List<String> leftItems = left.getItems();
         final List<String> rightItems = right.getItems();
         if (leftItems == null && rightItems == null) return 0;
-        if (leftItems == null) return 1;   // null 视为最差
+        if (leftItems == null) return 1;
         if (rightItems == null) return -1;
 
         final int size = Math.min(leftItems.size(), rightItems.size());
@@ -85,8 +85,9 @@ public class ResultPriorityComparator implements Comparator<HeroStats> {
             if (a == null && b == null) continue;
             if (a == null) return 1;
             if (b == null) return -1;
+            // 与主 compare 的 "值大优先" 方向一致：字典序大的装备 id 优先
             final int c = a.compareTo(b);
-            if (c != 0) return -c;   // 字典序小的优先（best-first）
+            if (c != 0) return -c;
         }
         return -Integer.compare(leftItems.size(), rightItems.size());
     }

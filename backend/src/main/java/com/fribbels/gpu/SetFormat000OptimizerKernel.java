@@ -249,7 +249,9 @@ public class SetFormat000OptimizerKernel extends GpuOptimizerKernel {
                     ||  s3 < inputMinS3Limit || s3 > inputMaxS3Limit
                     ||  bs < inputMinBSLimit || bs > inputMaxBSLimit;
 
-            passes[id] = !(f1 || f2 || f3);
+            // GPU 不做 stats filter —— float 精度 ≠ CPU Java float，边界 build 会被误跳过导致结果漂
+            // 全 pass，让 CPU executor 里的 passesUpdatedFilter 统一过滤
+            passes[id] = true;
         }
     }
 

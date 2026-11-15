@@ -850,8 +850,11 @@ public class GpuOptimizerKernel extends Kernel {
 //            if (true)
 //                return;
 
-            passes[id] = !(f1 || f2 || f3) && boolArr[setIndex];
-//            passes[id] = setIndex >= 340122242;
+            // GPU 只做套装组合合法性过滤（boolArr 查表，纯整数确定稳定），
+            // stats 过滤（f1/f2/f3）全交给 CPU executor 里的 passesUpdatedFilter ——
+            // GPU float 精度 ≠ CPU Java float，刚好在 filter 边界上的 build 会被错误跳过，
+            // 导致每次 GPU 运行 pass 数量不同 → 结果漂
+            passes[id] = boolArr[setIndex];
         }
     }
 

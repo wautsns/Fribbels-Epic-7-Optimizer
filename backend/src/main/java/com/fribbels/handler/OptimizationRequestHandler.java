@@ -777,7 +777,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                                     final int conversions = weapon.convertable + helmet.convertable + armor.convertable + necklace.convertable + ring.convertable + boots.convertable;
                                     final int alreadyEquipped = weapon.alreadyEquipped + helmet.alreadyEquipped + armor.alreadyEquipped + necklace.alreadyEquipped + ring.alreadyEquipped + boots.alreadyEquipped;
                                     final int priority = weapon.priority + helmet.priority + armor.priority + necklace.priority + ring.priority + boots.priority;
-                                    final HeroStats result = statCalculator.addAccumulatorArrsToHero(base, new float[][]{weapon.tempStatAccArr, helmet.tempStatAccArr, armor.tempStatAccArr, necklace.tempStatAccArr, ring.tempStatAccArr, boots.tempStatAccArr}, collectedSets, request.hero, reforges, conversions, alreadyEquipped, priority);
+                                    final HeroStats result = statCalculator.addAccumulatorArrsToHero(base, new float[][]{weapon.tempStatAccArr, helmet.tempStatAccArr, armor.tempStatAccArr, necklace.tempStatAccArr, ring.tempStatAccArr, boots.tempStatAccArr}, collectedSets, request.hero, reforges, conversions, alreadyEquipped, priority, Boolean.TRUE.equals(request.getInputImprintCircuitCd()));
 
                                     result.setSets(collectedSets);
                                     result.setItems(ImmutableList.of(allweapons[w].getId(), allhelmets[h].getId(), allarmors[a]
@@ -875,7 +875,8 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                                                     reforges,
                                                     conversions,
                                                     alreadyEquipped,
-                                                    priority);
+                                                    priority,
+                                                    Boolean.TRUE.equals(request.getInputImprintCircuitCd()));
                                             searchedCounter.getAndIncrement();
                                             //                                        final boolean passesFilter = true;
 

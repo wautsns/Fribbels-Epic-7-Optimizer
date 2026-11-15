@@ -78,7 +78,8 @@ public class StatCalculator {
                                                      final int upgrades,
                                                      final int conversions,
                                                      final int alreadyEquipped,
-                                                     final int priority) {
+                                                     final int priority,
+                                                     final boolean imprintCircuitCd) {
         final float[] accs0 = accs[0];
         final float[] accs1 = accs[1];
         final float[] accs2 = accs[2];
@@ -113,9 +114,11 @@ public class StatCalculator {
             critRate = cr / 100f;
         }
 
+        // 默认暴伤上限 350%，勾选刻印回路（400暴伤）后提高到 400%
+        final int cdCap = imprintCircuitCd ? 400 : 350;
         final float critDamage;
-        if (cd > 350) {
-            critDamage = 3.5f;
+        if (cd > cdCap) {
+            critDamage = cdCap / 100f;
         } else {
             critDamage = cd / 100f;
         }

@@ -267,8 +267,10 @@ function aggregateCurrentHeroStats(heroStats) {
             min = Math.min(100, min);
         }
         if (stat == 'cd') {
-            max = Math.min(350, max);
-            min = Math.min(350, min);
+            // 勾选「刻印回路：400暴伤」时暴伤上限从 350 提到 400
+            const cdCap = $('#inputImprintCircuitCd').prop('checked') ? 400 : 350;
+            max = Math.min(cdCap, max);
+            min = Math.min(cdCap, min);
         }
 
         currentAggregate[stat] = {

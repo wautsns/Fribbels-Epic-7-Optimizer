@@ -505,7 +505,6 @@ public class GpuOptimizerKernel extends Kernel {
     @Override
     public void run() {
         final int id = getGlobalId();
-//        final int localId = getLocalId();
 
         final long i = max * iteration + id;
         if (i < wSize * hSize * aSize * nSize * rSize * bSize) {
@@ -529,7 +528,7 @@ public class GpuOptimizerKernel extends Kernel {
             final int bargSize = (int)(b * argSize);
             final float bSet =   flattenedBootAccs[bargSize + 12];
 
-            // 只要套装编号：用来查 boolArr，判断这套套装组合是否被允许
+            // 套装过滤：boolArr 查表（纯整数，结果确定）
             final int setIndex = ((int) wSet) * 7962624
                     + ((int) hSet) * 331776
                     + ((int) aSet) * 13824
@@ -537,11 +536,153 @@ public class GpuOptimizerKernel extends Kernel {
                     + ((int) rSet) * 24
                     + (int) bSet;
 
-            // GPU 在这里只做一件事：判定这套套装组合是否被允许（boolArr 是纯整数查表，结果确定）。
-            // 属性、伤害、评分、阈值过滤全部交给 CPU 在 pass 的 iteration 上计算 ——
-            // GPU 的 float 精度与 Java 不一致，边界上的 build 会被误判跳过，
-            // 表现为每次运行通过数量不同、最终结果漂移。
-            passes[id] = boolArr[setIndex];
+            if (!boolArr[setIndex]) {
+                passes[id] = false;
+                return;
+            }
+
+            // === 8 项面板属性 filter ===
+            // accumulator 有小数（percent/100f * base），GPU float 加法与 CPU 一致，
+            // 最终 (int) floor 后与 inputXxxLimit 比较。
+            // set bonus 和 bonusMax 乘法完全模拟 addAccumulatorArrsToHero 公式。
+
+            // 1) accumulator 汇总（float 加法，与 CPU 一致）
+            final float wAtk = flattenedWeaponAccs[wargSize + 0];
+            final float wHp  = flattenedWeaponAccs[wargSize + 1];
+            final float wDef = flattenedWeaponAccs[wargSize + 2];
+            final float wCr  = flattenedWeaponAccs[wargSize + 6];
+            final float wCd  = flattenedWeaponAccs[wargSize + 7];
+            final float wEff = flattenedWeaponAccs[wargSize + 8];
+            final float wRes = flattenedWeaponAccs[wargSize + 9];
+            final float wSpd = flattenedWeaponAccs[wargSize + 10];
+
+            final float hAtk = flattenedHelmetAccs[hargSize + 0];
+            final float hHp  = flattenedHelmetAccs[hargSize + 1];
+            final float hDef = flattenedHelmetAccs[hargSize + 2];
+            final float hCr  = flattenedHelmetAccs[hargSize + 6];
+            final float hCd  = flattenedHelmetAccs[hargSize + 7];
+            final float hEff = flattenedHelmetAccs[hargSize + 8];
+            final float hRes = flattenedHelmetAccs[hargSize + 9];
+            final float hSpd = flattenedHelmetAccs[hargSize + 10];
+
+            final float aAtk = flattenedArmorAccs[aargSize + 0];
+            final float aHp  = flattenedArmorAccs[aargSize + 1];
+            final float aDef = flattenedArmorAccs[aargSize + 2];
+            final float aCr  = flattenedArmorAccs[aargSize + 6];
+            final float aCd  = flattenedArmorAccs[aargSize + 7];
+            final float aEff = flattenedArmorAccs[aargSize + 8];
+            final float aRes = flattenedArmorAccs[aargSize + 9];
+            final float aSpd = flattenedArmorAccs[aargSize + 10];
+
+            final float nAtk = flattenedNecklaceAccs[nargSize + 0];
+            final float nHp  = flattenedNecklaceAccs[nargSize + 1];
+            final float nDef = flattenedNecklaceAccs[nargSize + 2];
+            final float nCr  = flattenedNecklaceAccs[nargSize + 6];
+            final float nCd  = flattenedNecklaceAccs[nargSize + 7];
+            final float nEff = flattenedNecklaceAccs[nargSize + 8];
+            final float nRes = flattenedNecklaceAccs[nargSize + 9];
+            final float nSpd = flattenedNecklaceAccs[nargSize + 10];
+
+            final float rAtk = flattenedRingAccs[rargSize + 0];
+            final float rHp  = flattenedRingAccs[rargSize + 1];
+            final float rDef = flattenedRingAccs[rargSize + 2];
+            final float rCr  = flattenedRingAccs[rargSize + 6];
+            final float rCd  = flattenedRingAccs[rargSize + 7];
+            final float rEff = flattenedRingAccs[rargSize + 8];
+            final float rRes = flattenedRingAccs[rargSize + 9];
+            final float rSpd = flattenedRingAccs[rargSize + 10];
+
+            final float bAtk = flattenedBootAccs[bargSize + 0];
+            final float bHp  = flattenedBootAccs[bargSize + 1];
+            final float bDef = flattenedBootAccs[bargSize + 2];
+            final float bCr  = flattenedBootAccs[bargSize + 6];
+            final float bCd  = flattenedBootAccs[bargSize + 7];
+            final float bEff = flattenedBootAccs[bargSize + 8];
+            final float bRes = flattenedBootAccs[bargSize + 9];
+            final float bSpd = flattenedBootAccs[bargSize + 10];
+
+            final float atkSum = wAtk + hAtk + aAtk + nAtk + rAtk + bAtk;
+            final float hpSum  = wHp  + hHp  + aHp  + nHp  + rHp  + bHp;
+            final float defSum = wDef + hDef + aDef + nDef + rDef + bDef;
+            final float crSum  = wCr  + hCr  + aCr  + nCr  + rCr  + bCr;
+            final float cdSum  = wCd  + hCd  + aCd  + nCd  + rCd  + bCd;
+            final float effSum = wEff + hEff + aEff + nEff + rEff + bEff;
+            final float resSum = wRes + hRes + aRes + nRes + rRes + bRes;
+            final float spdSum = wSpd + hSpd + aSpd + nSpd + rSpd + bSpd;
+
+            // 2) 数 6 件装备的 set index（用于算 set bonus）
+            final int wsi = (int) wSet;
+            final int hsi = (int) hSet;
+            final int asi = (int) aSet;
+            final int nsi = (int) nSet;
+            final int rsi = (int) rSet;
+            final int bsi = (int) bSet;
+
+            // 3) set bonus（与 StatCalculator.addAccumulatorArrsToHero 公式完全一致）
+            // atk set: set[2] > 3 件
+            final int atkSetCount = (wsi==2?1:0) + (hsi==2?1:0) + (asi==2?1:0) + (nsi==2?1:0) + (rsi==2?1:0) + (bsi==2?1:0);
+            final float atkSetB = atkSetCount > 3 ? atkSetBonus : 0;
+
+            // hp set: set[0] > 1 件 + set[20] > 3 件 + set[17] > 1 件（torrent，带负号）
+            final int hp0Count = (wsi==0?1:0) + (hsi==0?1:0) + (asi==0?1:0) + (nsi==0?1:0) + (rsi==0?1:0) + (bsi==0?1:0);
+            final int hp20Count = (wsi==20?1:0) + (hsi==20?1:0) + (asi==20?1:0) + (nsi==20?1:0) + (rsi==20?1:0) + (bsi==20?1:0);
+            final int hp17Count = (wsi==17?1:0) + (hsi==17?1:0) + (asi==17?1:0) + (nsi==17?1:0) + (rsi==17?1:0) + (bsi==17?1:0);
+            final float hpSetB = (hp0Count > 1 ? hp0Count/2 * hpSetBonus : 0)
+                                + (hp20Count > 3 ? hpSetBonus : 0)
+                                + (hp17Count > 1 ? hp17Count/2 * hpSetBonus / -2 : 0);
+
+            // def set: set[1] > 1 件
+            final int defSetCount = (wsi==1?1:0) + (hsi==1?1:0) + (asi==1?1:0) + (nsi==1?1:0) + (rsi==1?1:0) + (bsi==1?1:0);
+            final float defSetB = defSetCount > 1 ? defSetCount/2 * defSetBonus : 0;
+
+            // cr set: set[4] > 1 件, 每件 +12
+            final int crSetCount = (wsi==4?1:0) + (hsi==4?1:0) + (asi==4?1:0) + (nsi==4?1:0) + (rsi==4?1:0) + (bsi==4?1:0);
+            final int crSetB = crSetCount > 1 ? crSetCount/2 * 12 : 0;
+
+            // cd set: set[6] > 3 件, +60
+            final int cdSetCount = (wsi==6?1:0) + (hsi==6?1:0) + (asi==6?1:0) + (nsi==6?1:0) + (rsi==6?1:0) + (bsi==6?1:0);
+            final int cdSetB = cdSetCount > 3 ? 60 : 0;
+
+            // eff set: set[5] > 1 件, 每件 +20
+            final int effSetCount = (wsi==5?1:0) + (hsi==5?1:0) + (asi==5?1:0) + (nsi==5?1:0) + (rsi==5?1:0) + (bsi==5?1:0);
+            final int effSetB = effSetCount > 1 ? effSetCount/2 * 20 : 0;
+
+            // res set: set[9] > 1 件, 每件 +20
+            final int resSetCount = (wsi==9?1:0) + (hsi==9?1:0) + (asi==9?1:0) + (nsi==9?1:0) + (rsi==9?1:0) + (bsi==9?1:0);
+            final int resSetB = resSetCount > 1 ? resSetCount/2 * 20 : 0;
+
+            // spd set: set[3] > 3 件 + set[14] > 3 件 + set[18] > 3 件 + set[22] > 3 件
+            final int spd3Count = (wsi==3?1:0) + (hsi==3?1:0) + (asi==3?1:0) + (nsi==3?1:0) + (rsi==3?1:0) + (bsi==3?1:0);
+            final int spd14Count = (wsi==14?1:0) + (hsi==14?1:0) + (asi==14?1:0) + (nsi==14?1:0) + (rsi==14?1:0) + (bsi==14?1:0);
+            final int spd18Count = (wsi==18?1:0) + (hsi==18?1:0) + (asi==18?1:0) + (nsi==18?1:0) + (rsi==18?1:0) + (bsi==18?1:0);
+            final int spd22Count = (wsi==22?1:0) + (hsi==22?1:0) + (asi==22?1:0) + (nsi==22?1:0) + (rsi==22?1:0) + (bsi==22?1:0);
+            final float spdSetB = (spd3Count > 3 ? speedSetBonus : 0)
+                                + (spd14Count > 3 ? revengeSetBonus : 0)
+                                + (spd18Count > 3 ? reversalSetBonus : 0)
+                                + (spd22Count > 3 ? reversalSetBonus : 0);
+
+            // 4) 最终面板属性（公式完全模拟 addAccumulatorArrsToHero）
+            final int finalAtk = (int) ((bonusBaseAtk + atkSum + atkSetB) * bonusMaxAtk);
+            final int finalHp  = (int) ((bonusBaseHp  + hpSum  + hpSetB)  * bonusMaxHp);
+            final int finalDef = (int) ((bonusBaseDef + defSum + defSetB) * bonusMaxDef);
+            final int finalCr  = (int) (baseCr  + crSum  + crSetB  + bonusCr  + aeiCr);
+            final int finalCd  = (int) (baseCd  + cdSum  + cdSetB  + bonusCd  + aeiCd);
+            final int finalEff = (int) (baseEff + effSum + effSetB + bonusEff + aeiEff);
+            final int finalRes = (int) (baseRes + resSum + resSetB + bonusRes + aeiRes);
+            final int finalSpd = (int) (baseSpeed + spdSum + spdSetB + bonusSpeed + aeiSpeed);
+
+            // 5) 8 项 stats filter
+            final boolean pass =
+                finalAtk  >= inputAtkMinLimit  && finalAtk  <= inputAtkMaxLimit  &&
+                finalHp   >= inputHpMinLimit   && finalHp   <= inputHpMaxLimit   &&
+                finalDef  >= inputDefMinLimit  && finalDef  <= inputDefMaxLimit  &&
+                finalSpd  >= inputSpdMinLimit  && finalSpd  <= inputSpdMaxLimit  &&
+                finalCr   >= inputCrMinLimit   && finalCr   <= inputCrMaxLimit   &&
+                finalCd   >= inputCdMinLimit   && finalCd   <= inputCdMaxLimit   &&
+                finalEff  >= inputEffMinLimit  && finalEff  <= inputEffMaxLimit  &&
+                finalRes  >= inputResMinLimit  && finalRes  <= inputResMaxLimit;
+
+            passes[id] = pass;
         }
     }
 

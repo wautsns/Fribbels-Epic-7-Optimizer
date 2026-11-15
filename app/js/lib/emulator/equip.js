@@ -1728,6 +1728,7 @@ async function readPanel(item, settledFrame) {
     const values = screen.crop(frame, LAYOUT.valuePanelNumbers);
 
     const expectedSets = expectedValueSets(item);
+    const slotName = (item && item.slot) || '?';
 
     // Tesseract.js (bundled wasm) with a digit whitelist reads this panel far more
     // reliably than the Windows engine; the Windows OCR stays as the fallback.
@@ -1735,7 +1736,7 @@ async function readPanel(item, settledFrame) {
         frame,
         LAYOUT.valuePanelNumbers,
         1,
-        (item && item.slot) || '?'
+        slotName
     );
     // 裁图范围已经切掉了主属性行（commit 8e4db4f），tesseract-js 读到的就是
     // 4 个 substat 数值。之前的 >=5 是留着主属性时的阈值，现在必须改成 >=4
@@ -1743,8 +1744,23 @@ async function readPanel(item, settledFrame) {
     if (tessJs && tessJs.length >= 4) {
         const numbers = tessJs.map((value) => ({ value }));
         if (matchesAny(numbers, expectedSets)) {
+            console.log('[emulator:ocr] %s tesseract-js 命中: %O', slotName, tessJs);
             return { ok: true, numbers, source: 'tesseract-js' };
         }
+
+        console.log(
+            '[emulator:ocr] %s tesseract-js 未命中: 读到 %O, 期望 %O',
+            slotName,
+            tessJs,
+            expectedSets
+        );
+    } else {
+        console.log(
+            '[emulator:ocr] %s tesseract-js 跳过 (len=%d, need >=4): %O',
+            slotName,
+            (tessJs && tessJs.length) || 0,
+            tessJs
+        );
     }
 
     // The zh engine is the more accurate one for this panel; the en engine is only run
@@ -1754,6 +1770,7 @@ async function readPanel(item, settledFrame) {
     const chineseNumbers = screen.extractNumbers(chineseLines);
 
     if (matchesAny(chineseNumbers, expectedSets)) {
+        console.log('[emulator:ocr] %s winocr-zh 命中: %O', slotName, chineseNumbers.map((n) => n.value));
         return {
             ok: true,
             numbers: chineseNumbers,
@@ -1763,10 +1780,21 @@ async function readPanel(item, settledFrame) {
     }
 
     const englishLines = await screen.ocr(values, 'en-US', 4);
-    const numbers = chineseNumbers.concat(screen.extractNumbers(englishLines));
+    const englishNumbers = screen.extractNumbers(englishLines);
+    const numbers = chineseNumbers.concat(englishNumbers);
+    const ok = matchesAny(numbers, expectedSets);
+
+    console.log(
+        '[emulator:ocr] %s winocr-zh: %O winocr-en: %O 期望: %O → %s',
+        slotName,
+        chineseNumbers.map((n) => n.value),
+        englishNumbers.map((n) => n.value),
+        expectedSets,
+        ok ? '命中' : '未命中'
+    );
 
     return {
-        ok: matchesAny(numbers, expectedSets),
+        ok,
         numbers,
         lines: chineseLines.concat(englishLines),
         source: 'winocr-en',

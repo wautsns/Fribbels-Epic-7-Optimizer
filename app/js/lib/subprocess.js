@@ -1,4 +1,5 @@
 var fs = require('fs');
+const net = require('net');
 const { remote } = require('electron');
 const { exec } = require('child_process');
 const { spawn } = require('child_process');
@@ -18,10 +19,32 @@ var initialized = false;
 
 const defaultJavaError = `Unable to load Java. Please check that you have the <a href='https://github.com/fribbels/Fribbels-Epic-7-Optimizer#installing-the-app'>64-bit version of Java 8</a> installed and restart your computer. If you already have Java installed, follow this guide to <a href='https://www.geeksforgeeks.org/how-to-set-java-path-in-windows-and-linux/amp/'>set your Java path.</a>`;
 
+// 探测端口是否真的有人在监听。端口空着是正常情况（干净启动），
+// 不应该打日志，更不该让 kill-port-process 去报 "Couldn't find a process"。
+function isPortInUse(port, timeout = 500) {
+    return new Promise((resolve) => {
+        const socket = net.connect({ port, host: '127.0.0.1' });
+        const finish = (result) => {
+            socket.removeAllListeners();
+            socket.destroy();
+            resolve(result);
+        };
+
+        socket.setTimeout(timeout);
+        socket.once('connect', () => finish(true));
+        socket.once('timeout', () => finish(false));
+        socket.once('error', () => finish(false));
+    });
+}
+
 module.exports = {
     kill: async() => {
+        if (!await isPortInUse(8130)) {
+            return;
+        }
+
+        console.log("Port 8130 is occupied, killing stale backend");
         try {
-            console.log("Try killport")
             const killPortOutput = await killPortProcess(8130)
             console.log("Done killport", killPortOutput);
         } catch (e) {
@@ -54,12 +77,12 @@ module.exports = {
 
         console.log("Finished calling javaversion")
 
-        if (TEST == false) {
-            // try {
-            //     await module.exports.kill();
-            // } catch (e) {
-            //     console.warn("Error killing port")
-            // }
+        // 启动前先清掉 8130 端口：app 异常退出时 java 子进程可能残留成孤儿进程，
+        // 新后端会因 BindException 立刻退出，表现为「数据加载不出来、按钮无响应」+ stdout EPIPE。
+        try {
+            await module.exports.kill();
+        } catch (e) {
+            console.warn("Error killing port", e);
         }
 
         console.log("Spawning backend child")

@@ -109,6 +109,8 @@ async function createWorker() {
 function getWorker() {
     if (!workerPromise) {
         workerPromise = createWorker().catch((error) => {
+            // IPC 只会把 err.message 传回渲染进程，堆栈在这里打全，方便定位到底是哪个文件崩的
+            console.error('[emulator] tesseract.js worker 创建失败:', (error && error.stack) || error);
             // 允许下次调用重试（语言包缺失等问题可能被修好）
             workerPromise = null;
             throw error;

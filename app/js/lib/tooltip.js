@@ -115,7 +115,6 @@ module.exports = {
             content:
 
 '<p>'+i18next.t("<b>Use reforged stats - </b> Predict the reforged stats on +15 level 85 gear to use in the search. Warning: the substat prediction is not always accurate.")+'</p>'
-+'<p>'+i18next.t("<b>Use hero priority - </b> Only use gear from lower priority heroes. Hero priority is defined by the unfiltered/unsorted order of heroes on the Hero tab. When enabled, your hero will only take gear from heroes that are below them on the list.")+'</p>'
 +'<p>'+i18next.t("<b>Use substat mods - </b> Run the optimization using substat modification stones. Each hero's optimization settings must first be selected on the heroes tab before this can be used.")+'</p>'
 // +'<p>'+i18next.t("<b>Only maxed gear - </b> Search only for builds that contain all +15 and reforged gear.")+'</p>'
 +'<p>'+i18next.t("<b>Locked items - </b> Allow locked items in the search.")+'</p>'

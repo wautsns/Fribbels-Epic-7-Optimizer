@@ -459,9 +459,6 @@ module.exports = {
         var allItems = getAllItemsResponse.items;
         var items = allItems;
 
-        const allHeroesResponse = await Api.getAllHeroes()
-        const heroes = allHeroesResponse.heroes;
-
         if (!params.inputSets) {
             params.inputSets = [params.inputSetsOne, params.inputSetsTwo, params.inputSetsThree]
         }
@@ -495,34 +492,6 @@ module.exports = {
 
         if (!params.inputAllowLockedItems) {
             items = items.filter(x => !x.locked || x.equippedById == heroId);
-        }
-
-        if (params.inputOrderedHeroPriority) {
-            // todo
-            console.warn(heroes, hero);
-            // var higherPriorityItems = [];
-            var higherPriorityHeroes = [];
-            for (var i = 0; i < heroes.length; i++) {
-                if (heroes[i].id == hero.id) {
-                    break;
-                }
-
-                higherPriorityHeroes.push(heroes[i].id);
-
-                // higherPriorityItems.push(
-                //     heroes[i].equipment.Weapon?.id,
-                //     heroes[i].equipment.Helmet?.id,
-                //     heroes[i].equipment.Armor?.id,
-                //     heroes[i].equipment.Necklace?.id,
-                //     heroes[i].equipment.Ring?.id,
-                //     heroes[i].equipment.Boots?.id
-                // )
-            }
-
-            // higherPriorityItems = higherPriorityItems.filter(x => !!x);
-            higherPriorityHeroes = higherPriorityHeroes.filter(x => !(allowedHeroIds || []).includes(x))
-            items = items.filter(x => !higherPriorityHeroes.includes(x.equippedById))
-            console.warn("DEBUG FILTER", higherPriorityHeroes, allowedHeroIds);
         }
 
         if (params.inputKeepCurrentItems) {
@@ -623,7 +592,6 @@ module.exports = {
         request.inputSubstatMods   = readCheckbox('inputSubstatMods' + index);
         request.inputAllowLockedItems   = readCheckbox('inputAllowLockedItems' + index);
         request.inputAllowEquippedItems = readCheckbox('inputAllowEquippedItems' + index);
-        request.inputOrderedHeroPriority   = readCheckbox('inputOrderedHeroPriority' + index);
         request.inputKeepCurrentItems   = readCheckbox('inputKeepCurrentItems' + index);
         request.inputImprintCircuitCd   = readCheckbox('inputImprintCircuitCd' + index);
         request.inputPredictReforges   = request.inputSubstatMods || readCheckbox('inputPredictReforges' + index);
@@ -748,7 +716,6 @@ module.exports = {
             $("#inputSubstatMods" + index).prop('checked', optimizerSettings.settingDefaultUseSubstatMods);
             $("#inputAllowLockedItems" + index).prop('checked', optimizerSettings.settingDefaultLockedItems);
             $("#inputAllowEquippedItems" + index).prop('checked', optimizerSettings.settingDefaultEquippedItems);
-            $("#inputOrderedHeroPriority" + index).prop('checked', optimizerSettings.settingDefaultUseHeroPriority);
             $("#inputKeepCurrentItems" + index).prop('checked', optimizerSettings.settingDefaultKeepCurrent);
             $("#inputImprintCircuitCd" + index).prop('checked', false);
             return;
@@ -794,7 +761,6 @@ module.exports = {
         $("#inputAllowEquippedItems" + index).prop('checked',  isNullUndefined(request.inputAllowEquippedItems)  ? optimizerSettings.settingDefaultEquippedItems    : request.inputAllowEquippedItems);
         $("#inputKeepCurrentItems" + index).prop('checked',    isNullUndefined(request.inputKeepCurrentItems)    ? optimizerSettings.settingDefaultKeepCurrent      : request.inputKeepCurrentItems);
         $("#inputImprintCircuitCd" + index).prop('checked',    !!request.inputImprintCircuitCd);
-        $("#inputOrderedHeroPriority" + index).prop('checked', isNullUndefined(request.inputOrderedHeroPriority) ? optimizerSettings.settingDefaultUseHeroPriority  : request.inputOrderedHeroPriority);
 
         document.querySelector('#atkSlider' + index)['rangeslider-js'].update({value: inputDisplayNumberNumber(request.inputAtkPriority)})
         document.querySelector('#atkSlider' + index + 'Input').setAttribute('value', inputDisplayNumberNumber(request.inputAtkPriority))
@@ -1074,7 +1040,6 @@ function clearOptions() {
     $("#inputSubstatMods").prop('checked', optimizerSettings.settingDefaultUseSubstatMods);
     $("#inputAllowLockedItems").prop('checked', optimizerSettings.settingDefaultLockedItems);
     $("#inputAllowEquippedItems").prop('checked', optimizerSettings.settingDefaultEquippedItems);
-    $("#inputOrderedHeroPriority").prop('checked', optimizerSettings.settingDefaultUseHeroPriority);
     $("#inputKeepCurrentItems").prop('checked', optimizerSettings.settingDefaultKeepCurrent);
     $("#inputImprintCircuitCd").prop('checked', false);
 }

@@ -15,7 +15,6 @@ var excludeSelects = [];
 var enhanceLimit = 0;
 var defaultOptimizerSettings = {
     settingDefaultUseReforgedStats: true,
-    settingDefaultUseHeroPriority: false,
     settingDefaultUseSubstatMods: false,
     settingDefaultLockedItems: false,
     settingDefaultEquippedItems: false,
@@ -131,7 +130,6 @@ module.exports = {
             'settingRageSet',
             'settingPenSet',
             'settingDefaultUseReforgedStats',
-            'settingDefaultUseHeroPriority',
             'settingDefaultUseSubstatMods',
             'settingDefaultLockedItems',
             'settingDefaultEquippedItems',
@@ -225,7 +223,6 @@ module.exports = {
             settingDarkMode: true,
             settingArchetypes: GearRating.getDefaultArchetypes(),
             settingDefaultUseReforgedStats: true,
-            settingDefaultUseHeroPriority: false,
             settingDefaultUseSubstatMods: false,
             settingDefaultLockedItems: false,
             settingDefaultEquippedItems: false,
@@ -288,14 +285,12 @@ module.exports = {
         document.getElementById('settingRageSet').checked = isNullUndefined(settings.settingRageSet) ? true : settings.settingRageSet;
         document.getElementById('settingPenSet').checked = isNullUndefined(settings.settingPenSet) ? true : settings.settingPenSet;
         document.getElementById('settingDefaultUseReforgedStats').checked = isNullUndefined(settings.settingDefaultUseReforgedStats) ? true : settings.settingDefaultUseReforgedStats;
-        document.getElementById('settingDefaultUseHeroPriority').checked = settings.settingDefaultUseHeroPriority;
         document.getElementById('settingDefaultUseSubstatMods').checked = settings.settingDefaultUseSubstatMods;
         document.getElementById('settingDefaultLockedItems').checked = settings.settingDefaultLockedItems;
         document.getElementById('settingDefaultEquippedItems').checked = settings.settingDefaultEquippedItems;
         document.getElementById('settingDefaultKeepCurrent').checked = settings.settingDefaultKeepCurrent;
         defaultOptimizerSettings = {
             settingDefaultUseReforgedStats: isNullUndefined(settings.settingDefaultUseReforgedStats) ? true : settings.settingDefaultUseReforgedStats,
-            settingDefaultUseHeroPriority: settings.settingDefaultUseHeroPriority,
             settingDefaultUseSubstatMods: settings.settingDefaultUseSubstatMods,
             settingDefaultLockedItems: settings.settingDefaultLockedItems,
             settingDefaultEquippedItems: settings.settingDefaultEquippedItems,
@@ -409,7 +404,6 @@ module.exports = {
             settingRageSet: document.getElementById('settingRageSet').checked,
             settingPenSet: document.getElementById('settingPenSet').checked,
             settingDefaultUseReforgedStats: document.getElementById('settingDefaultUseReforgedStats').checked,
-            settingDefaultUseHeroPriority: document.getElementById('settingDefaultUseHeroPriority').checked,
             settingDefaultUseSubstatMods: document.getElementById('settingDefaultUseSubstatMods').checked,
             settingDefaultLockedItems: document.getElementById('settingDefaultLockedItems').checked,
             settingDefaultEquippedItems: document.getElementById('settingDefaultEquippedItems').checked,
@@ -436,7 +430,6 @@ module.exports = {
         };
         defaultOptimizerSettings = {
             settingDefaultUseReforgedStats: settings.settingDefaultUseReforgedStats,
-            settingDefaultUseHeroPriority: settings.settingDefaultUseHeroPriority,
             settingDefaultUseSubstatMods: settings.settingDefaultUseSubstatMods,
             settingDefaultLockedItems: settings.settingDefaultLockedItems,
             settingDefaultEquippedItems: settings.settingDefaultEquippedItems,

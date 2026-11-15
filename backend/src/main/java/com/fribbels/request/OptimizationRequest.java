@@ -44,7 +44,6 @@ public class OptimizationRequest extends Request {
     private Boolean inputSubstatMods;
     private Boolean inputAllowLockedItems;
     private Boolean inputAllowEquippedItems;
-    private Boolean inputOrderedHeroPriority;
     private Boolean inputKeepCurrentItems;
     // 刻印回路：400暴伤。勾选后 CP / 伤害计算里的暴伤上限从 350 提到 400
     private Boolean inputImprintCircuitCd;

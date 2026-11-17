@@ -387,7 +387,7 @@ module.exports = {
             plans[existingIndex] = normalized;
         } else {
             normalized.createdAt = nowMillis();
-            normalized.lastUsedAt = null;
+            // 新作业沿用 dialog 传入的 lastUsedAt（勾选「最近使用」时不再是未使用）
             plans.push(normalized);
         }
 

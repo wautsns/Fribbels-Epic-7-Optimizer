@@ -1673,15 +1673,36 @@ async function verifyCell(cell, item) {
     const settledFrame = await waitForPanelSettled(beforeTap);
     let result = await readPanel(item, settledFrame);
 
+    const firstValues = result.numbers
+        ? result.numbers.map((n) => (typeof n === 'object' ? n.value : n)).join(',')
+        : '-';
+    const expectedSets = expectedValueSets(item);
+    const same = expectedSets.length === 2 &&
+        expectedSets[0].length === expectedSets[1].length &&
+        expectedSets[0].every((v, i) => v === expectedSets[1][i]);
+    const expectedStr = expectedSets.length === 0 ? '-'
+        : same ? expectedSets[0].join(',')
+        : expectedSets.map((s) => s.join(',')).join(' | ');
+    console.log(
+        `[emulator:ocr] ok=${result.ok} src=${result.source} numbers=[${firstValues}] expected=[${expectedStr}]`
+    );
+
     // OCR 结果里有明显不属于 substat 的数值 → panel 截偏了，重等一次再读
     if (result.numbers && !looksLikePanelOCR(result.numbers)) {
         console.warn(
-            '[emulator:ocr] panel 可疑（OCR 读到 %O），重等 panel',
-            result.numbers.map((n) => (typeof n === 'object' ? n.value : n))
+            '[emulator:ocr] panel 可疑（OCR 读到 %s），重等 panel',
+            firstValues
         );
         await sleep(150);
         const retryFrame = await waitForPanelSettled(beforeTap);
         result = await readPanel(item, retryFrame);
+
+        const retryValues = result.numbers
+            ? result.numbers.map((n) => (typeof n === 'object' ? n.value : n)).join(',')
+            : '-';
+        console.log(
+            `[emulator:ocr] retry ok=${result.ok} src=${result.source} numbers=[${retryValues}]`
+        );
     }
 
     return result;

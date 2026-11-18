@@ -111,6 +111,7 @@ module.exports = {
             rowHeight: GVG_ROW_HEIGHT,
             headerHeight: 32,
             rowSelection: 'single',
+            suppressCellSelection: true,
             enableRangeSelection: false,
             suppressScrollOnNewData: true,
             suppressMovableColumns: true,

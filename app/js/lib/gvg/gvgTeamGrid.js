@@ -72,7 +72,10 @@ module.exports = {
 
         const targets = [];
         for (const member of plan.offense.members) {
-            const hero = snapshot.find((item) => matchesMember(item, member));
+            // 成员直接引用条目：优先按 id 取，条目被删才回退到配置匹配
+            const hero =
+                snapshot.find((item) => item.id === member.heroId) ||
+                snapshot.find((item) => matchesMember(item, member));
             if (!hero || !hasEquipment(hero)) continue;
             targets.push(hero);
         }
@@ -128,6 +131,10 @@ module.exports = {
         const seen = new Set();
 
         for (const entry of members) {
+            // 成员现在直接引用角色条目：只要该条目还在，就算已就绪，
+            // 不再用配置指纹重复校验（条目配置后来改过不该被判成「角色不存在」）
+            if (snapshot.some((hero) => hero.id === entry.member.heroId))
+                continue;
             if (snapshot.some((hero) => matchesMember(hero, entry.member)))
                 continue;
 
@@ -223,7 +230,10 @@ async function collectTeamRows(heroes) {
 
     const rows = [];
     for (const entry of members) {
-        const hero = snapshot.find((item) => matchesMember(item, entry.member));
+        // 优先用成员直接引用的条目；条目被删了才回退到配置匹配
+        const hero =
+            snapshot.find((item) => item.id === entry.member.heroId) ||
+            snapshot.find((item) => matchesMember(item, entry.member));
         if (!hero) continue;
 
         rows.push({

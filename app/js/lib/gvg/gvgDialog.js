@@ -890,7 +890,7 @@ function setSelectValue(id, value) {
     }
 }
 
-/** 把角色条目的「最低神器等级 + 阵型模式 + 面板要求」带进第 index 位（hero select 值已在 change handler 里设好） */
+/** 把角色条目的「神器最低等级 + 阵型模式 + 面板要求」带进第 index 位（hero select 值已在 change handler 里设好） */
 function applyHeroEntry(index, entry, requirements) {
     // artifactLevel 数字框（entry 等级 ≥ 阈值时取 entry 的）
     const levelInput = document.getElementById(

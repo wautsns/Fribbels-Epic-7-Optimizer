@@ -97,6 +97,8 @@ module.exports = {
 
         // 一次拉全量英雄：既当"谁穿着什么"的索引，也用来筛出阵容里的 6 条
         const universe = heroes || (await GvgTeamGrid.fetchHeroes());
+        // 顺手把英雄快照灌给 GvgPlans 的同步缓存：作业列表的头像 / tooltip 直接查它
+        GvgPlans.setHeroEntries(universe);
         instance.setHeroUniverse(universe);
 
         const rows = await GvgTeamGrid.getTeamHeroes(universe);

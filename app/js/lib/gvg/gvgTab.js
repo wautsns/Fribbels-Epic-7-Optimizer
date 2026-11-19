@@ -69,7 +69,14 @@ module.exports = {
         GvgGrid.refresh();
 
         if (typeof GvgTeamTable !== 'undefined') {
-            GvgTeamTable.refresh(heroes);
+            // 角色条目快照在表格刷新时才拉到：拿到后重画一次作业列表，
+            // 进攻阵容头像 / tooltip 才能解析到 heroId 对应的英雄
+            Promise.resolve(GvgTeamTable.refresh(heroes))
+                .then(() => {
+                    module.exports.redrawFilterOptions();
+                    GvgGrid.refresh();
+                })
+                .catch(() => {});
         }
     },
 

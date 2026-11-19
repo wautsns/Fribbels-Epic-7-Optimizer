@@ -305,24 +305,32 @@ module.exports = {
     },
 
     /**
-     * 从 Api.getHeroes() 拿全部角色条目，下拉框用。
-     * 返回 [{ id, name, artifactName, ...entry }] 数组。
-     * 懒加载，缓存到下次 commit。
+     * 从 Api.getAllHeroes() 拿全部角色条目，导入匹配 / 下拉框用。
+     * 返回 [{ id, name, artifactName, ...entry }] 数组，同时刷新同步缓存。
      */
     _heroEntriesCache: null,
 
     getHeroEntries: async () => {
-        if (module.exports._heroEntriesCache)
-            return module.exports._heroEntriesCache;
         if (
             typeof Api !== 'undefined' &&
-            typeof Api.getHeroes === 'function'
+            typeof Api.getAllHeroes === 'function'
         ) {
-            const entries = await Api.getHeroes();
-            module.exports._heroEntriesCache = entries || [];
-            return module.exports._heroEntriesCache;
+            try {
+                const response = await Api.getAllHeroes();
+                module.exports._heroEntriesCache =
+                    (response && response.heroes) || [];
+            } catch (e) {
+                console.warn('GVG: unable to load hero entries', e);
+            }
         }
-        return [];
+        return module.exports._heroEntriesCache || [];
+    },
+
+    /** 用表格刷新时已经拉到的英雄快照灌同步缓存 */
+    setHeroEntries: (entries) => {
+        if (Array.isArray(entries)) {
+            module.exports._heroEntriesCache = entries;
+        }
     },
 
     /** 清除条目缓存（条目变更时调） */
@@ -330,26 +338,11 @@ module.exports = {
         module.exports._heroEntriesCache = null;
     },
 
-    /** 根据 heroId 找 hero entry（同步版）。首次调用时自动从 Saves 灌缓存。 */
+    /** 根据 heroId 找 hero entry（同步）；缓存由表格刷新 / getHeroEntries 灌入 */
     resolveHeroEntry: (heroId) => {
         if (!heroId) return null;
-        let cached = module.exports._heroEntriesCache;
-        // 缓存未热：同步从 Saves 拉一次（Saves.getHeroes 是同步的）
-        if (!cached) {
-            try {
-                if (global.Saves) {
-                    const all = Saves.getHeroes
-                        ? Saves.getHeroes()
-                        : null;
-                    if (Array.isArray(all)) {
-                        cached = all;
-                        module.exports._heroEntriesCache = all;
-                    }
-                }
-            } catch (e) {}
-        }
-        if (cached) return cached.find((h) => h.id === heroId) || null;
-        return null;
+        const cached = module.exports._heroEntriesCache;
+        return cached ? cached.find((h) => h.id === heroId) || null : null;
     },
 
     /** 列表筛选框的选项：只列作业里防守阵容出现过的 heroCode */

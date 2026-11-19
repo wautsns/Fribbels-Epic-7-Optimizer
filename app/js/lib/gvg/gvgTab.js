@@ -65,14 +65,16 @@ module.exports = {
 
     /** 数据变了：重画筛选选项 + 作业表 + 进攻阵容角色条目 / builds */
     redraw: (heroes) => {
+        const cacheWarm = GvgPlans.hasHeroEntries();
+
         module.exports.redrawFilterOptions();
         GvgGrid.refresh();
 
         if (typeof GvgTeamTable !== 'undefined') {
-            // 角色条目快照在表格刷新时才拉到：拿到后重画一次作业列表，
-            // 进攻阵容头像 / tooltip 才能解析到 heroId 对应的英雄
             Promise.resolve(GvgTeamTable.refresh(heroes))
                 .then(() => {
+                    // 缓存已经是热的：头像早就渲染正确，不必再整表重画一次
+                    if (cacheWarm) return;
                     module.exports.redrawFilterOptions();
                     GvgGrid.refresh();
                 })

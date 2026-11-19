@@ -333,6 +333,9 @@ module.exports = {
         }
     },
 
+    /** 同步缓存是否已经可用（决定列表能否直接渲染头像，不用等网络） */
+    hasHeroEntries: () => Array.isArray(module.exports._heroEntriesCache),
+
     /** 清除条目缓存（条目变更时调） */
     invalidateHeroEntriesCache: () => {
         module.exports._heroEntriesCache = null;

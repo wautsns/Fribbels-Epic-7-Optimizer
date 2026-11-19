@@ -224,6 +224,12 @@ module.exports = {
         await Api.setItems(data.items);
         await Api.setHeroes(data.heroes);
 
+        // GVG 作业列表的头像/tooltip 走同步缓存：直接用刚恢复的英雄快照灌满，
+        // 打开 GVG 标签页时无需等 getAllHeroes 网络请求就能渲染头像
+        if (global.GvgPlans) {
+            GvgPlans.setHeroEntries(data.heroes);
+        }
+
         const heroData = HeroData.getAllHeroData();
         const heroNames = Object.keys(heroData);
 

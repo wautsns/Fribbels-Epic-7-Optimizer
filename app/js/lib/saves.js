@@ -122,7 +122,7 @@ module.exports = {
                 data.items.length + ' items,',
                 data.heroes.length + ' heroes'
             );
-            $('#saveDataSubmitOutputText').text(`Saved ${data.heroes.length} heroes and ${data.items.length} items to ${filename}`)
+            Notifier.successRaw(`${i18next.t('Saved data')}: ${data.heroes.length} heroes, ${data.items.length} items`);
         });
 
         document.getElementById('loadDataSubmit').addEventListener("click", async () => {
@@ -154,7 +154,7 @@ module.exports = {
             const planNote = Array.isArray(parsedData.gvgPlans)
                 ? `${parsedData.gvgPlans.length} GVG plans`
                 : 'no GVG plan data (local GVG plans were cleared)';
-            $('#loadDataSubmitOutputText').text(`Loaded ${parsedData.heroes.length} heroes, ${parsedData.items.length} items and ${planNote} from ${filenames[0]}`)
+            Notifier.successRaw(`${i18next.t('Loaded data')}: ${parsedData.heroes.length} heroes, ${parsedData.items.length} items, ${planNote}`)
             module.exports.autoSave();
 
         })

@@ -4,7 +4,8 @@
  * 职责边界：
  *   - 只做数据：规范化 / 校验 / 排序 / 置队 / 判重 / 去重 / 压缩编解码 / 导出包
  *   - 不碰 DOM：改完数据统一走 commit()，由 commit 触发自动保存和列表重绘
- *   - 作业是自包含的：不引用角色条目、不存本机 hero.id
+ *   - 进攻成员通过 heroId 引用英雄列表条目（hero tab），不再独立存 name/artifact 副本
+ *   - 防守成员仍然使用 heroCode（跨设备稳定标识）
  */
 const { v4: uuidv4 } = require('uuid');
 const zlib = require('zlib');
@@ -303,49 +304,89 @@ module.exports = {
         }
     },
 
-    /** 列表里的全部英雄（按 i18n 名排序），编辑弹窗的下拉用 */
-    getAllHeroOptions: () => {
-        const index = heroIndex();
-        return Object.keys(index)
-            .map((code) => ({
-                code,
-                name: index[code],
-                label: i18next.t(index[code]),
-            }))
-            .sort((a, b) => a.label.localeCompare(b.label));
+    /**
+     * 从 Api.getHeroes() 拿全部角色条目，下拉框用。
+     * 返回 [{ id, name, artifactName, ...entry }] 数组。
+     * 懒加载，缓存到下次 commit。
+     */
+    _heroEntriesCache: null,
+
+    getHeroEntries: async () => {
+        if (module.exports._heroEntriesCache)
+            return module.exports._heroEntriesCache;
+        if (
+            typeof Api !== 'undefined' &&
+            typeof Api.getHeroes === 'function'
+        ) {
+            const entries = await Api.getHeroes();
+            module.exports._heroEntriesCache = entries || [];
+            return module.exports._heroEntriesCache;
+        }
+        return [];
     },
 
-    /** 列表筛选框的选项：只列作业里出现过的防守英雄（design.md 6.3） */
+    /** 清除条目缓存（条目变更时调） */
+    invalidateHeroEntriesCache: () => {
+        module.exports._heroEntriesCache = null;
+    },
+
+    /** 根据 heroId 找 hero entry（同步版）。首次调用时自动从 Saves 灌缓存。 */
+    resolveHeroEntry: (heroId) => {
+        if (!heroId) return null;
+        let cached = module.exports._heroEntriesCache;
+        // 缓存未热：同步从 Saves 拉一次（Saves.getHeroes 是同步的）
+        if (!cached) {
+            try {
+                if (global.Saves) {
+                    const all = Saves.getHeroes
+                        ? Saves.getHeroes()
+                        : null;
+                    if (Array.isArray(all)) {
+                        cached = all;
+                        module.exports._heroEntriesCache = all;
+                    }
+                }
+            } catch (e) {}
+        }
+        if (cached) return cached.find((h) => h.id === heroId) || null;
+        return null;
+    },
+
+    /** 列表筛选框的选项：只列作业里防守阵容出现过的 heroCode */
     getDefenseFilterOptions: () => {
-        const index = heroIndex();
         const codes = new Set();
         plans.forEach((plan) =>
             plan.defense.heroCodes.forEach((code) => codes.add(code))
         );
 
         return [...codes]
-            .map((code) => ({
-                code,
-                name: index[code] || code,
-                label: i18next.t(index[code] || code),
-            }))
+            .map((code) => {
+                const name = module.exports.heroNameForCode(code) || code;
+                return {
+                    code,
+                    name,
+                    label: i18next.t(name),
+                };
+            })
             .sort((a, b) => a.label.localeCompare(b.label));
     },
 
-    /** 进攻英雄筛选框的选项：只列作业里进攻阵容出现过的英雄 */
+    /** 列表筛选框的选项：只列作业里进攻阵容出现过的 heroId（通过 entry name 显示） */
     getAttackFilterOptions: () => {
-        const index = heroIndex();
-        const codes = new Set();
+        const ids = new Set();
         plans.forEach((plan) =>
-            plan.offense.members.forEach((member) => codes.add(member.heroCode))
+            plan.offense.members.forEach((member) => ids.add(member.heroId))
         );
 
-        return [...codes]
-            .map((code) => ({
-                code,
-                name: index[code] || code,
-                label: i18next.t(index[code] || code),
-            }))
+        return [...ids]
+            .map((id) => {
+                const entry = module.exports.resolveHeroEntry(id);
+                return {
+                    id,
+                    name: (entry && entry.name) || id,
+                    label: entry ? i18next.t(entry.name) : id,
+                };
+            })
             .sort((a, b) => a.label.localeCompare(b.label));
     },
 
@@ -503,19 +544,11 @@ module.exports = {
                     POSITIONS.indexOf(b.position)
             )
             .map((member) => ({
-                heroCode: member.heroCode,
+                heroId: member.heroId,
                 position: member.position,
-                artifact: member.artifact
-                    ? {
-                          code: member.artifact.code,
-                          name: member.artifact.name,
-                          minLevel: member.artifact.minLevel,
-                      }
-                    : null,
                 imprintMode: member.imprintMode,
                 ee: member.ee,
-                // 用指纹而不是原始 request：executionId 等运行期字段每次都不一样，
-                // 直接用原对象会让「同一份作业」判不出重复
+                artifactLevel: member.artifactLevel,
                 requirement:
                     module.exports.requirementFingerprint(
                         member.requirement
@@ -610,24 +643,147 @@ module.exports = {
         return Object.keys(copy).length ? stableStringify(copy) : '';
     },
 
-    buildPackage: () => ({
-        schema: PACKAGE_SCHEMA,
-        schemaVersion: SCHEMA_VERSION,
-        exportedAt: new Date().toISOString(),
-        plans: module.exports.getSorted().map(module.exports.stripUsage),
-    }),
+    buildPackage: async () => {
+        const entries = await module.exports.getHeroEntries();
+
+        // 收集作业里用到的全部 heroId
+        const usedIds = new Set();
+        plans.forEach((plan) =>
+            plan.offense.members.forEach((m) => usedIds.add(m.heroId))
+        );
+
+        const usedEntries = entries
+            .filter((e) => usedIds.has(e.id))
+            .map((e) => ({
+                // 导出 entry 去掉 builds/equipment/items/modIds/mods
+                id: e.id,
+                name: e.name,
+                index: e.index,
+                rarity: e.rarity,
+                stars: e.stars,
+                attribute: e.attribute,
+                role: e.role,
+                artifactName: e.artifactName,
+                artifactLevel: e.artifactLevel,
+                artifactAttack: e.artifactAttack,
+                artifactHealth: e.artifactHealth,
+                artifactDefense: e.artifactDefense,
+                imprintNumber: e.imprintNumber,
+                eeNumber: e.eeNumber,
+                optimizationRequest: e.optimizationRequest
+                    ? clone(e.optimizationRequest)
+                    : null,
+            }));
+
+        return {
+            schema: PACKAGE_SCHEMA,
+            schemaVersion: SCHEMA_VERSION,
+            exportedAt: new Date().toISOString(),
+            plans: module.exports.getSorted().map(module.exports.stripUsage),
+            heroes: usedEntries,
+        };
+    },
 
     /**
-     * 导入/粘贴的统一入口：一律新 id、createdAt = 现在、lastUsedAt = null；
-     * 与现有作业重复（design.md 10 口径）则跳过并计数。
+     * 导入：raw 是 { plans, heroes }。heroes 里的每个 entry 要与本地现有 entries 匹配（按 name / artifact / imprint / ee / optReq），
+     * 匹配成功则复用本地 id，否则创建新 entry（Api.addHero）。然后 plans 里 member.heroId 映射为本地 id。
      */
-    importPlans: (rawList) => {
-        const result = { added: 0, duplicates: 0, invalid: 0 };
+    importPlans: async (raw) => {
+        const result = {
+            added: 0,
+            duplicates: 0,
+            invalid: 0,
+            heroesImported: 0,
+        };
+
+        if (!raw || typeof raw !== 'object') return result;
+        if (!Array.isArray(raw.plans)) return result;
+
+        // 1. 先同步 heroes
+        const currentEntries = await module.exports.getHeroEntries();
+        const incomingHeroes = Array.isArray(raw.heroes) ? raw.heroes : [];
+
+        // incomingHeroes → 本地 id 映射
+        const heroIdMap = new Map(); // incomingId → localId
+
+        for (const incoming of incomingHeroes) {
+            // 尝试匹配现有 entry
+            const matched = currentEntries.find((local) => {
+                if (local.name !== incoming.name) return false;
+                if (local.artifactName !== incoming.artifactName) return false;
+                if (
+                    local.imprintNumber !== incoming.imprintNumber &&
+                    !(
+                        local.imprintNumber == null &&
+                        incoming.imprintNumber == null
+                    )
+                )
+                    return false;
+                if (local.eeNumber !== incoming.eeNumber) return false;
+                // optReq 剔除 executionId 后比对
+                const localReq = module.exports.requirementFingerprint(
+                    local.optimizationRequest
+                );
+                const incReq = module.exports.requirementFingerprint(
+                    incoming.optimizationRequest
+                );
+                return localReq === incReq;
+            });
+
+            if (matched) {
+                heroIdMap.set(incoming.id, matched.id);
+            } else {
+                // 新建
+                try {
+                    if (
+                        typeof Api !== 'undefined' &&
+                        typeof Api.addHero === 'function'
+                    ) {
+                        const newEntry = await Api.addHero({
+                            name: incoming.name,
+                            artifactName: incoming.artifactName,
+                            artifactLevel: incoming.artifactLevel,
+                            artifactAttack: incoming.artifactAttack || 0,
+                            artifactHealth: incoming.artifactHealth || 0,
+                            artifactDefense: incoming.artifactDefense || 0,
+                            imprintNumber: incoming.imprintNumber || 'None',
+                            eeNumber: incoming.eeNumber || 'None',
+                            stars: incoming.stars || 6,
+                            rarity: incoming.rarity || 5,
+                            attribute: incoming.attribute,
+                            role: incoming.role,
+                        });
+                        if (newEntry && newEntry.id) {
+                            heroIdMap.set(incoming.id, newEntry.id);
+                            result.heroesImported++;
+                        }
+                    }
+                } catch (e) {
+                    console.warn(
+                        'GVG: failed to import hero entry',
+                        incoming.name,
+                        e
+                    );
+                }
+            }
+        }
+
+        // 2. 处理 plans
         const seenKeys = new Set(plans.map(module.exports.dedupeKey));
         const incoming = [];
 
-        for (const raw of Array.isArray(rawList) ? rawList : []) {
-            const normalized = module.exports.normalizePlan(raw);
+        for (const rawPlan of raw.plans) {
+            // 把 member.heroId 从 incoming id 映射为 local id
+            const mapped = clone(rawPlan);
+            if (mapped.offense && Array.isArray(mapped.offense.members)) {
+                for (const member of mapped.offense.members) {
+                    if (member.heroId && heroIdMap.has(member.heroId)) {
+                        member.heroId = heroIdMap.get(member.heroId);
+                    }
+                }
+            }
+
+            const normalized = module.exports.normalizePlan(mapped);
             if (!normalized) {
                 result.invalid++;
                 continue;
@@ -668,7 +824,7 @@ module.exports = {
             return { error: 'unsupportedVersion' };
         if (!Array.isArray(parsed.plans)) return { error: 'invalidSchema' };
 
-        return { plans: parsed.plans };
+        return parsed;
     },
 
     encodeText: (plan) => {
@@ -794,56 +950,37 @@ function normalizeMembers(rawOffense) {
     for (const rawMember of rawMembers) {
         if (!rawMember || typeof rawMember !== 'object') return null;
 
-        const heroCode = asString(rawMember.heroCode || rawMember.code).trim();
-        if (!heroCode || !module.exports.isKnownHeroCode(heroCode)) return null;
+        const heroId = asString(rawMember.heroId).trim();
+        if (!heroId) return null;
 
         const position = asString(rawMember.position).trim();
         if (!POSITIONS.includes(position)) return null;
 
+        const imprintMode = rawMember.imprintMode === 'team' ? 'team' : 'self';
+        const ee = normalizeEe(rawMember.ee);
+        const artifactLevel = asIntegerOrNull(rawMember.artifactLevel, 0, 30) ?? 0;
+        const requirement = normalizeRequirement(rawMember.requirement);
+
         members.push({
-            heroCode,
-            name:
-                module.exports.heroNameForCode(heroCode) ||
-                asString(rawMember.name),
+            heroId,
             position,
-            artifact: normalizeArtifact(rawMember.artifact),
-            imprintMode: rawMember.imprintMode === 'team' ? 'team' : 'self',
-            ee: normalizeEeForHero(heroCode, normalizeEe(rawMember.ee)),
-            requirement: normalizeRequirement(rawMember.requirement),
+            imprintMode,
+            ee,
+            artifactLevel,
+            requirement,
         });
     }
 
-    if (new Set(members.map((member) => member.heroCode)).size !== 3)
+    // 同一 heroId 不允许出现在进攻阵容两次
+    if (new Set(members.map((member) => member.heroId)).size !== 3)
         return null;
     if (new Set(members.map((member) => member.position)).size !== 3)
         return null;
 
-    // 列表按站位顺序存，渲染不需要再排（design.md 4.2）
     members.sort(
         (a, b) => POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position)
     );
     return members;
-}
-
-/**
- * 神器要求：主键是 **code**（`artifactdata.json` 里官方攻略站的神器 id，跨设备稳定），
- * `name` 只是显示用、不参与匹配。等级是阈值，0~30 整数（design.md 4.2）。
- */
-function normalizeArtifact(rawArtifact) {
-    if (!rawArtifact || typeof rawArtifact !== 'object') return null;
-
-    const rawName = asString(rawArtifact.name).trim();
-    let code = asString(rawArtifact.code).trim();
-
-    // 只给了名字（粘贴文本 / 剪贴板）→ 反查 code
-    if (!code && rawName) code = module.exports.artifactCodeForName(rawName) || '';
-    if (!code) return null;
-
-    // 只有 code（外面手写的包）→ 用 code 反查名字
-    const name = rawName || module.exports.artifactNameForCode(code) || '';
-
-    const minLevel = asIntegerOrNull(rawArtifact.minLevel, 0, 30);
-    return { code, name, minLevel: minLevel == null ? 0 : minLevel };
 }
 
 /**
@@ -867,25 +1004,6 @@ function normalizeEe(rawEe) {
 
     const value = asString(rawEe).trim();
     return EE_VALUES.includes(value) ? value : 'none';
-}
-
-/* 光暗 5★ 没有 Ⅰ/Ⅱ/Ⅲ 之分：这种角色误存了变体（外部粘贴的作业）就归一到 any */
-function normalizeEeForHero(heroCode, ee) {
-    if (ee !== '1' && ee !== '2' && ee !== '3') return ee;
-
-    try {
-        const name = module.exports.heroNameForCode(heroCode);
-        const info = name && HeroData.getAllHeroData()[name];
-        if (!info) return ee;
-
-        const isLightDark5Star =
-            (info.attribute === 'light' || info.attribute === 'dark') &&
-            Number(info.rarity) === 5;
-
-        return isLightDark5Star ? 'any' : ee;
-    } catch (error) {
-        return ee;
-    }
 }
 
 /** 面板要求：深拷贝 + 剔除运行期字段（design.md 4.3） */

@@ -27,7 +27,7 @@ function formatDate(ts) {
     return `${y}-${m}-${day}`;
 }
 
-/* 4 个筛选框的当前值：index 0~2 = 防守英雄（plan.defense.heroCodes），index 3 = 进攻英雄（plan.offense.members[i].heroCode）；空串 = 不筛 */
+/* 4 个筛选框的当前值：index 0~2 = 防守英雄（plan.defense.heroCodes），index 3 = 进攻英雄（plan.offense.members[i].heroId）；空串 = 不筛 */
 const filterCodes = ['', '', '', ''];
 
 let gvgGrid = null;
@@ -201,11 +201,11 @@ function matchesDefenseFilters(plan) {
     );
     if (!defenseOk) return false;
 
-    // 进攻 1 个筛选（index 3）—— plan.offense.members 里必须有人 heroCode 匹配
-    const attackCode = filterCodes[3];
-    if (attackCode) {
+    // 进攻 1 个筛选（index 3）—— plan.offense.members 里必须有人 heroId 匹配
+    const attackId = filterCodes[3];
+    if (attackId) {
         const hasAttack = plan.offense.members.some(
-            (member) => member.heroCode === attackCode
+            (member) => member.heroId === attackId
         );
         if (!hasAttack) return false;
     }
@@ -238,7 +238,11 @@ function renderDefenseTeam(params) {
 function renderOffenseTeam(params) {
     // 只显示 3 个头像（按站位顺序）；神器/等级放 tooltip 里，列表里不占位置
     return params.data.offense.members
-        .map((member) => heroImage(member.name, GVG_HERO_ICON_SIZE))
+        .map((member) => {
+            const entry = GvgPlans.resolveHeroEntry(member.heroId);
+            const name = entry ? entry.name : '';
+            return heroImage(name, GVG_HERO_ICON_SIZE);
+        })
         .join('');
 }
 
@@ -246,20 +250,17 @@ function renderOffenseTeam(params) {
 function offenseTooltip(params) {
     return params.data.offense.members
         .map((member) => {
-            const artifact = member.artifact
-                ? ` · ${i18next.t(
-                      member.artifact.name ||
-                          GvgPlans.artifactNameForCode(member.artifact.code) ||
-                          member.artifact.code
-                  )}${
-                      member.artifact.minLevel
-                          ? ` +${member.artifact.minLevel}`
-                          : ''
+            const entry = GvgPlans.resolveHeroEntry(member.heroId);
+            const name = entry ? entry.name : member.heroId;
+            const artifactName = entry ? entry.artifactName : '';
+            const artifact = artifactName
+                ? ` · ${i18next.t(artifactName)}${
+                      member.artifactLevel ? ` +${member.artifactLevel}` : ''
                   }`
                 : '';
             const main = `${i18next.t(
                 POSITION_LABEL_KEYS[member.position] || 'Position'
-            )} ${i18next.t(member.name)}${artifact}`;
+            )} ${i18next.t(name)}${artifact}`;
             const extra = formatPanelForRequest(member.requirement);
             return extra ? `${main} · ${extra}` : main;
         })

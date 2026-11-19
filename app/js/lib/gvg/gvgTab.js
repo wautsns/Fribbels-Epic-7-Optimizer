@@ -204,11 +204,12 @@ module.exports = {
             return;
         }
 
-        const outcome = GvgPlans.importPlans(decoded.plans);
+        const outcome = await GvgPlans.importPlans(decoded);
+        GvgPlans.invalidateHeroEntriesCache();
         reportImportOutcome(outcome);
     },
 
-    exportPlans: () => {
+    exportPlans: async () => {
         if (!GvgPlans.getAll().length) {
             Notifier.warn('There are no GVG plans to export');
             return;
@@ -230,7 +231,8 @@ module.exports = {
         if (!filename) return;
 
         try {
-            const json = JSON.stringify(GvgPlans.buildPackage());
+            const pkg = await GvgPlans.buildPackage();
+            const json = JSON.stringify(pkg);
             const compressed = zlib.deflateSync(Buffer.from(json, 'utf8'));
             fs.writeFileSync(Files.path(filename), compressed);
             Notifier.successRaw(
@@ -244,7 +246,7 @@ module.exports = {
         }
     },
 
-    importPlans: () => {
+    importPlans: async () => {
         const filenames = dialog.showOpenDialogSync(currentWindow, {
             title: 'Import GVG plans',
             defaultPath: Files.path(Settings.getDefaultPath()),
@@ -289,7 +291,9 @@ module.exports = {
             return;
         }
 
-        reportImportOutcome(GvgPlans.importPlans(parsed.plans));
+        const outcome = await GvgPlans.importPlans(parsed);
+        GvgPlans.invalidateHeroEntriesCache();
+        reportImportOutcome(outcome);
     },
 
     dedupePlans: async () => {
@@ -496,13 +500,18 @@ function fillFilterSelect(select, options, index) {
 
     options.forEach((option) => {
         const element = document.createElement('option');
-        element.value = option.code;
+        const value = option.code != null ? option.code : option.id;
+        element.value = value;
         element.innerText = i18next.t(option.name);
         select.add(element);
     });
 
     const keep =
-        selected && options.some((option) => option.code === selected)
+        selected &&
+        options.some(
+            (option) =>
+                (option.code != null ? option.code : option.id) === selected
+        )
             ? selected
             : '';
 

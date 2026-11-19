@@ -2642,6 +2642,22 @@ input[type=submit].gvgFilterClear {
      过程中短暂闪一下（焦点从原生 select 跳到 .ms-choice 再消失）。这里显式消掉。 */
   outline: none;
 }
+/* 英雄下拉展开列表：两行布局 —— 主行（名字）+ 副行（神器 | 需求 | 加成） */
+.gvgForm .ms-parent.ms-drop ul > li span .gvgHeroDropdownMain {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.gvgForm .ms-parent.ms-drop ul > li span .gvgHeroDropdownSub {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: inherit;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .gvgFormSection {
   margin-bottom: 6px;
 }
@@ -2666,6 +2682,13 @@ input[type=submit].gvgFilterClear {
   font-weight: 500;
   color: #2b2b2b;
   white-space: nowrap;
+}
+.gvgFormDivider {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: #aaa;
+  margin: 0 6px;
+  line-height: 28px;
 }
 /* 面板要求 & 结果优先级：与英雄列表那一列同样式（纯文本，超长省略 + title 看全文） */
 .gvgRequirementText {

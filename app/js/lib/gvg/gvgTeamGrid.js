@@ -196,7 +196,7 @@ function collectTeamMembers() {
         seenPlans.add(planId);
 
         plan.offense.members.forEach((member) => {
-            if (!member.heroCode) return;
+            if (!member.heroId) return;
             members.push({ team: teamLabel, plan, member });
         });
     });
@@ -238,12 +238,16 @@ async function collectTeamRows(heroes) {
 }
 
 function heroNameOf(member) {
-    return GvgPlans.heroNameForCode(member.heroCode);
+    const entry = GvgPlans.resolveHeroEntry(member.heroId);
+    return entry ? entry.name : member.heroId;
 }
 
-/** 同名 + 神器 code 一致 + 专属有无一致 + 阵型一致 + 同一套配装器配置（没指定配置时只要求同名） */
+/**
+ * member 现在存 heroId，直接用 hero.id === member.heroId 找到 entry 后，
+ * 再校验 artifactLevel 阈值 / ee / imprint / requirement 这些覆写字段。
+ */
 function matchesMember(hero, member) {
-    if (!hero || hero.name !== heroNameOf(member)) return false;
+    if (!hero || hero.id !== member.heroId) return false;
     if (!matchesArtifact(hero, member)) return false;
     if (!matchesEe(hero, member)) return false;
     if (!matchesImprint(hero, member)) return false;
@@ -255,22 +259,17 @@ function matchesMember(hero, member) {
 }
 
 /**
- * 神器：作业里存 code（`artifactdata` 里的官方 id），角色条目里只有名字 → 名字解析成 code 再比，
- * 不比神器名字；等级是下限（`minLevel`）。
+ * 神器：现在 member 只存 artifactLevel 阈值（0~30），hero entry 存 artifactName + artifactLevel。
+ * 只要 entry 等级 >= 阈值就匹配，artifactName 由 heroId 保证一致。
  */
 function matchesArtifact(hero, member) {
-    const artifact = member.artifact;
-    if (!artifact || !artifact.code) return true;
+    const memberLevel = Number(member.artifactLevel) || 0;
+    if (!memberLevel) return true;
 
-    const heroName = hero.artifactName;
-    if (!heroName || heroName === 'None') return false;
+    const entryLevel = Number(hero && hero.artifactLevel);
+    if (!Number.isFinite(entryLevel)) return false;
 
-    if (GvgPlans.artifactCodeForName(heroName) !== artifact.code) return false;
-
-    const level = Number(hero.artifactLevel);
-    if (!Number.isFinite(level)) return false;
-
-    return level >= (Number(artifact.minLevel) || 0);
+    return entryLevel >= memberLevel;
 }
 
 /**
@@ -427,13 +426,14 @@ function buildBonusStats(member, heroInfo) {
         heroInfo,
     };
 
-    // 神器 + 等级（作业里存 code，角色条目只认名字；等级配的是阈值，直接当作等级）
-    const artifact = member.artifact;
-    const artifactName = artifact
-        ? artifact.name || GvgPlans.artifactNameForCode(artifact.code)
-        : null;
+    // 神器 + 等级：从 heroId 反查 entry 拿 artifactName，等级用 member.artifactLevel 阈值
+    let artifactName = null;
+    const entry = GvgPlans.resolveHeroEntry(member.heroId);
+    if (entry && entry.artifactName && entry.artifactName !== 'None') {
+        artifactName = entry.artifactName;
+    }
     if (artifactName) {
-        const level = Math.max(0, Math.min(30, Number(artifact.minLevel) || 0));
+        const level = Math.max(0, Math.min(30, Number(member.artifactLevel) || 0));
         stats.artifactName = artifactName;
         stats.artifactLevel = String(level);
 

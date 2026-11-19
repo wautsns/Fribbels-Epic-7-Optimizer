@@ -568,51 +568,6 @@ module.exports = {
                     module.exports.dedupeKey(plan)
         ) || null,
 
-    /** 保留 createdAt 较早的那条；被删副本的 lastUsedAt 更晚时继承给保留者 */
-    dedupe: () => {
-        const groups = new Map();
-        for (const plan of plans) {
-            const key = module.exports.dedupeKey(plan);
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(plan);
-        }
-
-        const survivors = [];
-        for (const group of groups.values()) {
-            if (group.length === 1) {
-                survivors.push(group[0]);
-                continue;
-            }
-
-            const ordered = group
-                .slice()
-                .sort(
-                    (a, b) =>
-                        (a.createdAt || 0) - (b.createdAt || 0) ||
-                        (a.id < b.id ? -1 : 1)
-                );
-            const keeper = ordered[0];
-            const latestUse = group.reduce(
-                (max, plan) =>
-                    plan.lastUsedAt != null &&
-                    (max == null || plan.lastUsedAt > max)
-                        ? plan.lastUsedAt
-                        : max,
-                null
-            );
-            if (latestUse != null) keeper.lastUsedAt = latestUse;
-            survivors.push(keeper);
-        }
-
-        const removed = plans.length - survivors.length;
-        if (removed > 0) {
-            plans = survivors;
-            pruneTeams();
-            module.exports.commit();
-        }
-        return removed;
-    },
-
     /* ---------------- 导入 / 导出（design.md 8 / 9） ---------------- */
 
     /** 导出前一概剔除使用痕迹（design.md 4.2-6） */

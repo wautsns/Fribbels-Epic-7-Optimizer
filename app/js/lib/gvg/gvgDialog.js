@@ -54,6 +54,14 @@ module.exports = {
 
         if (!result.value) return null;
 
+        // 保存前判重：与已有作业完全一致（防守 / 进攻 / 站位 / 需求 / 文本）则拒绝保存
+        if (GvgPlans.findDuplicate(result.value, draft.id)) {
+            Notifier.warnRaw(
+                i18next.t('Duplicate GVG plan, unable to save')
+            );
+            return null;
+        }
+
         const saved = GvgPlans.upsert(result.value);
         if (!saved) {
             Notifier.error('Unable to save GVG plan');

@@ -137,6 +137,13 @@ input[type=submit] {
   margin-right: 5px;
 }
 
+/* 导入页里的按钮两两一行（保存/加载、导入/导出 GVG作业） */
+.importerButtonRow {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
 .importer-section {
   padding-top: 10px;
   white-space: nowrap;

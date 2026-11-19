@@ -56,7 +56,6 @@ module.exports = {
         bindClick('gvg-paste', () => module.exports.pastePlan());
         bindClick('gvg-export', () => module.exports.exportPlans());
         bindClick('gvg-import', () => module.exports.importPlans());
-        bindClick('gvg-dedupe', () => module.exports.dedupePlans());
         bindClick('gvg-mark-used', () => module.exports.markUsed());
         bindClick('gvg-clear', () => module.exports.clearPlans());
         bindClick('gvg-clear-teams', () => module.exports.clearTeams());
@@ -303,30 +302,6 @@ module.exports = {
         const outcome = await GvgPlans.importPlans(parsed);
         GvgPlans.invalidateHeroEntriesCache();
         reportImportOutcome(outcome);
-    },
-
-    dedupePlans: async () => {
-        if (!GvgPlans.getAll().length) {
-            Notifier.warn('There are no GVG plans to dedupe');
-            return;
-        }
-
-        const confirmed = await Dialog.confirmation(
-            i18next.t(
-                'Remove duplicated GVG plans? The oldest copy of each duplicate is kept.'
-            ),
-            i18next.t('Confirm')
-        );
-        if (!confirmed) return;
-
-        const removed = GvgPlans.dedupe();
-        if (removed > 0) {
-            Notifier.successRaw(
-                `${i18next.t('Removed duplicated GVG plans')} (${removed})`
-            );
-        } else {
-            Notifier.infoRaw(i18next.t('No duplicated GVG plans found'));
-        }
     },
 
     clearPlans: async () => {

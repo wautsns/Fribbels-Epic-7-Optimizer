@@ -335,6 +335,7 @@ module.exports = {
     /**
      * 一键装备：给进攻阵容 1 / 2 的角色条目按 builds 顺序挑第一套「互不抢装备」的配装。
      * 6 个角色之间共用一份已占用装备集合；某角色所有 builds 都冲突时跳过该角色。
+     * 先给可选 builds 少的角色挑（可选越少越容易没得选），避免被可选多的角色抢光装备。
      */
     equipTeam: async () => {
         const teams = GvgPlans.getTeams();
@@ -355,18 +356,29 @@ module.exports = {
             uniqueHeroes.push(hero);
         }
 
+        /** 一套 build 是否可用：6 件齐全且没有空槽 */
+        const isUsableBuild = (build) => {
+            const items = (build && build.items) || [];
+            return items.length === 6 && !items.some((id) => id == null);
+        };
+
+        // 先给可选 builds 最少的角色挑：可选越少越容易没得选，避免被可选多的角色抢光装备
+        const orderedHeroes = uniqueHeroes
+            .map((hero) => ({
+                hero,
+                usableBuilds: (Array.isArray(hero.builds) ? hero.builds : [])
+                    .filter(isUsableBuild),
+            }))
+            .sort((a, b) => a.usableBuilds.length - b.usableBuilds.length);
+
         const usedItemIds = new Set();
         const targets = [];
         let skipped = 0;
 
-        for (const hero of uniqueHeroes) {
-            const builds = Array.isArray(hero.builds) ? hero.builds : [];
-            const build = builds.find((candidate) => {
-                const items = (candidate && candidate.items) || [];
-                if (items.length !== 6 || items.some((id) => id == null))
-                    return false;
-                return items.every((id) => !usedItemIds.has(String(id)));
-            });
+        for (const { hero, usableBuilds } of orderedHeroes) {
+            const build = usableBuilds.find((candidate) =>
+                candidate.items.every((id) => !usedItemIds.has(String(id)))
+            );
 
             if (!build) {
                 skipped++;

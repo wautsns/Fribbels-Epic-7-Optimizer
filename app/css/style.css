@@ -2387,6 +2387,11 @@ input[type=submit].gvgFilterClear {
   margin: 0 4px;
   flex-shrink: 0;
 }
+/* 按钮行左右两侧按钮自带 margin（左 1px / 右 10px），补差让竖线两侧留白一致 */
+.gvgButtonRow .gvgFilterDivider {
+  margin-left: 4px;
+  margin-right: 13px;
+}
 /*
  * 作业表：ag-grid 需要固定高度（flex 自适应会在初始化时拿到 0 高度导致不渲染），
  * 所以写死固定像素。当前值 314px 由 TableHeights.fit('gvg', N) 实测得出。

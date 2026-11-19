@@ -106,8 +106,6 @@ window.jQuery = $;
           <input type="submit" value="Paste" class="gearPreviewButton" id="gvg-paste" data-t>
           <!-- 标记使用：把进攻阵容 1/2 的 lastUsedAt 更新为当前时间（替代原来置队时隐式更新的行为） -->
           <input type="submit" value="Mark used" class="gearPreviewButton" id="gvg-mark-used" data-t>
-          <!-- 清空全部作业：贴右边框 + 粗体红字，点击后还要手动输入确认文字才会真的清空 -->
-          <input type="submit" value="Clear GVG plans" class="gearPreviewButton gvgDangerButton" id="gvg-clear" data-t>
         </div>
 
         <!-- 进攻阵容 1 / 2 的 6 名角色条目（heroTable 组件的第二个实例） -->
@@ -1415,6 +1413,8 @@ window.jQuery = $;
         <div class="importerButtonRow">
           <input type="submit" class="importerButton" value="Import GVG plans" id="gvg-import" data-t>
           <input type="submit" class="importerButton" value="Export GVG plans" id="gvg-export" data-t>
+          <!-- 清空全部作业：红字粗体，点击后还要手动输入确认文字才会真的清空 -->
+          <input type="submit" class="importerButton gvgDangerButton" value="Clear GVG plans" id="gvg-clear" data-t>
         </div>
 
         <br>

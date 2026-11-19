@@ -104,6 +104,9 @@ window.jQuery = $;
         <div class="gvgButtonRow">
           <input type="submit" value="Add" class="gearPreviewButton" id="gvg-add" data-t>
           <input type="submit" value="Paste" class="gearPreviewButton" id="gvg-paste" data-t>
+          <span class="gvgFilterDivider"></span>
+          <!-- 一键装备：进攻阵容 1/2 的 6 名角色按 builds 顺序穿互不冲突的第一套 -->
+          <input type="submit" value="One-click equip" class="gearPreviewButton" id="gvg-equip-team" data-t>
           <!-- 标记使用：把进攻阵容 1/2 的 lastUsedAt 更新为当前时间（替代原来置队时隐式更新的行为） -->
           <input type="submit" value="Mark used" class="gearPreviewButton" id="gvg-mark-used" data-t>
         </div>
@@ -1411,8 +1414,8 @@ window.jQuery = $;
         </div>
 
         <div class="importerButtonRow">
-          <input type="submit" class="importerButton" value="Import GVG plans" id="gvg-import" data-t>
           <input type="submit" class="importerButton" value="Export GVG plans" id="gvg-export" data-t>
+          <input type="submit" class="importerButton" value="Import GVG plans" id="gvg-import" data-t>
           <!-- 清空全部作业：红字粗体，点击后还要手动输入确认文字才会真的清空 -->
           <input type="submit" class="importerButton gvgDangerButton" value="Clear GVG plans" id="gvg-clear" data-t>
         </div>

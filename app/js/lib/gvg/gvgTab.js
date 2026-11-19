@@ -56,6 +56,7 @@ module.exports = {
         bindClick('gvg-paste', () => module.exports.pastePlan());
         bindClick('gvg-export', () => module.exports.exportPlans());
         bindClick('gvg-import', () => module.exports.importPlans());
+        bindClick('gvg-equip-team', () => module.exports.equipTeam());
         bindClick('gvg-mark-used', () => module.exports.markUsed());
         bindClick('gvg-clear', () => module.exports.clearPlans());
         bindClick('gvg-clear-teams', () => module.exports.clearTeams());
@@ -328,6 +329,80 @@ module.exports = {
             Notifier.successRaw(
                 `${i18next.t('Marked GVG plans as used')} (${result.marked})`
             );
+        }
+    },
+
+    /**
+     * 一键装备：给进攻阵容 1 / 2 的角色条目按 builds 顺序挑第一套「互不抢装备」的配装。
+     * 6 个角色之间共用一份已占用装备集合；某角色所有 builds 都冲突时跳过该角色。
+     */
+    equipTeam: async () => {
+        const teams = GvgPlans.getTeams();
+        if (!teams.first && !teams.second) {
+            Notifier.warnRaw(i18next.t('No team markers to equip'));
+            return;
+        }
+
+        const heroes = await GvgTeamGrid.fetchHeroes();
+        const rows = await GvgTeamGrid.getTeamHeroes(heroes);
+
+        // 同一个角色条目可能同时出现在阵容 1 / 2，按 id 去重
+        const uniqueHeroes = [];
+        const seenHeroIds = new Set();
+        for (const hero of rows) {
+            if (seenHeroIds.has(hero.id)) continue;
+            seenHeroIds.add(hero.id);
+            uniqueHeroes.push(hero);
+        }
+
+        const usedItemIds = new Set();
+        const targets = [];
+        let skipped = 0;
+
+        for (const hero of uniqueHeroes) {
+            const builds = Array.isArray(hero.builds) ? hero.builds : [];
+            const build = builds.find((candidate) => {
+                const items = (candidate && candidate.items) || [];
+                if (items.length !== 6 || items.some((id) => id == null))
+                    return false;
+                return items.every((id) => !usedItemIds.has(String(id)));
+            });
+
+            if (!build) {
+                skipped++;
+                continue;
+            }
+
+            build.items.forEach((id) => usedItemIds.add(String(id)));
+            targets.push({ hero, items: build.items });
+        }
+
+        let equipped = 0;
+        for (const target of targets) {
+            try {
+                await Api.equipItemsOnHero(target.hero.id, target.items);
+                equipped++;
+            } catch (error) {
+                console.warn(
+                    '[GVG] equip failed',
+                    target.hero && target.hero.name,
+                    error
+                );
+                skipped++;
+            }
+        }
+
+        if (equipped > 0) Saves.autoSave();
+        await GvgTeamTable.refresh();
+
+        const message = i18next.t(
+            'Equipped {{equipped}} heroes, {{skipped}} skipped',
+            { equipped, skipped }
+        );
+        if (equipped > 0) {
+            Notifier.successRaw(message);
+        } else {
+            Notifier.warnRaw(message);
         }
     },
 

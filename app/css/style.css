@@ -2379,7 +2379,8 @@ input[type=submit].gvgFilterClear {
   margin: 0;
 }
 /* 竖线分隔符：左边 3 个防守下拉，右边 1 个进攻下拉 */
-.gvgFilterRow .gvgFilterDivider {
+.gvgFilterRow .gvgFilterDivider,
+.gvgButtonRow .gvgFilterDivider {
   width: 1px;
   height: 22px;
   background: #ccc;

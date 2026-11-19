@@ -60,13 +60,7 @@ module.exports = {
             return null;
         }
         Notifier.successRaw(
-            isNew
-                ? `${i18next.t('GVG plan saved')} (${
-                      GvgPlans.getAll().length
-                  })`
-                : `${i18next.t('GVG plan updated')} (${
-                      GvgPlans.getAll().length
-                  })`
+            i18next.t(isNew ? 'GVG plan saved' : 'GVG plan updated')
         );
         return saved;
     },

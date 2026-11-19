@@ -291,15 +291,15 @@ function heroHasEe(hero) {
 }
 
 /**
- * 阵型：作业选「群阵」时不吃自阵加成，所以匹配的条目必须是没选自阵数值的
- * （`imprintNumber` 为 None）——选了数值的条目多算了自阵加成，配置不是同一套。
- * 自阵（默认）不反向限制：自阵档位没写进面板要求（`requirementFingerprint` 里没有它），
- * 条目的档位高低不影响「就是这套配置」的判断。
+ * 阵型匹配：
+ * - member 选群阵 (imprintMode === 'team') → hero entry 的 imprintNumber 必须是 'None'
+ * - member 选自阵 → hero entry 的 imprintNumber 不能是 'None'（0 表示自阵但没升级，也算）
  */
 function matchesImprint(hero, member) {
-    if (member.imprintMode !== 'team') return true;
+    const isTeam = member.imprintMode === 'team';
+    const entryIsTeam = (hero && hero.imprintNumber) === 'None';
 
-    return !heroHasImprint(hero);
+    return isTeam === entryIsTeam;
 }
 
 function heroHasImprint(hero) {

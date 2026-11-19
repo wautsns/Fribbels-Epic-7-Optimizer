@@ -1406,7 +1406,7 @@ function getImprintHtml(hero, heroInfo) {
     }));
     imprintOptions.sort((a, b) => a.value - b.value);
 
-    var html = `<select class="editGearStatSelect" id="editImprint"><option value="None">${i18next.t("None")}</option>`;
+    var html = `<select class="editGearStatSelect" id="editImprint"><option value="None">${i18next.t("Team imprint")}</option><option value="0">0 - ${i18next.t("Self imprint")}</option>`;
 
     for (var option of imprintOptions) {
         html += `<option value="${option.value}" ${hero.imprintNumber == option.value ? "selected" : ""}>${option.value}${displayText} - ${option.grade}</option>`

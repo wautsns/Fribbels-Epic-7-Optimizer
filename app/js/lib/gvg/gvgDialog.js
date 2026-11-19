@@ -946,23 +946,42 @@ function readPlanFromDialog(draft, requirements) {
         };
     });
 
-    // lastUsedAt：checkbox 未勾选 → null；勾选 → 选中年月日 + 当前时分秒
+    // lastUsedAt：checkbox 未勾选 → null；勾选 → 选中年月日 + 当前时分秒。
+    // 若日期与打开时完全相同（用户没改），保留原始时间戳，避免仅编辑其他字段
+    // 就把作业顶到列表最前面。
     let lastUsedAt = null;
     const enabledEl = document.getElementById('gvgLastUsedEnabled');
     const dateEl = document.getElementById('gvgLastUsedDate');
     if (enabledEl && enabledEl.checked && dateEl && dateEl.value) {
         const [y, m, d] = dateEl.value.split('-').map(Number);
         if (y && m && d) {
-            const now = new Date();
-            const combined = new Date(
-                y,
-                m - 1,
-                d,
-                now.getHours(),
-                now.getMinutes(),
-                now.getSeconds()
-            );
-            lastUsedAt = combined.getTime();
+            const draftLastUsed =
+                draft && draft.lastUsedAt != null
+                    ? new Date(Number(draft.lastUsedAt))
+                    : null;
+            const draftDateValue =
+                draftLastUsed && Number.isFinite(draftLastUsed.getTime())
+                    ? `${draftLastUsed.getFullYear()}-${String(
+                          draftLastUsed.getMonth() + 1
+                      ).padStart(2, '0')}-${String(
+                          draftLastUsed.getDate()
+                      ).padStart(2, '0')}`
+                    : '';
+
+            if (draftLastUsed && draftDateValue === dateEl.value) {
+                lastUsedAt = Number(draft.lastUsedAt);
+            } else {
+                const now = new Date();
+                const combined = new Date(
+                    y,
+                    m - 1,
+                    d,
+                    now.getHours(),
+                    now.getMinutes(),
+                    now.getSeconds()
+                );
+                lastUsedAt = combined.getTime();
+            }
         }
     }
 

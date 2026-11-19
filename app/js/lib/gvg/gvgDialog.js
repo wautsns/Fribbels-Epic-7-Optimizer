@@ -39,9 +39,10 @@ module.exports = {
             showCancelButton: true,
             confirmButtonText: i18next.t('Save'),
             cancelButtonText: i18next.t('Cancel'),
-            // 关闭弹窗动画（原来的 animation: false 已被 SweetAlert2 弃用）
+            // 关闭弹窗动画（原来的 animation: false 已被 SweetAlert2 弃用）。
+            // 注意：hideClass 必须保持默认，不能和 showClass 用同一个类，
+            // 否则 Swal 关闭时发现 popup 已有该 class 会直接 return，弹出「取消没反应」。
             showClass: { popup: 'swal2-noanimation', backdrop: 'swal2-noanimation', icon: 'swal2-noanimation' },
-            hideClass: { popup: 'swal2-noanimation', backdrop: 'swal2-noanimation', icon: 'swal2-noanimation' },
             grow: false,
             // willOpen：弹窗 DOM 已就绪但还没显示（动画前）。
             // 在这里把原生 <select> 升级成 multiple-select 插件，

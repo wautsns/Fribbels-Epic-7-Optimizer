@@ -84,6 +84,9 @@ module.exports = {
         document.getElementById('unequipAllGear').addEventListener("click", () => {
             unequipAllGear();
         });
+        document.getElementById('unlockAllGear').addEventListener("click", () => {
+            unlockAllGear();
+        });
 
         document.getElementById('tab3label').addEventListener("click", () => {
             itemsGrid.gridOptions.api.refreshCells();
@@ -193,6 +196,31 @@ async function unequipAllGear() {
     await Api.unequipItems(equippedItems.map(item => item.id));
 
     Notifier.quick(`${i18next.t("Unequipped ")}` + equippedItems.length + `${i18next.t(" item(s).")}`)
+
+    module.exports.redraw();
+    Saves.autoSave();
+}
+
+/*
+ * 解锁全部装备：把所有 locked=true 的装备一次性解锁。
+ */
+async function unlockAllGear() {
+    const response = await Api.getAllItems();
+    const lockedItems = (response.items || []).filter(item => item.locked);
+
+    if (lockedItems.length === 0) {
+        Notifier.warn(i18next.t("No items are currently locked"));
+        return;
+    }
+
+    const confirmed = await Dialog.confirmation(i18next.t("Unlock all {{count}} locked item(s)?", { count: lockedItems.length }));
+    if (!confirmed) {
+        return;
+    }
+
+    await Api.unlockItems(lockedItems.map(item => item.id));
+
+    Notifier.quick(`${i18next.t("Unlocked ")}` + lockedItems.length + `${i18next.t(" item(s).")}`)
 
     module.exports.redraw();
     Saves.autoSave();
@@ -314,12 +342,9 @@ const elementsByFilter = {
         "plus3Filter",
         "plus0Filter",
     ],
-    duplicateFilter: [
-        "duplicateFilter",
-    ],
+    duplicateFilter: [],
     equippedOrNotFilter: [
         "equippedFilter",
-        "unequippedFilter",
     ],
     modifyFilter: [
         "modifyAtkFilter",
@@ -440,14 +465,11 @@ function setupEventListeners() {
     setupClearListener("clearModifyFilter", "modifyFilter")
 
     // Other
-    setupFilterListener("duplicateFilter", "duplicateFilter", "duplicate")
-
     setupFilterListener("equippedFilter", "equippedOrNotFilter", "equipped")
-    setupFilterListener("unequippedFilter", "equippedOrNotFilter", "unequipped")
 
-    setupClearListener("clearOtherFilter", "duplicateFilter")
+    setupClearListener("clearOtherFilter", "equippedOrNotFilter")
 
-    setupClearListener("clearAllFilter", "duplicateFilter")
+    setupClearListener("clearAllFilter", "equippedOrNotFilter")
 
     document.getElementById('clearAllFilter').addEventListener('click', () => {
         for (var key of Object.keys(elementsByFilter)) {

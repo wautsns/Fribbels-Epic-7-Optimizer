@@ -68,24 +68,24 @@ module.exports = {
             },
 
             columnDefs: [
-                {headerName: i18next.t('Set'), field: 'set', width: 45, cellRenderer: (params) => renderSets(params.value)},
-                {headerName: i18next.t('Gear'), field: 'gear', width: 45, cellRenderer: (params) => renderGear(params.value)},
+                {headerName: i18next.t('Set'), field: 'set', width: 46, cellRenderer: (params) => renderSets(params.value)},
+                {headerName: i18next.t('Gear'), field: 'gear', width: 46, cellRenderer: (params) => renderGear(params.value)},
                 {headerName: i18next.t('Rank'), field: 'rank', width: 44, cellRenderer: (params) => i18next.t(params.value)},
                 {headerName: i18next.t('Level'), field: 'level', width: 42, filter: 'agNumberColumnFilter'},
                 {headerName: i18next.t('Enhance'), field: 'enhance', width: 46, filter: 'agNumberColumnFilter'},
                 {headerName: i18next.t('Main'), field: 'main.type', width: 76, cellRenderer: (params) => renderStat(i18next.t(params.value))},
                 {headerName: i18next.t('Value'), field: 'main.value', width: 50},
-                {headerName: i18next.t('Atk%'), field: 'augmentedStats.AttackPercent', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Atk'), field: 'augmentedStats.Attack', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Spd'), field: 'augmentedStats.Speed', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Cr'), field: 'augmentedStats.CriticalHitChancePercent', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Cd'), field: 'augmentedStats.CriticalHitDamagePercent', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Hp%'), field: 'augmentedStats.HealthPercent', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Hp'), field: 'augmentedStats.Health', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Def%'), field: 'augmentedStats.DefensePercent', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Def'), field: 'augmentedStats.Defense', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Eff'), field: 'augmentedStats.EffectivenessPercent', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
-                {headerName: i18next.t('Res'), field: 'augmentedStats.EffectResistancePercent', width: 40, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Atk%'), field: 'augmentedStats.AttackPercent', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Atk'), field: 'augmentedStats.Attack', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Spd'), field: 'augmentedStats.Speed', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Cr'), field: 'augmentedStats.CriticalHitChancePercent', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Cd'), field: 'augmentedStats.CriticalHitDamagePercent', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Hp%'), field: 'augmentedStats.HealthPercent', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Hp'), field: 'augmentedStats.Health', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Def%'), field: 'augmentedStats.DefensePercent', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Def'), field: 'augmentedStats.Defense', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Eff'), field: 'augmentedStats.EffectivenessPercent', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
+                {headerName: i18next.t('Res'), field: 'augmentedStats.EffectResistancePercent', width: 46, cellRenderer: (params) => params.value == 0 ? "" : params.value},
                 // 分数由后端按 2 位小数返回，这里固定显示 2 位
                 {headerName: i18next.t('Score'), field: 'reforgedWss', width: 52, cellStyle: scoreColumnGradient, valueFormatter: (params) => (params.value == null ? '' : Number(params.value).toFixed(2))},
                 {headerName: i18next.t('Equipped'), field: 'equippedByName', width: 100, sort: 'asc', cellRenderer: (params) => renderStat(i18next.t(params.value))},
@@ -95,6 +95,7 @@ module.exports = {
                 {headerName: i18next.t('Duplicate'), field: 'duplicateId', hide: true},
                 {headerName: 'AllowedMods', field: 'allowedMods', hide: true},
                 {headerName: 'EquippedById', field: 'equippedById', hide: true},
+                {headerName: 'Locked', field: 'locked', hide: true},
             ],
             rowSelection: 'multiple',
             pagination: true,
@@ -384,35 +385,47 @@ module.exports = {
         }
 
         const equippedOrNotFilterComponent = itemsGrid.gridOptions.api.getFilterInstance('equippedById');
+        const lockedFilterComponent = itemsGrid.gridOptions.api.getFilterInstance('locked');
         if (!equippedOrNotFilter) {
             equippedOrNotFilterComponent.setModel(null);
+            lockedFilterComponent.setModel(null);
         } else {
-            if (equippedOrNotFilter == "equipped") {
-                equippedOrNotFilterComponent.setModel({
+            // locked 筛选 → equippedById 清空，用 locked 列过滤
+            if (equippedOrNotFilter == "locked") {
+                equippedOrNotFilterComponent.setModel(null);
+                lockedFilterComponent.setModel({
                     type: 'contains',
-                    filter: "-"
+                    filter: 'true'
                 });
-            }
+            } else {
+                lockedFilterComponent.setModel(null);
+                if (equippedOrNotFilter == "equipped") {
+                    equippedOrNotFilterComponent.setModel({
+                        type: 'contains',
+                        filter: "-"
+                    });
+                }
 
-            if (equippedOrNotFilter == "unequipped") {
-                equippedOrNotFilterComponent.setModel({
-                    filterType: 'string',
-                    operator: 'AND',
-                    condition1: {
+                if (equippedOrNotFilter == "unequipped") {
+                    equippedOrNotFilterComponent.setModel({
                         filterType: 'string',
-                        type: 'notContains',
-                        filter: '-'
-                    },
-                    condition2: {
-                        filterType: 'string',
-                        type: 'notContains',
-                        filter: '1'
-                    }
+                        operator: 'AND',
+                        condition1: {
+                            filterType: 'string',
+                            type: 'notContains',
+                            filter: '-'
+                        },
+                        condition2: {
+                            filterType: 'string',
+                            type: 'notContains',
+                            filter: '1'
+                        }
 
 
-                    // type: 'notContains',
-                    // filter: '-'
-                });
+                        // type: 'notContains',
+                        // filter: '-'
+                    });
+                }
             }
         }
 

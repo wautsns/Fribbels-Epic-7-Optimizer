@@ -37,6 +37,34 @@ function isPortInUse(port, timeout = 500) {
     });
 }
 
+/**
+ * 读取持久化的「最大内存限制」(GB)。
+ * 不能读页面上的 settingMaxRamGb 输入框：Java 进程在 DOMContentLoaded 阶段、
+ * Settings.initialize 之前就启动了，那时输入框还是空的，设置会永远不生效（一直用默认 6G）。
+ */
+function getMaxRamGb() {
+    const defaultRamGb = 6;
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const settingsPath = path.join(
+            remote.app.getPath('documents'),
+            'FribbelsOptimizerSaves',
+            'settings.ini'
+        );
+        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        const value = parseInt(
+            String(settings.settingMaxRamGb).replace(/,/g, '')
+        );
+        if (Number.isFinite(value) && value > 0) {
+            return value;
+        }
+    } catch (e) {
+        console.debug('Max RAM setting not available yet, using default', e);
+    }
+    return defaultRamGb;
+}
+
 module.exports = {
     kill: async() => {
         if (!await isPortInUse(8130)) {
@@ -87,7 +115,7 @@ module.exports = {
 
         console.log("Spawning backend child")
 
-        var maxRamGb = parseInt(Settings.parseNumberValue('settingMaxRamGb') || 6);
+        var maxRamGb = getMaxRamGb();
 
         // child = spawn('java', ['-jar', '-XX:MaxRAMFraction=1', `"${Files.getDataPath() + '/jar/backend.jar'}"`], {
         child = spawn('java', [`-Xmx${maxRamGb}G`, '-Dfile.encoding=UTF-8', '-jar', `"${Files.getDataPath() + '/jar/backend.jar'}"`], {

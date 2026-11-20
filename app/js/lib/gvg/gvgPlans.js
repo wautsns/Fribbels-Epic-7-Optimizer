@@ -452,9 +452,20 @@ module.exports = {
 
     sortPlans: (list) => {
         const byIdDesc = (a, b) => (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
+        const teams = loadTeams();
 
-        // 已使用的按 lastUsedAt 倒序排在前面；未使用的统一沉到后面，内部按 createdAt 倒序
+        // 先置顶进攻阵容 1（其次阵容 2），其余按已使用 lastUsedAt 倒序 / 未使用 createdAt 倒序
+        const rank = (plan) => {
+            if (teams.first && plan.id === teams.first) return 0;
+            if (teams.second && plan.id === teams.second) return 1;
+            return 2;
+        };
+
         return list.slice().sort((a, b) => {
+            const ra = rank(a);
+            const rb = rank(b);
+            if (ra !== rb) return ra - rb;
+
             const aUsed = a.lastUsedAt != null;
             const bUsed = b.lastUsedAt != null;
             if (aUsed !== bUsed) return aUsed ? -1 : 1;
@@ -520,7 +531,9 @@ module.exports = {
         for (const id of ids) {
             const plan = plans.find((item) => item.id === id);
             if (plan) {
-                plan.lastUsedAt = timestamp - marked; // 阵容1 > 阵容2，保持相对顺序
+                // 阵容2 使用时间 = 阵容1 + 1（排序置顶仍由阵容标记决定，这里只保证时间不为旧值）
+                plan.lastUsedAt =
+                    id === teams.first ? timestamp : timestamp + 1;
                 marked++;
             }
         }

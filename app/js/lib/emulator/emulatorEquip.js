@@ -125,12 +125,9 @@ function chipOrderCandidates(sorted, allItems) {
         return [[]];
     }
 
-    const all = permutations(types);
-    if (allItems && allItems.length) {
-        return all;
-    }
-
-    return all.filter((order) => order[0] === types[0]);
+    // 无论有没有 allItems，chip1 必须是最高值那个副属性 —— 它是 computeRank 的主排序键。
+    // 把低数值的副属性放在 chip1 会让目标在候选列表里排到末尾（甚至超出 ±4 探测范围）。
+    return permutations(types).filter((order) => order[0] === types[0]);
 }
 
 /**
@@ -550,6 +547,7 @@ module.exports = {
             console.log('[emulator] data ready in', Date.now() - t1, 'ms, items=', items.length);
 
             // 副属性 chip 的顺序按整轮连续性 + 目标排名先规划好（顺序影响谁先排序）
+            // chipOrderCandidates 已确保 chip1 = 最高值副属性（主排序键），只在剩下 6 种排列里做 DP
             const chipOrders = planChipOrders(items, allItems);
             console.log('[emulator] ready to equip in', Date.now() - t0, 'ms total');
 

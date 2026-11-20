@@ -164,7 +164,14 @@ function chipChangeCost(previous, next) {
 
 // 两种代价都换算成秒，方便放在一起比较
 const CHIP_CHANGE_SECONDS = 1.8; // 开面板 + 选一条 + 关面板
-const ROW_SECONDS = 0.5; // 列表每滚一行（125px ≈ 半次 swipe，一次 swipe ≈ 1s 滚 2 行）
+// 游戏内一屏显示 3 行装备（row 0-2 = rank 0-14），probe ±4 足够覆盖，代价为 0。
+// row ≥ 3（rank ≥ 15）意味着需要滚屏——scrollToItemRow + waitForTileAt 太脆，
+// 一旦 tile 加载慢就 probe miss，不是"多花点时间"是整件装备换装失败。
+// DP 代价：超过一屏后每多一行罚 99，足以逼 DP 在一屏内选最优排列。
+function scrollCostOf(rankRows) {
+    if (rankRows <= 2) return 0;
+    return (rankRows - 2) * 99;
+}
 
 /** 这套 chip 下目标要滚动几行（chip1 是排序主键，直接决定它在列表里的位置） */
 function rankRowsOf(item, order, allItems) {
@@ -204,7 +211,7 @@ function planChipOrders(items, allItems, verbose = true) {
 
         chipOrderCandidates(sortedSubstats(item), allItems).forEach((order) => {
             const key = order.join('|');
-            const scrollCost = rankRowsOf(item, order, allItems) * ROW_SECONDS;
+            const scrollCost = scrollCostOf(rankRowsOf(item, order, allItems));
             let best = null;
 
             states.forEach((state, previousKey) => {
@@ -571,12 +578,16 @@ module.exports = {
                 try {
                     // select only: the game keeps the pending selections and applies them
                     // when the user presses 更换装备 once at the end
-                    await equip.selectItem(
+                    const result = await equip.selectItem(
                         module.exports.buildTarget(item, chipOrders[index]),
                         {
                             allItems,
                         }
                     );
+                    if (!result.ok && result.skipped) {
+                        console.warn('[emulator] slot skipped:', result.message);
+                        failed.push({ slot: currentSlot, message: result.message });
+                    }
                 } catch (error) {
                     if (error.cancelled) {
                         cancelled = true;

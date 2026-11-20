@@ -85,6 +85,8 @@
     "Could not switch the sort to Acquisition (Ascending). Set it manually and retry": "无法把排序切换到「获得（升序）」，请手动设置后重试",
     "Could not switch to the {{slot}} slot. Make sure the game is still on the Manage Equipment page": "无法切换到部位「{{slot}}」，请确认游戏停留在「管理装备」页面",
     "Item not found around row {{row}} column {{column}}. If the in-game item was reforged or just changed, rescan your items on the Import tab first": "未找到目标装备（第 {{row}} 行第 {{column}} 列附近未命中）。若游戏内装备已重铸或刚变更，请先在导入页重新扫描装备数据",
+    "Item beyond on-screen range (row {{row}} col {{column}}, rank {{rank}}). Skipped.": "目标装备超出一屏范围（第 {{row}} 行第 {{column}} 列，排名 {{rank}}），已跳过",
+    "Item not found in first 15 slots (rank {{rank}}). Skipped. Rescan items on Import tab if needed.": "前 15 件内未找到目标装备（排名 {{rank}}），已跳过。如有需要请在导入页重新扫描装备数据",
     "Missing item index, cannot locate the item": "缺少装备索引，无法定位",
     "Missing item information": "缺少装备信息",
     "No emulator device selected": "未选择模拟器设备",

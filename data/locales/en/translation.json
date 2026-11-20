@@ -84,6 +84,8 @@
   "Could not switch the sort to Acquisition (Ascending). Set it manually and retry": "Could not switch the sort to Acquisition (Ascending). Set it manually and retry",
   "Could not switch to the {{slot}} slot. Make sure the game is still on the Manage Equipment page": "Could not switch to the {{slot}} slot. Make sure the game is still on the Manage Equipment page",
   "Item not found around row {{row}} column {{column}}. If the in-game item was reforged or just changed, rescan your items on the Import tab first": "Item not found around row {{row}} column {{column}}. If the in-game item was reforged or just changed, rescan your items on the Import tab first",
+  "Item beyond on-screen range (row {{row}} col {{column}}, rank {{rank}}). Skipped.": "Item beyond on-screen range (row {{row}} col {{column}}, rank {{rank}}). Skipped.",
+  "Item not found in first 15 slots (rank {{rank}}). Skipped. Rescan items on Import tab if needed.": "Item not found in first 15 slots (rank {{rank}}). Skipped. Rescan items on Import tab if needed.",
   "Missing item index, cannot locate the item": "Missing item index, cannot locate the item",
   "Missing item information": "Missing item information",
   "No emulator device selected": "No emulator device selected",

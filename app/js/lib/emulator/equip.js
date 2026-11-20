@@ -2019,11 +2019,27 @@ async function selectItem(item, options = {}) {
         gridScroll
     );
 
+    // 游戏内一屏 3 行 × 5 列 = 15 件（rank 0-14）。超过一屏的直接跳过，
+    // 不滚屏——scrollToItemRow 太脆，tile 加载慢就 probe miss → 整件装备换不上。
+    // probes 也只覆盖一屏内的候选，不跨屏。
+    const MAX_ON_SCREEN_RANK = 14;
+
+    if (info.rank > MAX_ON_SCREEN_RANK) {
+        const row = Math.floor(info.rank / LAYOUT.grid.cols) + 1;
+        const column = (info.rank % LAYOUT.grid.cols) + 1;
+        const skipMsg = t(
+            'Item beyond on-screen range (row {{row}} col {{column}}, rank {{rank}}). Skipped.',
+            { row, column, rank: info.rank }
+        );
+        console.warn('[emulator] slot=%s skipped: %s', item.slot, skipMsg);
+        return { ok: false, skipped: true, reason: 'outOfScreen', message: skipMsg };
+    }
+
     const probes = [];
     if (info.rank >= 0) {
         for (const delta of [0, -1, 1, -2, 2, -3, 3, -4, 4]) {
             const candidate = info.rank + delta;
-            if (candidate >= 0 && !probes.includes(candidate))
+            if (candidate >= 0 && candidate <= MAX_ON_SCREEN_RANK && !probes.includes(candidate))
                 probes.push(candidate);
         }
     }
@@ -2032,9 +2048,6 @@ async function selectItem(item, options = {}) {
         for (let probeIndex = 0; probeIndex < probes.length; probeIndex++) {
             throwIfCancelled();
             const candidate = probes[probeIndex];
-            if (candidate < 0) {
-                continue;
-            }
 
             // a failed probe can be the result of a stalled tap that landed elsewhere:
             // confirm the page before probing the next tile
@@ -2045,27 +2058,23 @@ async function selectItem(item, options = {}) {
                 await recoverToManagePage();
             }
 
-            // 上一次没点中，很可能只是列表还在刷新/还没滚稳：等它彻底停下来再点下一个
+            // 上一次没点中，很可能只是列表还在刷新：等它彻底停下来再点下一个
             if (probeIndex > 0) {
                 await waitForGridReady({ expectChange: false });
             }
 
+            // gridScroll 已在每次换 slot 时重置为 0，且 probes 全部在 row 0-2（一屏内），
+            // 不需要 scrollToItemRow——直接用 y0 + row * dy 算目标 y 坐标
             const targetRow = Math.floor(candidate / LAYOUT.grid.cols);
-            const position = await scrollToItemRow(targetRow);
-            if (!position.ok) {
-                console.warn('[emulator] skip rank=%d: scrollToItemRow failed (%s)', candidate, position.reason);
-                continue;
-            }
-
             const cell = {
                 x:
                     LAYOUT.grid.x0 +
                     (candidate % LAYOUT.grid.cols) * LAYOUT.grid.dx,
-                y: position.y,
+                y: LAYOUT.grid.y0 + targetRow * LAYOUT.grid.dy,
             };
             console.log(
-                '[emulator] probing rank=%d row=%d cell=(%d,%d) gridScroll=%d',
-                candidate, targetRow, cell.x, cell.y, gridScroll
+                '[emulator] probing rank=%d row=%d cell=(%d,%d)',
+                candidate, targetRow, cell.x, cell.y
             );
 
             // a tile that is painted a moment later must not be clicked into the void
@@ -2097,14 +2106,13 @@ async function selectItem(item, options = {}) {
         }
     }
 
-    const row = Math.floor(info.rank / LAYOUT.grid.cols) + 1;
-    const column = (info.rank % LAYOUT.grid.cols) + 1;
-    throw new Error(
-        t(
-            'Item not found around row {{row}} column {{column}}. If the in-game item was reforged or just changed, rescan your items on the Import tab first',
-            { row, column }
-        )
+    // 一屏内所有 probe 都 miss → 跳过
+    const skipMsg = t(
+        'Item not found in first 15 slots (rank {{rank}}). Skipped. Rescan items on Import tab if needed.',
+        { rank: info.rank }
     );
+    console.warn('[emulator] slot=%s probe exhausted: %s', item.slot, skipMsg);
+    return { ok: false, skipped: true, reason: 'probeMiss', message: skipMsg };
 }
 
 module.exports = {

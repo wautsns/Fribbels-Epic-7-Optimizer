@@ -422,6 +422,8 @@ function buildEntryOptionHtml(entries, selectedId) {
     return (
         blank +
         entries
+            // 只列出穿满 6 件装备的条目，便于查找；已选中的条目即使没穿满也要保留，避免编辑时被清空
+            .filter((entry) => entry.equippedCount === 6 || entry.id === selectedId)
             .map((entry) => {
                 const artifact = escapeHtml(entry.artifactText || '');
                 const req = escapeHtml(entry.requirementText || '');
@@ -946,6 +948,8 @@ function readPlanFromDialog(draft, requirements) {
 
         return {
             heroId,
+            // 缓存 heroCode：头像展示、进攻角色筛选都按角色本体来，条目改名/重建也不受影响
+            heroCode: (hero && GvgPlans.heroCodeForName(hero.name)) || '',
             position: valueOf(`gvgOffense${index}Position`),
             imprintMode,
             ee: eeValueOf(`gvgOffense${index}Ee`) || 'none',
@@ -1080,6 +1084,9 @@ async function loadHeroEntries() {
                     name: `${i18next.t(hero.name)} #${rank}`,
                     artifactText,
                     requirementText,
+                    equippedCount: Object.values(hero.equipment || {}).filter(
+                        Boolean
+                    ).length,
                     hero,
                 };
             });

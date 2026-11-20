@@ -367,20 +367,35 @@ module.exports = {
             .sort((a, b) => a.label.localeCompare(b.label));
     },
 
-    /** 列表筛选框的选项：只列作业里进攻阵容出现过的 heroId（通过 entry name 显示） */
+    /** 成员对应的 heroCode：优先用保存时缓存的，老数据回退到条目名反查 */
+    heroCodeOfMember: (member) => {
+        if (!member) return '';
+        if (member.heroCode) return member.heroCode;
+        const entry = module.exports.resolveHeroEntry(member.heroId);
+        return (entry && module.exports.heroCodeForName(entry.name)) || '';
+    },
+
+    /** 列表筛选框的选项：只列作业里进攻阵容出现过的 heroCode */
     getAttackFilterOptions: () => {
-        const ids = new Set();
+        const codes = new Set();
         plans.forEach((plan) =>
-            plan.offense.members.forEach((member) => ids.add(member.heroId))
+            plan.offense.members.forEach((member) => {
+                const code = module.exports.heroCodeOfMember(member);
+                // 老数据没有缓存 code，顺手补上，之后筛选/头像都不用再反查条目
+                if (code) {
+                    member.heroCode = member.heroCode || code;
+                    codes.add(code);
+                }
+            })
         );
 
-        return [...ids]
-            .map((id) => {
-                const entry = module.exports.resolveHeroEntry(id);
+        return [...codes]
+            .map((code) => {
+                const name = module.exports.heroNameForCode(code) || code;
                 return {
-                    id,
-                    name: (entry && entry.name) || id,
-                    label: entry ? i18next.t(entry.name) : id,
+                    code,
+                    name,
+                    label: i18next.t(name),
                 };
             })
             .sort((a, b) => a.label.localeCompare(b.label));
@@ -454,10 +469,10 @@ module.exports = {
         const byIdDesc = (a, b) => (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
         const teams = loadTeams();
 
-        // 先置顶进攻阵容 1（其次阵容 2），其余按已使用 lastUsedAt 倒序 / 未使用 createdAt 倒序
+        // 先置顶进攻阵容 2（其次阵容 1），其余按已使用 lastUsedAt 倒序 / 未使用 createdAt 倒序
         const rank = (plan) => {
-            if (teams.first && plan.id === teams.first) return 0;
-            if (teams.second && plan.id === teams.second) return 1;
+            if (teams.second && plan.id === teams.second) return 0;
+            if (teams.first && plan.id === teams.first) return 1;
             return 2;
         };
 
@@ -927,6 +942,7 @@ function normalizeMembers(rawOffense) {
 
         members.push({
             heroId,
+            heroCode: asString(rawMember.heroCode).trim(),
             position,
             imprintMode,
             ee,

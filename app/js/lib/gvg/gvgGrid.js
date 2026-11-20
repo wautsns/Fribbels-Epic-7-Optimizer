@@ -201,11 +201,11 @@ function matchesDefenseFilters(plan) {
     );
     if (!defenseOk) return false;
 
-    // 进攻 1 个筛选（index 3）—— plan.offense.members 里必须有人 heroId 匹配
-    const attackId = filterCodes[3];
-    if (attackId) {
+    // 进攻 1 个筛选（index 3）—— plan.offense.members 里必须有人 heroCode 匹配
+    const attackCode = filterCodes[3];
+    if (attackCode) {
         const hasAttack = plan.offense.members.some(
-            (member) => member.heroId === attackId
+            (member) => GvgPlans.heroCodeOfMember(member) === attackCode
         );
         if (!hasAttack) return false;
     }
@@ -218,6 +218,7 @@ function matchesDefenseFilters(plan) {
  * ------------------------------------------------------------------ */
 
 function heroImage(name, size) {
+    if (!name) return '';
     const src = HeroesGrid.heroIconSrc(name);
     return `<img class="gvgHeroIcon" style="width:${size}px;height:${size}px" ${HeroesGrid.iconSrcAttributes(
         src,
@@ -240,7 +241,10 @@ function renderOffenseTeam(params) {
     return params.data.offense.members
         .map((member) => {
             const entry = GvgPlans.resolveHeroEntry(member.heroId);
-            const name = entry ? entry.name : '';
+            // 条目被删时用缓存的 heroCode 兜底，头像仍然能显示
+            const name = entry
+                ? entry.name
+                : heroNameForCode(member.heroCode || '');
             return heroImage(name, GVG_HERO_ICON_SIZE);
         })
         .join('');
@@ -251,7 +255,9 @@ function offenseTooltip(params) {
     return params.data.offense.members
         .map((member) => {
             const entry = GvgPlans.resolveHeroEntry(member.heroId);
-            const name = entry ? entry.name : member.heroId;
+            const name =
+                (entry ? entry.name : heroNameForCode(member.heroCode || '')) ||
+                member.heroId;
             const artifactName = entry ? entry.artifactName : '';
             const artifact = artifactName
                 ? ` · ${i18next.t(artifactName)}${

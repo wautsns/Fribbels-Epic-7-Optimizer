@@ -293,15 +293,15 @@ function buildEditHtml(draft, entries) {
                 )}</span>
                 <span class="gvgFormDivider">/</span>
                 <span class="gvgFormLabel" data-t>${i18next.t(
-                    'Exclusive equipment'
-                )}</span>
-                ${buildEeControlHtml(index, member.heroId, member.ee)}
-                <span class="gvgFormDivider">/</span>
-                <span class="gvgFormLabel" data-t>${i18next.t(
                     'Minimum artifact level'
                 )}</span>
                 <input type="text" maxlength="2" inputmode="numeric" id="gvgOffense${index}ArtifactLevel"
                        class="gvgShortInput" value="${artifactLevelDisplay}">
+                <span class="gvgFormDivider">/</span>
+                <span class="gvgFormLabel" data-t>${i18next.t(
+                    'Exclusive equipment'
+                )}</span>
+                ${buildEeControlHtml(index, member.heroId, member.ee)}
             </div>
         </div>`;
         })

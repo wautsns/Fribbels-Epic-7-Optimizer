@@ -109,6 +109,9 @@ window.jQuery = $;
           <input type="submit" value="One-click equip" class="gearPreviewButton" id="gvg-equip-team" data-t>
           <!-- 标记使用：把进攻阵容 1/2 的 lastUsedAt 更新为当前时间（替代原来置队时隐式更新的行为） -->
           <input type="submit" value="Mark used" class="gearPreviewButton" id="gvg-mark-used" data-t>
+          <span class="gvgFilterDivider"></span>
+          <!-- 清理无用英雄：列出未被任何作业引用的角色条目，确认后批量删除 -->
+          <input type="submit" value="Clean unused heroes" class="gearPreviewButton" id="gvg-cleanup-heroes" data-t>
         </div>
 
         <!-- 进攻阵容 1 / 2 的 6 名角色条目（heroTable 组件的第二个实例） -->

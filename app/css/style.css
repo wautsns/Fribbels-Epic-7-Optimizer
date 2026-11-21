@@ -2467,6 +2467,40 @@ input[type=submit].gvgFilterClear {
   user-select: text;
   cursor: text;
 }
+/* 清理无用英雄：弹窗里的条目列表，格式对齐编辑作业里的进攻成员 */
+.gvgUnusedHeroList {
+  max-height: 360px;
+  overflow-y: auto;
+  text-align: left;
+}
+.gvgUnusedHeroRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.gvgUnusedHeroAvatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.gvgUnusedHeroInfo {
+  min-width: 0;
+}
+.gvgUnusedHeroName {
+  line-height: 18px;
+}
+.gvgUnusedHeroMeta {
+  color: #777;
+  font-size: 12px;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .gvgRowActions {
   display: flex;
   align-items: center;

@@ -58,6 +58,7 @@ module.exports = {
         bindClick('gvg-import', () => module.exports.importPlans());
         bindClick('gvg-equip-team', () => module.exports.equipTeam());
         bindClick('gvg-mark-used', () => module.exports.markUsed());
+        bindClick('gvg-cleanup-heroes', () => module.exports.cleanupUnusedHeroes());
         bindClick('gvg-clear', () => module.exports.clearPlans());
         bindClick('gvg-clear-teams', () => module.exports.clearTeams());
         bindClick('clearGvgFilter', () => module.exports.clearFilters());
@@ -330,6 +331,103 @@ module.exports = {
                 `${i18next.t('Marked GVG plans as used')} (${result.marked})`
             );
         }
+    },
+
+    /**
+     * 清理无用英雄：列出没有被任何 GVG 作业进攻阵容引用的角色条目，确认后批量删除。
+     * 展示格式与编辑作业里的进攻成员一致：头像 + 名字#排名 + 神器 / 面板要求。
+     */
+    cleanupUnusedHeroes: async () => {
+        const response = await Api.getAllHeroes();
+        const heroes = (response && response.heroes) || [];
+
+        const referenced = new Set();
+        GvgPlans.getAll().forEach((plan) =>
+            plan.offense.members.forEach((member) => {
+                if (member.heroId) referenced.add(member.heroId);
+            })
+        );
+
+        const unused = heroes
+            .filter((hero) => !referenced.has(hero.id))
+            .sort((a, b) => {
+                const indexA = Number.isFinite(Number(a.index))
+                    ? Number(a.index)
+                    : Number.MAX_SAFE_INTEGER;
+                const indexB = Number.isFinite(Number(b.index))
+                    ? Number(b.index)
+                    : Number.MAX_SAFE_INTEGER;
+                return (
+                    indexA - indexB ||
+                    i18next.t(a.name).localeCompare(i18next.t(b.name))
+                );
+            });
+
+        if (!unused.length) {
+            Notifier.infoRaw(i18next.t('No unused heroes'));
+            return;
+        }
+
+        const listHtml = unused
+            .map((hero, position) => {
+                const rank = Number.isFinite(Number(hero.index))
+                    ? Number(hero.index)
+                    : position + 1;
+                const artifactText =
+                    hero.artifactName && hero.artifactName !== 'None'
+                        ? i18next.t(hero.artifactName)
+                        : '';
+                const requirementText =
+                    hero.optimizationRequest && HeroesGrid.formatPanelRequirementForRequest
+                        ? HeroesGrid.formatPanelRequirementForRequest(
+                              hero.optimizationRequest
+                          ) || ''
+                        : '';
+                const meta = [artifactText, requirementText]
+                    .filter(Boolean)
+                    .join(' · ');
+                const avatar = HeroesGrid.heroIconSrc(hero.name);
+
+                return `<div class="gvgUnusedHeroRow">
+                    <img class="gvgUnusedHeroAvatar" src="${avatar}">
+                    <div class="gvgUnusedHeroInfo">
+                        <div class="gvgUnusedHeroName">${escapeHtml(
+                            `${i18next.t(hero.name)} #${rank}`
+                        )}</div>
+                        <div class="gvgUnusedHeroMeta">${escapeHtml(
+                            meta || '-'
+                        )}</div>
+                    </div>
+                </div>`;
+            })
+            .join('');
+
+        const confirmed = await Dialog.htmlConfirmation(
+            `<div class="gvgUnusedHeroList">${listHtml}</div>`,
+            i18next.t('Unused heroes ({{count}})', { count: unused.length })
+        );
+        if (!confirmed) return;
+
+        let removed = 0;
+        for (const hero of unused) {
+            try {
+                await Api.removeHeroById(hero.id);
+                removed++;
+            } catch (error) {
+                console.warn('[GVG] remove unused hero failed', hero.id, error);
+            }
+        }
+
+        Saves.autoSave();
+        HeroesTab.redrawHeroInputSelector();
+        await HeroesTab.redraw();
+        HeroesGrid.redrawPreview();
+        if (typeof GvgTeamTable !== 'undefined') {
+            await GvgTeamTable.refresh();
+        }
+        Notifier.successRaw(
+            i18next.t('Removed {{count}} unused hero(es)', { count: removed })
+        );
     },
 
     /**

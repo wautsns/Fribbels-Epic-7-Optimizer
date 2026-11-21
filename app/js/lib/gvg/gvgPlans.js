@@ -469,10 +469,10 @@ module.exports = {
         const byIdDesc = (a, b) => (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
         const teams = loadTeams();
 
-        // 先置顶进攻阵容 2（其次阵容 1），其余按已使用 lastUsedAt 倒序 / 未使用 createdAt 倒序
+        // 先置顶进攻阵容 1（其次阵容 2），其余按已使用 lastUsedAt 倒序 / 未使用 createdAt 倒序
         const rank = (plan) => {
-            if (teams.second && plan.id === teams.second) return 0;
-            if (teams.first && plan.id === teams.first) return 1;
+            if (teams.first && plan.id === teams.first) return 0;
+            if (teams.second && plan.id === teams.second) return 1;
             return 2;
         };
 
@@ -546,9 +546,9 @@ module.exports = {
         for (const id of ids) {
             const plan = plans.find((item) => item.id === id);
             if (plan) {
-                // 阵容2 使用时间 = 阵容1 + 1（排序置顶仍由阵容标记决定，这里只保证时间不为旧值）
+                // 阵容2 使用时间 = 阵容1 - 1；列表顺序由阵容标记决定（1 在前、2 在后）
                 plan.lastUsedAt =
-                    id === teams.first ? timestamp : timestamp + 1;
+                    id === teams.first ? timestamp : timestamp - 1;
                 marked++;
             }
         }

@@ -375,6 +375,14 @@ module.exports = {
         return (entry && module.exports.heroCodeForName(entry.name)) || '';
     },
 
+    /** 引用该角色条目（进攻阵容）的 GVG 作业，删除条目时用来做占用校验 */
+    getPlansUsingHero: (heroId) => {
+        if (!heroId) return [];
+        return plans.filter((plan) =>
+            plan.offense.members.some((member) => member.heroId === heroId)
+        );
+    },
+
     /** 列表筛选框的选项：只列作业里进攻阵容出现过的 heroCode */
     getAttackFilterOptions: () => {
         const codes = new Set();

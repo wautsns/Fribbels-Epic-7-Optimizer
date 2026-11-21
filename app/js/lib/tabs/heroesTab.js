@@ -278,6 +278,21 @@ async function setHeroRank(row) {
 async function removeHero(row) {
     if (!row) return;
 
+    // 被 GVG 作业的进攻阵容引用的条目不允许删除，否则作业会指向已删除的条目
+    const referencingPlans =
+        typeof GvgPlans !== 'undefined'
+            ? GvgPlans.getPlansUsingHero(row.id)
+            : [];
+    if (referencingPlans.length > 0) {
+        Notifier.warnRaw(
+            i18next.t(
+                'This hero is used by {{count}} GVG plan(s) and cannot be removed',
+                { count: referencingPlans.length }
+            )
+        );
+        return;
+    }
+
     const confirmed = await Dialog.confirmation(
         i18next.t("Are you sure you want to remove this hero? This will also remove all of its saved builds."),
         i18next.t("Remove Hero")

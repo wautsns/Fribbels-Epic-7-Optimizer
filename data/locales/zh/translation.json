@@ -1471,6 +1471,7 @@
     "Import GVG plans": "导入GVG作业",
     "Export GVG plans": "导出GVG作业",
     "Duplicate GVG plan, unable to save": "已存在相同的GVG作业，无法保存",
+    "This hero is used by {{count}} GVG plan(s) and cannot be removed": "该角色条目被 {{count}} 个GVG作业引用，无法删除",
     "One-click equip": "一键装备",
     "No team markers to equip": "未设置进攻阵容标记，请先设为进攻阵容1或2",
     "Equipped {{equipped}} heroes, {{skipped}} skipped": "已为 {{equipped}} 名角色穿戴装备，{{skipped}} 名跳过",

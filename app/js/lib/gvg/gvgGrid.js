@@ -155,10 +155,24 @@ module.exports = {
     refresh: () => {
         if (!gvgGrid || !gvgGrid.gridOptions.api) return;
 
-        gvgGrid.gridOptions.api.setRowData(GvgPlans.getSorted());
+        const api = gvgGrid.gridOptions.api;
+        const sorted = GvgPlans.getSorted();
+
+        // 进攻阵容 1 / 2 冻结在顶部：放进 pinnedTopRowData（不参与滚动/筛选），
+        // 并从普通行数据里剔除，避免同一作业出现两次
+        const teams = GvgPlans.getTeams();
+        const pinnedIds = [teams.first, teams.second].filter(Boolean);
+        const pinnedPlans = pinnedIds
+            .map((id) => sorted.find((plan) => plan.id === id))
+            .filter(Boolean);
+        const pinnedIdSet = new Set(pinnedPlans.map((plan) => plan.id));
+
+        api.setPinnedTopRowData(pinnedPlans.map((plan) => Object.assign({}, plan)));
+        api.setRowData(sorted.filter((plan) => !pinnedIdSet.has(plan.id)));
+
         // 重画后选中行会丢 —— 用 getRowNodeId 匹配刚才的 id 重新选中
         if (selectedRowId) {
-            const node = gvgGrid.gridOptions.api.getRowNode(selectedRowId);
+            const node = api.getRowNode(selectedRowId);
             if (node) node.setSelected(true, false);
         }
     },

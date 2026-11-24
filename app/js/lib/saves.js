@@ -102,9 +102,9 @@ module.exports = {
 
         document.getElementById('saveDataSubmit').addEventListener("click", async () => {
             const options = {
-                title: "Save file",
+                title: i18next.t('Save file'),
                 defaultPath : Files.path(Settings.getDefaultPath() + "/" + getDateString() + '.zjson'),
-                buttonLabel : "Save file",
+                buttonLabel : i18next.t('Save file'),
                 filters :[
                     {name: 'Compressed save (zlib)', extensions: ['zjson']},
                     {name: 'JSON', extensions: ['json']},
@@ -122,14 +122,16 @@ module.exports = {
                 data.items.length + ' items,',
                 data.heroes.length + ' heroes'
             );
-            Notifier.successRaw(`${i18next.t('Saved data')}: ${data.heroes.length} heroes, ${data.items.length} items`);
+            Notifier.successRaw(i18next.t('Saved data: {{heroes}} heroes, {{items}} items', {
+                heroes: data.heroes.length, items: data.items.length
+            }));
         });
 
         document.getElementById('loadDataSubmit').addEventListener("click", async () => {
             const options = {
-                title: "Load file",
+                title: i18next.t('Load file'),
                 defaultPath : Files.path(Settings.getDefaultPath()),
-                buttonLabel : "Load file",
+                buttonLabel : i18next.t('Load file'),
                 filters :[
                     {name: 'All save files', extensions: ['json', 'zjson']},
                     {name: 'JSON', extensions: ['json']},
@@ -152,9 +154,11 @@ module.exports = {
             console.debug('[saves] loaded file:', filenames[0]);
 
             const planNote = Array.isArray(parsedData.gvgPlans)
-                ? `${parsedData.gvgPlans.length} GVG plans`
-                : 'no GVG plan data (local GVG plans were cleared)';
-            Notifier.successRaw(`${i18next.t('Loaded data')}: ${parsedData.heroes.length} heroes, ${parsedData.items.length} items, ${planNote}`)
+                ? i18next.t('{{count}} GVG plans', { count: parsedData.gvgPlans.length })
+                : i18next.t('no GVG plan data (local GVG plans were cleared)');
+            Notifier.successRaw(i18next.t('Loaded data: {{heroes}} heroes, {{items}} items, {{planNote}}', {
+                heroes: parsedData.heroes.length, items: parsedData.items.length, planNote
+            }))
             module.exports.autoSave();
 
         })
@@ -162,7 +166,7 @@ module.exports = {
 
     loadSavedData: async (data) => {
         if (!data || !data.items || !data.heroes) {
-            Notifier.error("Invalid save data");
+            Notifier.errorRaw(i18next.t('Invalid save data'));
             return console.error("Invalid loaded data", data);
         }
 

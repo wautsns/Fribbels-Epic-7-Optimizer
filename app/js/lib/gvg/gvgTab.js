@@ -58,7 +58,6 @@ module.exports = {
         bindClick('gvg-import', () => module.exports.importPlans());
         bindClick('gvg-equip-team', () => module.exports.equipTeam());
         bindClick('gvg-mark-used', () => module.exports.markUsed());
-        bindClick('gvg-sort-heroes', () => module.exports.sortAllHeroes());
         bindClick('gvg-cleanup-heroes', () => module.exports.cleanupUnusedHeroes());
         bindClick('gvg-clear', () => module.exports.clearPlans());
         bindClick('gvg-clear-teams', () => module.exports.clearTeams());
@@ -335,149 +334,12 @@ module.exports = {
     },
 
     /**
-     * 按职业→属性排序所有英雄并重编号 index。
-     * 同一职业+属性块内，角色名和神器名都按"首次出现位置"归堆，
-     * 组内保持原相对顺序，不做字母序排序。
-     * 返回实际 reorder 的数量。
-     */
-    sortAllHeroes: async () => {
-        const response = await Api.getAllHeroes();
-        const heroes = (response && response.heroes) || [];
-
-        const roleOrder = {
-            warrior: 0,
-            knight: 1,
-            assassin: 2,
-            mage: 3,
-            soulWeaver: 4,
-            ranger: 5,
-            thief: 6,
-            archer: 7,
-            healer: 8,
-            support: 9,
-        };
-        const attributeOrder = {
-            fire: 0,
-            ice: 1,
-            earth: 2,
-            light: 3,
-            dark: 4,
-        };
-
-        // 按职业 → 属性稳定排序，把大类归好
-        const byRoleAttr = heroes.slice().sort((a, b) => {
-            const ra = roleOrder[a.role] ?? 99;
-            const rb = roleOrder[b.role] ?? 99;
-            if (ra !== rb) return ra - rb;
-            const aa = attributeOrder[a.attribute] ?? 99;
-            const ab = attributeOrder[b.attribute] ?? 99;
-            return aa - ab;
-        });
-
-        // 通用分组：按 keyFn 取分组键，键相同的条目按第一次出现位置整体归堆，
-        // 堆内部保持原相对顺序。例：key=name, 原序 B,C,A,C,A → B,C,C,A,A
-        function groupByFirstSeen(arr, keyFn) {
-            const firstSeenIndex = new Map();
-            arr.forEach((h, i) => {
-                const k = keyFn(h);
-                if (!firstSeenIndex.has(k)) firstSeenIndex.set(k, i);
-            });
-            return arr
-                .map((h, i) => ({ h, i, key: firstSeenIndex.get(keyFn(h)) }))
-                .sort((x, y) => x.key - y.key || x.i - y.i)
-                .map((x) => x.h);
-        }
-
-        // 在每个职业+属性块内，先按 name 首次出现分组，
-        // 同名的再按 artifactName 首次出现分组
-        function groupByNameThenArtifact(arr) {
-            const byName = groupByFirstSeen(arr, (h) => h.name);
-            const out = [];
-            let p = 0;
-            while (p < byName.length) {
-                const name = byName[p].name;
-                let q = p;
-                while (q < byName.length && byName[q].name === name) q++;
-                out.push(
-                    ...groupByFirstSeen(
-                        byName.slice(p, q),
-                        (h) => h.artifactName || ''
-                    )
-                );
-                p = q;
-            }
-            return out;
-        }
-
-        // 按 role+attr 分块，块内做 name→artifact 两层分组
-        const sortedAll = [];
-        let i = 0;
-        while (i < byRoleAttr.length) {
-            const role = byRoleAttr[i].role;
-            const attr = byRoleAttr[i].attribute;
-            let j = i;
-            while (
-                j < byRoleAttr.length &&
-                byRoleAttr[j].role === role &&
-                byRoleAttr[j].attribute === attr
-            ) {
-                j++;
-            }
-            sortedAll.push(...groupByNameThenArtifact(byRoleAttr.slice(i, j)));
-            i = j;
-        }
-
-        // 从前往后逐个 reorder：维护本地 index 映射，每次调用后手动模拟后端的 shift 逻辑，
-        // 保证判断条件始终用最新的 index（而不是初始快照里的旧值）。
-        const currentIndex = new Map();
-        heroes.forEach((h) => currentIndex.set(h.id, Number(h.index)));
-
-        let reordered = 0;
-        for (let i = 0; i < sortedAll.length; i++) {
-            const targetIndex = i + 1;
-            const heroId = sortedAll[i].id;
-            const curIdx = currentIndex.get(heroId);
-
-            if (curIdx === targetIndex) continue;
-
-            try {
-                await Api.reorderHeroes(heroId, targetIndex);
-                reordered++;
-
-                // 模拟后端 shift：把 heroId 从 curIdx 移到 targetIndex
-                if (curIdx < targetIndex) {
-                    for (const [id, idx] of currentIndex) {
-                        if (id !== heroId && idx > curIdx && idx <= targetIndex) {
-                            currentIndex.set(id, idx - 1);
-                        }
-                    }
-                } else {
-                    for (const [id, idx] of currentIndex) {
-                        if (id !== heroId && idx >= targetIndex && idx < curIdx) {
-                            currentIndex.set(id, idx + 1);
-                        }
-                    }
-                }
-                currentIndex.set(heroId, targetIndex);
-            } catch (error) {
-                console.warn('[GVG] reorder hero failed', heroId, error);
-            }
-        }
-
-        return reordered;
-    },
-
-    /**
-     * 清理无用英雄：先排序，再列出未被任何 GVG 作业进攻阵容引用的角色条目，
+     * 清理无用英雄：列出没有被任何 GVG 作业进攻阵容引用的角色条目，
      * 确认后批量删除。展示格式与编辑作业里的进攻成员一致：头像 + 名字#排名 + 神器 / 面板要求。
      */
     cleanupUnusedHeroes: async () => {
-        // 先排序重编号
-        const reordered = await module.exports.sortAllHeroes();
-
-        // 拿 fresh heroes（sortAllHeroes 里已经 reorder 完了）
-        const freshResponse = await Api.getAllHeroes();
-        const freshHeroes = (freshResponse && freshResponse.heroes) || [];
+        const response = await Api.getAllHeroes();
+        const heroes = (response && response.heroes) || [];
 
         const referenced = new Set();
         GvgPlans.getAll().forEach((plan) =>
@@ -486,7 +348,7 @@ module.exports = {
             })
         );
 
-        const unused = freshHeroes
+        const unused = heroes
             .filter((hero) => !referenced.has(hero.id))
             .sort((a, b) => {
                 const indexA = Number.isFinite(Number(a.index))
@@ -503,23 +365,8 @@ module.exports = {
 
         const doCleanup = unused.length > 0;
 
-        // 排序后刷新英雄 tab
-        Saves.autoSave();
-        HeroesTab.redrawHeroInputSelector();
-        await HeroesTab.redraw();
-        HeroesGrid.redrawPreview();
-        if (typeof GvgTeamTable !== 'undefined') {
-            await GvgTeamTable.refresh();
-        }
-
         if (!doCleanup) {
-            if (reordered > 0) {
-                Notifier.successRaw(
-                    i18next.t('Reordered {{count}} hero(es)', { count: reordered })
-                );
-            } else {
-                Notifier.infoRaw(i18next.t('No unused heroes'));
-            }
+            Notifier.infoRaw(i18next.t('No unused heroes'));
             return;
         }
 
@@ -581,18 +428,9 @@ module.exports = {
             await GvgTeamTable.refresh();
         }
 
-        if (reordered > 0) {
-            Notifier.successRaw(
-                i18next.t(
-                    'Removed {{count}} unused hero(es), reordered {{count2}}',
-                    { count: removed, count2: reordered }
-                )
-            );
-        } else {
-            Notifier.successRaw(
-                i18next.t('Removed {{count}} unused hero(es)', { count: removed })
-            );
-        }
+        Notifier.successRaw(
+            i18next.t('Removed {{count}} unused hero(es)', { count: removed })
+        );
     },
 
     /**

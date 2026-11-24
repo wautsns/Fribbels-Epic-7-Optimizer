@@ -122,8 +122,11 @@ module.exports = {
                 data.items.length + ' items,',
                 data.heroes.length + ' heroes'
             );
-            Notifier.successRaw(i18next.t('Saved data: {{heroes}} heroes, {{items}} items', {
-                heroes: data.heroes.length, items: data.items.length
+            const planNote = i18next.t('{{count}} GVG plans', {
+                count: Array.isArray(data.gvgPlans) ? data.gvgPlans.length : 0
+            });
+            Notifier.successRaw(i18next.t('Saved data: {{heroes}} heroes, {{items}} items, {{planNote}}', {
+                heroes: data.heroes.length, items: data.items.length, planNote
             }));
         });
 

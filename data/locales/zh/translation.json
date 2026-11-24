@@ -447,7 +447,7 @@
     "Invalid save data": "无法辨识的储存数据",
     "Save file": "保存文件",
     "Load file": "加载文件",
-    "Saved data: {{heroes}} heroes, {{items}} items": "数据已保存：{{heroes}} 个英雄，{{items}} 件装备",
+    "Saved data: {{heroes}} heroes, {{items}} items, {{planNote}}": "数据已保存：{{heroes}} 个英雄，{{items}} 件装备，{{planNote}}",
     "Loaded data: {{heroes}} heroes, {{items}} items, {{planNote}}": "数据已加载：{{heroes}} 个英雄，{{items}} 件装备，{{planNote}}",
     "{{count}} GVG plans": "{{count}} 个GVG作业",
     "no GVG plan data (local GVG plans were cleared)": "无GVG作业数据（本地GVG作业已清空）",

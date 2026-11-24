@@ -421,7 +421,7 @@
   "Invalid save data": "Invalid save data",
   "Save file": "Save file",
   "Load file": "Load file",
-  "Saved data: {{heroes}} heroes, {{items}} items": "Saved data: {{heroes}} heroes, {{items}} items",
+  "Saved data: {{heroes}} heroes, {{items}} items, {{planNote}}": "Saved data: {{heroes}} heroes, {{items}} items, {{planNote}}",
   "Loaded data: {{heroes}} heroes, {{items}} items, {{planNote}}": "Loaded data: {{heroes}} heroes, {{items}} items, {{planNote}}",
   "{{count}} GVG plans": "{{count}} GVG plans",
   "no GVG plan data (local GVG plans were cleared)": "no GVG plan data (local GVG plans were cleared)",

@@ -781,7 +781,7 @@ function buildGrid(localeText) {
             // 神器单独一列，只显示图标，名字 + 等级在 tooltip 里
             {colId: ARTIFACT_COL_ID, headerName: i18next.t('Artifact'), width: HERO_ICON_COL_WIDTH, sortable: false, cellRenderer: (params) => renderArtifactIcon(params), tooltipValueGetter: (params) => formatArtifactDisplay(params.data)},
             // {headerName: i18next.t('Stars'), field: 'rarity', width: 50},
-            {headerName: i18next.t('sets'), field: 'equipment', width: 85, sortable: false, cellRenderer: (params) => renderSets(params.value)},
+            {colId: 'sets', headerName: i18next.t('sets'), field: 'equipment', width: 85, sortable: false, cellRenderer: (params) => renderHeroSets(params.data)},
             {headerName: i18next.t('atk'), field: 'atk', width: DIGITS_4},
             {headerName: i18next.t('def'), field: 'def', width: DIGITS_4},
             {headerName: i18next.t('hp'), field: 'hp', width: DIGITS_5},
@@ -1026,6 +1026,27 @@ function renderSets(equipment) {
     const images = sets.map(x => '<img class="optimizerSetIcon" src=' + Assets.getSetAsset(x) + '></img>');
     // console.log("RenderSets images", images);
     return images.join("");
+}
+
+/**
+ * 英雄行的套装列：
+ * - 已穿装备：按装备算套装
+ * - 没穿装备：显示首条 build 的套装（build.sets 是后端算好的计数数组）
+ * - 既没装备也没 build：保持为空
+ */
+function renderHeroSets(hero) {
+    if (!hero) return '';
+
+    if (hero.equipment && Object.keys(hero.equipment).length > 0) {
+        return renderSets(hero.equipment);
+    }
+
+    const firstBuild = Array.isArray(hero.builds) && hero.builds.length > 0 ? hero.builds[0] : null;
+    if (firstBuild && Array.isArray(firstBuild.sets)) {
+        return GridRenderer.renderSets(firstBuild.sets);
+    }
+
+    return '';
 }
 // function columnGradient(params) {
 //     const field = params.colDef.field;

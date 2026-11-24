@@ -343,6 +343,12 @@ input, button {
   justify-content: center; /* align horizontal */
   align-items: center;
 }
+/* 英雄页排序状态下：拖动手柄图标仍然显示，但不允许拖动调整优先度 */
+.heroesGridSorted .ag-row-drag {
+  pointer-events: none;
+  opacity: 0.4;
+  cursor: default;
+}
 /*
  Demo purposes only
 */

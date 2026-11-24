@@ -826,7 +826,6 @@ function buildGrid(localeText) {
         onRowDragMove: onRowDragMove,
         onRowDragLeave: onRowDragLeave,
         onSortChanged: onSortChanged,
-        onFilterChanged: onFilterChanged,
         // 职业 / 属性 / GVG 进攻阵容筛选：格子里是图片，用外部过滤器按数据字段筛选
         isExternalFilterPresent: () => !!(heroFilterState.classFilter || heroFilterState.elementFilter),
         doesExternalFilterPass: (node) => matchesHeroFilters(node.data),
@@ -1471,15 +1470,27 @@ function updateCurrentAggregate(hero) {
     }
 }
 
+var lastOverNode = undefined;
+var toReplace = undefined;
+
 function onRowDragEnter(e) {
-  console.warn('onRowDragEnter', e);
-  heroesGrid.gridOptions.api.selectNode(e.node)
+  // 新一次拖动开始：清掉上一次的落点缓存
+  lastOverNode = undefined;
+  heroesGrid.gridOptions.api.selectNode(e.node);
 }
 
 async function onRowDragEnd(e) {
     if (!hooks.onRowReorder) return;
+    // 排序状态下不调整优先度（拖动手柄已在 CSS 里禁用鼠标事件，这里兜底）
+    if (sortActive) return;
 
-    await hooks.onRowReorder(e.node.data, e.overIndex);
+    // e.overIndex 是当前视图（筛选后）的行号，不能直接当完整列表的位置。
+    // 拖动过程中 onRowDragMove 已经按数据对象在完整列表里移动过，这里取最终位置即可：
+    // 目标位置 = 被拖角色在完整列表中的下标 + 1（后端会按此重新编号 1..N）
+    var destinationIndex = currentHeroes.findIndex((hero) => hero && hero.id === e.node.data.id) + 1;
+    if (destinationIndex <= 0) return;
+
+    await hooks.onRowReorder(e.node.data, destinationIndex);
 }
 
 // function onRowDragMove(e) {
@@ -1490,10 +1501,10 @@ function onRowDragLeave(e) {
   // console.log('onRowDragLeave', e);
 }
 
-var lastOverNode = undefined;
-var toReplace = undefined;
-
 function onRowDragMove(event) {
+    // 排序状态下不允许调整优先度（手柄已用 CSS 禁用，这里兜底）
+    if (sortActive) return;
+
     var movingNode = event.node;
     var overNode = event.overNode;
 
@@ -1527,21 +1538,14 @@ function moveInArray(arr, fromIndex, toIndex) {
 }
 
 
-var filterActive = false;
 var sortActive = false;
 function onSortChanged() {
   var sortModel = heroesGrid.gridOptions.api.getSortModel();
-  sortActive = sortModel && sortModel.length > 0;
-  // suppress row drag if either sort or filter is active
-  var suppressRowDrag = sortActive || filterActive;
-  heroesGrid.gridOptions.api.setSuppressRowDrag(suppressRowDrag);
-}
-// listen for changes on filter changed
-function onFilterChanged() {
-  filterActive = heroesGrid.gridOptions.api.isAnyFilterPresent();
-  // suppress row drag if either sort or filter is active
-  var suppressRowDrag = sortActive || filterActive;
-  heroesGrid.gridOptions.api.setSuppressRowDrag(suppressRowDrag);
+  sortActive = !!(sortModel && sortModel.length > 0);
+  // 排序时保留拖动手柄的图标，但用 CSS 禁掉它的鼠标事件（图标可见、不能拖动）
+  if (heroesRoot) {
+    heroesRoot.classList.toggle('heroesGridSorted', sortActive);
+  }
 }
 
 function onRowDoubleClicked(e) {

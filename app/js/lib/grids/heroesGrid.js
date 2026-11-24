@@ -159,8 +159,9 @@ const instance = heroTable.createHeroTable({
         },
 
         // 拖拽排序：英雄页的顺序就是收藏顺序，落到后端
-        onRowReorder: async (hero, overIndex) => {
-            await Api.reorderHeroes(hero.id, overIndex + 1);
+        // destinationIndex 已经是完整列表里的 1-based 位置（筛选状态下由 heroTable 换算好）
+        onRowReorder: async (hero, destinationIndex) => {
+            await Api.reorderHeroes(hero.id, destinationIndex);
             HeroesTab.redraw();
         },
     },

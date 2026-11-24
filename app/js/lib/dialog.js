@@ -1406,7 +1406,12 @@ function getImprintHtml(hero, heroInfo) {
     }));
     imprintOptions.sort((a, b) => a.value - b.value);
 
-    var html = `<select class="editGearStatSelect" id="editImprint"><option value="None">${i18next.t("Team imprint")}</option><option value="0">0 - ${i18next.t("Self imprint")}</option>`;
+    // 「群阵」和「自阵 0 档」这两个固定选项也要回显选中值，
+    // 否则保存过「自阵 0」后重新打开会因为没有任何 selected 而默认落到第一项（群阵）
+    const isTeamImprint = hero.imprintNumber == null || hero.imprintNumber == 'None';
+    const isZeroSelfImprint = !isTeamImprint && hero.imprintNumber == 0;
+
+    var html = `<select class="editGearStatSelect" id="editImprint"><option value="None" ${isTeamImprint ? "selected" : ""}>${i18next.t("Team imprint")}</option><option value="0" ${isZeroSelfImprint ? "selected" : ""}>0 - ${i18next.t("Self imprint")}</option>`;
 
     for (var option of imprintOptions) {
         html += `<option value="${option.value}" ${hero.imprintNumber == option.value ? "selected" : ""}>${option.value}${displayText} - ${option.grade}</option>`

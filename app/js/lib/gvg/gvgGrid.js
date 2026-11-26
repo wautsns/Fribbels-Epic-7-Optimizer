@@ -9,14 +9,6 @@ const GVG_HERO_ICON_SIZE = 32;
 
 const OFFENSE_COL_ID = 'offense';
 
-/* 站位展示文案 key（数据里存 front/bottom/top/back） */
-const POSITION_LABEL_KEYS = {
-    front: 'Front',
-    bottom: 'Bottom',
-    top: 'Top',
-    back: 'Back',
-};
-
 /** 毫秒时间戳 → yyyy-MM-dd（本地时区） */
 function formatDate(ts) {
     if (!ts) return '';
@@ -67,7 +59,6 @@ module.exports = {
                     minWidth: 124,
                     maxWidth: 124,
                     cellRenderer: renderOffenseTeam,
-                    tooltipValueGetter: offenseTooltip,
                 },
                 {
                     colId: 'lastUsed',
@@ -262,37 +253,6 @@ function renderOffenseTeam(params) {
             return heroImage(name, GVG_HERO_ICON_SIZE);
         })
         .join('');
-}
-
-/** 进攻阵容头像的 tooltip：站位 + 英雄名 + 神器 + 面板要求 + 结果优先级（和英雄条目列格式完全一致，单行） */
-function offenseTooltip(params) {
-    return params.data.offense.members
-        .map((member) => {
-            const entry = GvgPlans.resolveHeroEntry(member.heroId);
-            const name =
-                (entry ? entry.name : heroNameForCode(member.heroCode || '')) ||
-                member.heroId;
-            const artifactName = entry ? entry.artifactName : '';
-            const artifact = artifactName
-                ? ` · ${i18next.t(artifactName)}${
-                      member.artifactLevel ? ` +${member.artifactLevel}` : ''
-                  }`
-                : '';
-            const main = `${i18next.t(
-                POSITION_LABEL_KEYS[member.position] || 'Position'
-            )} ${i18next.t(name)}${artifact}`;
-            const extra = formatPanelForRequest(member.requirement);
-            return extra ? `${main} · ${extra}` : main;
-        })
-        .join('\n');
-}
-
-/** 薄封装：把 GvgPlan member.requirement（优化器 request）格式化成英雄条目列同款的面板需求+结果优先级文字 */
-function formatPanelForRequest(req) {
-    if (!req || typeof req !== 'object') return '';
-    try {
-        return HeroesGrid.formatPanelRequirementForRequest(req) || '';
-    } catch (e) { return ''; }
 }
 
 /** "详细说明" 列：情报/探路刀标签 + 防守站位标签 + 进攻策略描述文本。最多显示两行，超出省略号 + tooltip */
